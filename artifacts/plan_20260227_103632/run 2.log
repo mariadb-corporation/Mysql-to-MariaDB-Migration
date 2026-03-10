@@ -1,0 +1,2 @@
+2026-02-27T10:36:48.682829+00:00 START mode=plan config=config/migration.yaml
+2026-02-27T10:36:48.757941+00:00 FINISH success=True message=Plan generated (no execution).

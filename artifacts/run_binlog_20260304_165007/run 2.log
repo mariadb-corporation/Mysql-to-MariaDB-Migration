@@ -1,0 +1,22 @@
+2026-03-04T16:51:01.186823+00:00 START mode=run config=config/migration.yaml
+2026-03-04T16:51:01.510984+00:00 RUN  preflight_binlog (Preflight checks (binlog)) -> scripts/00_preflight_binlog.sh
+2026-03-04T16:51:01.527435+00:00 CMD /mnt/macshare/scripts/00_preflight_binlog.sh
+2026-03-04T16:51:01.568496+00:00 OUT ==> Preflight checks (binlog)
+2026-03-04T16:51:01.579140+00:00 OUT Checking source admin connectivity...
+2026-03-04T16:51:01.849262+00:00 OUT Checking target admin connectivity...
+2026-03-04T16:51:02.118678+00:00 OUT Checking source binary logging...
+2026-03-04T16:51:02.411611+00:00 OUT Checking source binlog format...
+2026-03-04T16:51:02.707055+00:00 OUT Checking source master status visibility...
+2026-03-04T16:51:02.995061+00:00 OUT Checking source database(s) exist...
+2026-03-04T16:51:03.531488+00:00 OUT Preflight complete.
+2026-03-04T16:51:03.565179+00:00 RUN  precheck (Precheck source variables and blockers) -> scripts/00_precheck.sh
+2026-03-04T16:51:03.572349+00:00 CMD /mnt/macshare/scripts/00_precheck.sh
+2026-03-04T16:51:03.647372+00:00 OUT == Precheck runner ==
+2026-03-04T16:51:03.669801+00:00 OUT Host: 192.168.64.7  Port: 3306  User: admin
+2026-03-04T16:51:03.692004+00:00 OUT Checks dir: /mnt/macshare/sql/checks
+2026-03-04T16:51:03.713552+00:00 OUT Outdir: /mnt/macshare/artifacts/precheck
+2026-03-04T16:51:03.735180+00:00 OUT 
+2026-03-04T16:51:03.764275+00:00 OUT NOTE: mariadb-migrate-config-file not found; skipping config check.
+2026-03-04T16:51:03.805769+00:00 OUT ---- mysql_version ----
+2026-03-04T16:51:04.135014+00:00 OUT ERROR: mysql failed for mysql_version (see /mnt/macshare/artifacts/precheck/precheck.err)
+2026-03-04T16:51:04.158887+00:00 FINISH success=False message=Run failed at step: precheck

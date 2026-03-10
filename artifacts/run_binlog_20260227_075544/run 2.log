@@ -1,0 +1,246 @@
+2026-02-27T07:56:01.370958+00:00 START mode=run config=config/migration.yaml
+2026-02-27T07:56:01.462347+00:00 RUN  preflight_binlog (Preflight checks (binlog)) -> scripts/00_preflight_binlog.sh
+2026-02-27T07:56:01.469539+00:00 CMD /mnt/macshare/scripts/00_preflight_binlog.sh
+2026-02-27T07:56:01.501490+00:00 OUT ==> Preflight checks (binlog)
+2026-02-27T07:56:01.512036+00:00 OUT Checking source admin connectivity...
+2026-02-27T07:56:01.873118+00:00 OUT Checking target admin connectivity...
+2026-02-27T07:56:02.162205+00:00 OUT Checking source binary logging...
+2026-02-27T07:56:02.495313+00:00 OUT Checking source binlog format...
+2026-02-27T07:56:02.821586+00:00 OUT Checking source master status visibility...
+2026-02-27T07:56:03.132948+00:00 OUT Checking source database(s) exist...
+2026-02-27T07:56:03.709598+00:00 OUT Preflight complete.
+2026-02-27T07:56:03.749013+00:00 RUN  precheck (Precheck source variables and blockers) -> scripts/00_precheck.sh
+2026-02-27T07:56:03.757435+00:00 CMD /mnt/macshare/scripts/00_precheck.sh
+2026-02-27T07:56:03.836150+00:00 OUT == Precheck runner ==
+2026-02-27T07:56:03.858525+00:00 OUT Host: 192.168.64.7  Port: 3306  User: admin
+2026-02-27T07:56:03.884804+00:00 OUT Checks dir: /mnt/macshare/sql/checks
+2026-02-27T07:56:03.912955+00:00 OUT Outdir: /mnt/macshare/artifacts/precheck
+2026-02-27T07:56:03.934828+00:00 OUT 
+2026-02-27T07:56:03.966019+00:00 OUT NOTE: mariadb-migrate-config-file not found; skipping config check.
+2026-02-27T07:56:04.002370+00:00 OUT ---- mysql_version ----
+2026-02-27T07:56:04.325578+00:00 OUT 8.0.45-0ubuntu0.24.04.1
+2026-02-27T07:56:04.374454+00:00 OUT 
+2026-02-27T07:56:04.416287+00:00 OUT ---- innodb_settings ----
+2026-02-27T07:56:04.740416+00:00 OUT 1	1
+2026-02-27T07:56:04.786665+00:00 OUT 
+2026-02-27T07:56:04.821899+00:00 OUT ---- auth_plugins ----
+2026-02-27T07:56:05.144799+00:00 OUT debian-sys-maint	localhost	caching_sha2_password
+2026-02-27T07:56:05.191028+00:00 OUT 
+2026-02-27T07:56:05.227046+00:00 OUT ---- json_columns ----
+2026-02-27T07:56:05.557021+00:00 OUT advanced_test	json_test	data	json
+2026-02-27T07:56:05.567777+00:00 OUT advanced_test	json_test	metadata	json
+2026-02-27T07:56:05.578936+00:00 OUT testdb	orders_json	data_json	json
+2026-02-27T07:56:05.605173+00:00 OUT 
+2026-02-27T07:56:05.640933+00:00 OUT ---- compression_encryption ----
+2026-02-27T07:56:06.013574+00:00 OUT (no rows)
+2026-02-27T07:56:06.036538+00:00 OUT 
+2026-02-27T07:56:06.072393+00:00 OUT ---- engines_summary ----
+2026-02-27T07:56:06.385558+00:00 OUT PERFORMANCE_SCHEMA	111
+2026-02-27T07:56:06.396813+00:00 OUT InnoDB	57
+2026-02-27T07:56:06.403677+00:00 OUT CSV	2
+2026-02-27T07:56:06.435043+00:00 OUT 
+2026-02-27T07:56:06.470113+00:00 OUT ---- schema_sizes ----
+2026-02-27T07:56:06.807522+00:00 OUT testdb	38.56
+2026-02-27T07:56:06.815570+00:00 OUT sakila	6.45
+2026-02-27T07:56:06.826408+00:00 OUT mysql	2.73
+2026-02-27T07:56:06.832151+00:00 OUT world	0.77
+2026-02-27T07:56:06.839078+00:00 OUT sys	0.02
+2026-02-27T07:56:06.844602+00:00 OUT advanced_test	0.02
+2026-02-27T07:56:06.854682+00:00 OUT information_schema	0.00
+2026-02-27T07:56:06.863152+00:00 OUT performance_schema	0.00
+2026-02-27T07:56:06.879786+00:00 OUT 
+2026-02-27T07:56:06.919675+00:00 OUT ---- schema_charsets ----
+2026-02-27T07:56:07.271552+00:00 OUT advanced_test	utf8mb4	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.276942+00:00 OUT sakila	utf8mb4	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.282404+00:00 OUT testdb	utf8mb4	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.288298+00:00 OUT world	utf8mb4	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.318706+00:00 OUT 
+2026-02-27T07:56:07.354457+00:00 OUT ---- mysql8_collations ----
+2026-02-27T07:56:07.660234+00:00 OUT advanced_test	json_test	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.668177+00:00 OUT sakila	actor	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.675812+00:00 OUT sakila	address	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.682255+00:00 OUT sakila	category	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.687172+00:00 OUT sakila	city	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.693398+00:00 OUT sakila	country	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.701836+00:00 OUT sakila	customer	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.710940+00:00 OUT sakila	film	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.715874+00:00 OUT sakila	film_actor	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.726675+00:00 OUT sakila	film_category	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.732607+00:00 OUT sakila	film_text	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.737949+00:00 OUT sakila	inventory	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.745538+00:00 OUT sakila	language	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.751154+00:00 OUT sakila	payment	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.756878+00:00 OUT sakila	rental	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.761454+00:00 OUT sakila	staff	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.764887+00:00 OUT sakila	store	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.770161+00:00 OUT testdb	orders_json	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.775320+00:00 OUT world	city	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.779229+00:00 OUT world	country	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.782227+00:00 OUT world	countrylanguage	utf8mb4_0900_ai_ci
+2026-02-27T07:56:07.788025+00:00 OUT 
+2026-02-27T07:56:07.792699+00:00 OUT ---- mysql8_column_collations ----
+2026-02-27T07:56:08.088915+00:00 OUT sakila	actor	first_name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.095717+00:00 OUT sakila	actor	last_name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.107783+00:00 OUT sakila	actor_info	film_info	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.114821+00:00 OUT sakila	actor_info	first_name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.122258+00:00 OUT sakila	actor_info	last_name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.130947+00:00 OUT sakila	address	address	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.135972+00:00 OUT sakila	address	address2	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.144073+00:00 OUT sakila	address	district	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.148132+00:00 OUT sakila	address	phone	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.156698+00:00 OUT sakila	address	postal_code	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.164111+00:00 OUT sakila	category	name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.168443+00:00 OUT sakila	city	city	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.174862+00:00 OUT sakila	country	country	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.178756+00:00 OUT sakila	customer	email	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.184351+00:00 OUT sakila	customer	first_name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.190214+00:00 OUT sakila	customer	last_name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.194901+00:00 OUT sakila	customer_list	address	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.204679+00:00 OUT sakila	customer_list	city	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.219023+00:00 OUT sakila	customer_list	country	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.223836+00:00 OUT sakila	customer_list	name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.230003+00:00 OUT sakila	customer_list	notes	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.237230+00:00 OUT sakila	customer_list	phone	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.240971+00:00 OUT sakila	customer_list	zip code	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.245744+00:00 OUT sakila	film	description	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.250974+00:00 OUT sakila	film	rating	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.259258+00:00 OUT sakila	film	special_features	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.266942+00:00 OUT sakila	film	title	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.271454+00:00 OUT sakila	film_list	actors	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.277386+00:00 OUT sakila	film_list	category	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.282746+00:00 OUT sakila	film_list	description	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.290734+00:00 OUT sakila	film_list	rating	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.296144+00:00 OUT sakila	film_list	title	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.304836+00:00 OUT sakila	film_text	description	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.309566+00:00 OUT sakila	film_text	title	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.313963+00:00 OUT sakila	language	name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.318349+00:00 OUT sakila	nicer_but_slower_film_list	actors	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.324178+00:00 OUT sakila	nicer_but_slower_film_list	category	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.329808+00:00 OUT sakila	nicer_but_slower_film_list	description	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.334170+00:00 OUT sakila	nicer_but_slower_film_list	rating	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.338753+00:00 OUT sakila	nicer_but_slower_film_list	title	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.345677+00:00 OUT sakila	sales_by_film_category	category	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.353045+00:00 OUT sakila	sales_by_store	manager	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.360196+00:00 OUT sakila	sales_by_store	store	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.368480+00:00 OUT sakila	staff	email	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.382481+00:00 OUT sakila	staff	first_name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.388817+00:00 OUT sakila	staff	last_name	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.396752+00:00 OUT sakila	staff	username	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.406009+00:00 OUT sakila	staff_list	address	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.413722+00:00 OUT sakila	staff_list	city	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.418942+00:00 OUT sakila	staff_list	country	utf8mb4_0900_ai_ci
+2026-02-27T07:56:08.424834+00:00 OUT ... (truncated; full output in /mnt/macshare/artifacts/precheck/mysql8_column_collations.tsv)
+2026-02-27T07:56:08.431272+00:00 OUT 
+2026-02-27T07:56:08.436737+00:00 OUT ---- sql_mode ----
+2026-02-27T07:56:08.617601+00:00 OUT ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+2026-02-27T07:56:08.658795+00:00 OUT 
+2026-02-27T07:56:08.696064+00:00 OUT ---- definers_inventory ----
+2026-02-27T07:56:08.997097+00:00 OUT TRIGGER	root@localhost	6
+2026-02-27T07:56:09.005039+00:00 OUT VIEW	root@localhost	7
+2026-02-27T07:56:09.047074+00:00 OUT 
+2026-02-27T07:56:09.083119+00:00 OUT ---- partitioned_tables ----
+2026-02-27T07:56:09.386979+00:00 OUT (no rows)
+2026-02-27T07:56:09.411292+00:00 OUT 
+2026-02-27T07:56:09.444977+00:00 OUT ---- active_plugins ----
+2026-02-27T07:56:09.747785+00:00 OUT ARCHIVE	ACTIVE
+2026-02-27T07:56:09.753444+00:00 OUT auth_socket	ACTIVE
+2026-02-27T07:56:09.757784+00:00 OUT binlog	ACTIVE
+2026-02-27T07:56:09.763648+00:00 OUT BLACKHOLE	ACTIVE
+2026-02-27T07:56:09.768461+00:00 OUT caching_sha2_password	ACTIVE
+2026-02-27T07:56:09.773675+00:00 OUT CSV	ACTIVE
+2026-02-27T07:56:09.779723+00:00 OUT daemon_keyring_proxy_plugin	ACTIVE
+2026-02-27T07:56:09.788409+00:00 OUT InnoDB	ACTIVE
+2026-02-27T07:56:09.793080+00:00 OUT INNODB_BUFFER_PAGE	ACTIVE
+2026-02-27T07:56:09.796237+00:00 OUT INNODB_BUFFER_PAGE_LRU	ACTIVE
+2026-02-27T07:56:09.802099+00:00 OUT INNODB_BUFFER_POOL_STATS	ACTIVE
+2026-02-27T07:56:09.806193+00:00 OUT INNODB_CACHED_INDEXES	ACTIVE
+2026-02-27T07:56:09.810541+00:00 OUT INNODB_CMP	ACTIVE
+2026-02-27T07:56:09.819520+00:00 OUT INNODB_CMPMEM	ACTIVE
+2026-02-27T07:56:09.824754+00:00 OUT INNODB_CMPMEM_RESET	ACTIVE
+2026-02-27T07:56:09.834043+00:00 OUT INNODB_CMP_PER_INDEX	ACTIVE
+2026-02-27T07:56:09.843091+00:00 OUT INNODB_CMP_PER_INDEX_RESET	ACTIVE
+2026-02-27T07:56:09.848033+00:00 OUT INNODB_CMP_RESET	ACTIVE
+2026-02-27T07:56:09.854945+00:00 OUT INNODB_COLUMNS	ACTIVE
+2026-02-27T07:56:09.860727+00:00 OUT INNODB_FT_BEING_DELETED	ACTIVE
+2026-02-27T07:56:09.866550+00:00 OUT INNODB_FT_CONFIG	ACTIVE
+2026-02-27T07:56:09.874088+00:00 OUT INNODB_FT_DEFAULT_STOPWORD	ACTIVE
+2026-02-27T07:56:09.878779+00:00 OUT INNODB_FT_DELETED	ACTIVE
+2026-02-27T07:56:09.884999+00:00 OUT INNODB_FT_INDEX_CACHE	ACTIVE
+2026-02-27T07:56:09.895964+00:00 OUT INNODB_FT_INDEX_TABLE	ACTIVE
+2026-02-27T07:56:09.910206+00:00 OUT INNODB_INDEXES	ACTIVE
+2026-02-27T07:56:09.924364+00:00 OUT INNODB_METRICS	ACTIVE
+2026-02-27T07:56:09.941191+00:00 OUT INNODB_SESSION_TEMP_TABLESPACES	ACTIVE
+2026-02-27T07:56:09.951806+00:00 OUT INNODB_TABLES	ACTIVE
+2026-02-27T07:56:09.963622+00:00 OUT INNODB_TABLESPACES	ACTIVE
+2026-02-27T07:56:09.973970+00:00 OUT INNODB_TABLESTATS	ACTIVE
+2026-02-27T07:56:09.986172+00:00 OUT INNODB_TEMP_TABLE_INFO	ACTIVE
+2026-02-27T07:56:09.992189+00:00 OUT INNODB_TRX	ACTIVE
+2026-02-27T07:56:09.997717+00:00 OUT INNODB_VIRTUAL	ACTIVE
+2026-02-27T07:56:10.003300+00:00 OUT MEMORY	ACTIVE
+2026-02-27T07:56:10.007798+00:00 OUT MRG_MYISAM	ACTIVE
+2026-02-27T07:56:10.013680+00:00 OUT MyISAM	ACTIVE
+2026-02-27T07:56:10.018715+00:00 OUT mysqlx	ACTIVE
+2026-02-27T07:56:10.024980+00:00 OUT mysqlx_cache_cleaner	ACTIVE
+2026-02-27T07:56:10.031337+00:00 OUT mysql_native_password	ACTIVE
+2026-02-27T07:56:10.036169+00:00 OUT ngram	ACTIVE
+2026-02-27T07:56:10.045654+00:00 OUT PERFORMANCE_SCHEMA	ACTIVE
+2026-02-27T07:56:10.051417+00:00 OUT sha256_password	ACTIVE
+2026-02-27T07:56:10.055855+00:00 OUT sha2_cache_cleaner	ACTIVE
+2026-02-27T07:56:10.063255+00:00 OUT TempTable	ACTIVE
+2026-02-27T07:56:10.069017+00:00 OUT 
+2026-02-27T07:56:10.075928+00:00 OUT ---- functional_indexes ----
+2026-02-27T07:56:10.288730+00:00 OUT (no rows)
+2026-02-27T07:56:10.309237+00:00 OUT 
+2026-02-27T07:56:10.346469+00:00 OUT ---- functional_defaults ----
+2026-02-27T07:56:10.688898+00:00 OUT (no rows)
+2026-02-27T07:56:10.739053+00:00 OUT 
+2026-02-27T07:56:10.795095+00:00 OUT ---- invisible_columns ----
+2026-02-27T07:56:11.144106+00:00 OUT (no rows)
+2026-02-27T07:56:11.168889+00:00 OUT 
+2026-02-27T07:56:11.215161+00:00 OUT ---- check_constraints ----
+2026-02-27T07:56:11.513816+00:00 OUT (no rows)
+2026-02-27T07:56:11.535335+00:00 OUT 
+2026-02-27T07:56:11.568689+00:00 OUT ---- partial_revokes ----
+2026-02-27T07:56:11.907624+00:00 OUT (no rows)
+2026-02-27T07:56:11.948340+00:00 OUT 
+2026-02-27T07:56:12.017917+00:00 OUT ---- gis_srid_usage ----
+2026-02-27T07:56:12.426812+00:00 OUT sakila	address	location	0
+2026-02-27T07:56:12.466057+00:00 OUT 
+2026-02-27T07:56:12.501029+00:00 OUT ---- resource_groups ----
+2026-02-27T07:56:12.816813+00:00 OUT USR_default	USER	1	0-9	0
+2026-02-27T07:56:12.824576+00:00 OUT SYS_default	SYSTEM	1	0-9	0
+2026-02-27T07:56:12.871371+00:00 OUT 
+2026-02-27T07:56:12.920098+00:00 OUT ---- xplugin_status ----
+2026-02-27T07:56:13.268134+00:00 OUT mysqlx	ACTIVE
+2026-02-27T07:56:13.306077+00:00 OUT 
+2026-02-27T07:56:13.342723+00:00 OUT ---- fk_name_lengths ----
+2026-02-27T07:56:13.660172+00:00 OUT (no rows)
+2026-02-27T07:56:13.688144+00:00 OUT 
+2026-02-27T07:56:13.722592+00:00 OUT ---- trigger_order ----
+2026-02-27T07:56:14.027355+00:00 OUT (no rows)
+2026-02-27T07:56:14.050168+00:00 OUT 
+2026-02-27T07:56:14.114921+00:00 OUT Precheck complete.
+2026-02-27T07:56:14.137540+00:00 OUT TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv
+2026-02-27T07:56:14.163953+00:00 RUN  binlog_seed_dump_restore (Seed target with dump/restore snapshot) -> scripts/14_binlog_seed.sh
+2026-02-27T07:56:14.170579+00:00 CMD /mnt/macshare/scripts/14_binlog_seed.sh
+2026-02-27T07:56:14.194050+00:00 OUT ==> Binlog migration: seed target from source snapshot
+2026-02-27T07:56:14.238113+00:00 OUT Preparing target database(s)...
+2026-02-27T07:56:14.530703+00:00 OUT Creating source snapshot with binlog coordinates...
+2026-02-27T07:56:15.600828+00:00 OUT Restoring snapshot to target...
+2026-02-27T07:56:16.671972+00:00 OUT Seed completed.
+2026-02-27T07:56:16.677985+00:00 OUT Coordinates file: artifacts/binlog_coords.env
+2026-02-27T07:56:16.683601+00:00 OUT Dump file: artifacts/binlog_seed_20260227_075614.sql
+2026-02-27T07:56:16.707565+00:00 RUN  binlog_start_replication (Configure and start MariaDB replication from MySQL binlog) -> scripts/15_binlog_start_replication.sh
+2026-02-27T07:56:16.718901+00:00 CMD /mnt/macshare/scripts/15_binlog_start_replication.sh
+2026-02-27T07:56:16.754586+00:00 OUT ==> Binlog migration: configure and start replication
+2026-02-27T07:56:16.765480+00:00 OUT Ensuring replication user exists on source...
+2026-02-27T07:56:17.854711+00:00 OUT Applying replication coordinates: mysql-bin.000013:374
+2026-02-27T07:56:18.619210+00:00 OUT Replication started.
+2026-02-27T07:56:18.649714+00:00 RUN  binlog_verify_replication (Verify replication status and lag) -> scripts/16_binlog_verify.sh
+2026-02-27T07:56:18.659071+00:00 CMD /mnt/macshare/scripts/16_binlog_verify.sh
+2026-02-27T07:56:18.687421+00:00 OUT ==> Binlog migration: verify replication
+2026-02-27T07:56:19.060245+00:00 OUT IO running: Yes
+2026-02-27T07:56:19.064904+00:00 OUT SQL running: Yes
+2026-02-27T07:56:19.067658+00:00 OUT Seconds behind master: 0
+2026-02-27T07:56:19.070373+00:00 OUT Replication verify passed.
+2026-02-27T07:56:19.097398+00:00 FINISH success=True message=Run completed successfully.

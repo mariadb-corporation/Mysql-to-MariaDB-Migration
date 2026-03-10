@@ -1,0 +1,362 @@
+{
+  "schema_version": 1,
+  "run_id": "20260225T165654Z",
+  "mode": "assessment",
+  "config_path": "config/source.yaml",
+  "started_at": "2026-02-25T16:56:54.711744+00:00",
+  "finished_at": "2026-02-25T16:57:22.249746+00:00",
+  "success": true,
+  "message": "Assessment passed. Ready to plan/run.",
+  "source": {
+    "type": "mysql",
+    "version": "8.0.45-0ubuntu0.24.04.1",
+    "host": "192.168.64.7",
+    "port": "3306"
+  },
+  "target": {
+    "type": "mariadb",
+    "version": "11.8.x-enterprise"
+  },
+  "gates": [
+    {
+      "name": "mysql_version_supported",
+      "status": "PASS",
+      "details": {
+        "version": "8.0.45-0ubuntu0.24.04.1",
+        "allowed": [
+          "5.7",
+          "8.0",
+          "8.4"
+        ]
+      }
+    },
+    {
+      "name": "innodb_file_per_table_is_1",
+      "status": "PASS",
+      "details": {
+        "value": "1"
+      }
+    },
+    {
+      "name": "source_databases_exist",
+      "status": "PASS",
+      "details": {
+        "requested": [
+          "testdb"
+        ],
+        "missing": [],
+        "auth_source": "SRC_ADMIN_USER"
+      }
+    }
+  ],
+  "warnings": [
+    {
+      "name": "innodb_fast_shutdown_not_0",
+      "severity": "MEDIUM",
+      "details": {
+        "value": "1",
+        "required_before_shutdown": 0
+      }
+    },
+    {
+      "name": "mysql_sha_or_caching_auth_users",
+      "severity": "HIGH",
+      "details": {
+        "count": 1,
+        "rows_sample": [
+          "debian-sys-maint\tlocalhost\tcaching_sha2_password"
+        ]
+      }
+    },
+    {
+      "name": "json_columns_present",
+      "severity": "MEDIUM",
+      "details": {
+        "count": 1,
+        "rows_sample": [
+          "testdb\torders_json\tdata_json\tjson"
+        ]
+      }
+    },
+    {
+      "name": "mysql8_table_collations_present",
+      "severity": "MEDIUM",
+      "details": {
+        "count": 20,
+        "rows_sample": [
+          "sakila\tactor\tutf8mb4_0900_ai_ci",
+          "sakila\taddress\tutf8mb4_0900_ai_ci",
+          "sakila\tcategory\tutf8mb4_0900_ai_ci",
+          "sakila\tcity\tutf8mb4_0900_ai_ci",
+          "sakila\tcountry\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_actor\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_category\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_text\tutf8mb4_0900_ai_ci",
+          "sakila\tinventory\tutf8mb4_0900_ai_ci",
+          "sakila\tlanguage\tutf8mb4_0900_ai_ci",
+          "sakila\tpayment\tutf8mb4_0900_ai_ci",
+          "sakila\trental\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff\tutf8mb4_0900_ai_ci",
+          "sakila\tstore\tutf8mb4_0900_ai_ci",
+          "testdb\torders_json\tutf8mb4_0900_ai_ci",
+          "world\tcity\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tutf8mb4_0900_ai_ci",
+          "world\tcountrylanguage\tutf8mb4_0900_ai_ci"
+        ]
+      }
+    },
+    {
+      "name": "mysql8_column_collations_present",
+      "severity": "MEDIUM",
+      "details": {
+        "count": 68,
+        "rows_sample": [
+          "sakila\tactor\tfirst_name\tutf8mb4_0900_ai_ci",
+          "sakila\tactor\tlast_name\tutf8mb4_0900_ai_ci",
+          "sakila\tactor_info\tfilm_info\tutf8mb4_0900_ai_ci",
+          "sakila\tactor_info\tfirst_name\tutf8mb4_0900_ai_ci",
+          "sakila\tactor_info\tlast_name\tutf8mb4_0900_ai_ci",
+          "sakila\taddress\taddress\tutf8mb4_0900_ai_ci",
+          "sakila\taddress\taddress2\tutf8mb4_0900_ai_ci",
+          "sakila\taddress\tdistrict\tutf8mb4_0900_ai_ci",
+          "sakila\taddress\tphone\tutf8mb4_0900_ai_ci",
+          "sakila\taddress\tpostal_code\tutf8mb4_0900_ai_ci",
+          "sakila\tcategory\tname\tutf8mb4_0900_ai_ci",
+          "sakila\tcity\tcity\tutf8mb4_0900_ai_ci",
+          "sakila\tcountry\tcountry\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer\temail\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer\tfirst_name\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer\tlast_name\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer_list\taddress\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer_list\tcity\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer_list\tcountry\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer_list\tname\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer_list\tnotes\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer_list\tphone\tutf8mb4_0900_ai_ci",
+          "sakila\tcustomer_list\tzip code\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm\tdescription\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm\trating\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm\tspecial_features\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm\ttitle\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_list\tactors\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_list\tcategory\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_list\tdescription\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_list\trating\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_list\ttitle\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_text\tdescription\tutf8mb4_0900_ai_ci",
+          "sakila\tfilm_text\ttitle\tutf8mb4_0900_ai_ci",
+          "sakila\tlanguage\tname\tutf8mb4_0900_ai_ci",
+          "sakila\tnicer_but_slower_film_list\tactors\tutf8mb4_0900_ai_ci",
+          "sakila\tnicer_but_slower_film_list\tcategory\tutf8mb4_0900_ai_ci",
+          "sakila\tnicer_but_slower_film_list\tdescription\tutf8mb4_0900_ai_ci",
+          "sakila\tnicer_but_slower_film_list\trating\tutf8mb4_0900_ai_ci",
+          "sakila\tnicer_but_slower_film_list\ttitle\tutf8mb4_0900_ai_ci",
+          "sakila\tsales_by_film_category\tcategory\tutf8mb4_0900_ai_ci",
+          "sakila\tsales_by_store\tmanager\tutf8mb4_0900_ai_ci",
+          "sakila\tsales_by_store\tstore\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff\temail\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff\tfirst_name\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff\tlast_name\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff\tusername\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff_list\taddress\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff_list\tcity\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff_list\tcountry\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff_list\tname\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff_list\tphone\tutf8mb4_0900_ai_ci",
+          "sakila\tstaff_list\tzip code\tutf8mb4_0900_ai_ci",
+          "testdb\torders_json\tproduct\tutf8mb4_0900_ai_ci",
+          "world\tcity\tCountryCode\tutf8mb4_0900_ai_ci",
+          "world\tcity\tDistrict\tutf8mb4_0900_ai_ci",
+          "world\tcity\tName\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tCode\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tCode2\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tContinent\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tGovernmentForm\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tHeadOfState\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tLocalName\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tName\tutf8mb4_0900_ai_ci",
+          "world\tcountry\tRegion\tutf8mb4_0900_ai_ci",
+          "world\tcountrylanguage\tCountryCode\tutf8mb4_0900_ai_ci",
+          "world\tcountrylanguage\tIsOfficial\tutf8mb4_0900_ai_ci",
+          "world\tcountrylanguage\tLanguage\tutf8mb4_0900_ai_ci"
+        ]
+      }
+    },
+    {
+      "name": "sql_mode_review_recommended",
+      "severity": "MEDIUM",
+      "details": {
+        "value": "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+      }
+    },
+    {
+      "name": "definer_objects_present",
+      "severity": "MEDIUM",
+      "details": {
+        "count": 2,
+        "rows_sample": [
+          "TRIGGER\troot@localhost\t6",
+          "VIEW\troot@localhost\t7"
+        ]
+      }
+    },
+    {
+      "name": "active_plugins_review_recommended",
+      "severity": "LOW",
+      "details": {
+        "count": 45,
+        "rows_sample": [
+          "ARCHIVE\tACTIVE",
+          "auth_socket\tACTIVE",
+          "binlog\tACTIVE",
+          "BLACKHOLE\tACTIVE",
+          "caching_sha2_password\tACTIVE",
+          "CSV\tACTIVE",
+          "daemon_keyring_proxy_plugin\tACTIVE",
+          "InnoDB\tACTIVE",
+          "INNODB_BUFFER_PAGE\tACTIVE",
+          "INNODB_BUFFER_PAGE_LRU\tACTIVE",
+          "INNODB_BUFFER_POOL_STATS\tACTIVE",
+          "INNODB_CACHED_INDEXES\tACTIVE",
+          "INNODB_CMP\tACTIVE",
+          "INNODB_CMPMEM\tACTIVE",
+          "INNODB_CMPMEM_RESET\tACTIVE",
+          "INNODB_CMP_PER_INDEX\tACTIVE",
+          "INNODB_CMP_PER_INDEX_RESET\tACTIVE",
+          "INNODB_CMP_RESET\tACTIVE",
+          "INNODB_COLUMNS\tACTIVE",
+          "INNODB_FT_BEING_DELETED\tACTIVE",
+          "INNODB_FT_CONFIG\tACTIVE",
+          "INNODB_FT_DEFAULT_STOPWORD\tACTIVE",
+          "INNODB_FT_DELETED\tACTIVE",
+          "INNODB_FT_INDEX_CACHE\tACTIVE",
+          "INNODB_FT_INDEX_TABLE\tACTIVE",
+          "INNODB_INDEXES\tACTIVE",
+          "INNODB_METRICS\tACTIVE",
+          "INNODB_SESSION_TEMP_TABLESPACES\tACTIVE",
+          "INNODB_TABLES\tACTIVE",
+          "INNODB_TABLESPACES\tACTIVE",
+          "INNODB_TABLESTATS\tACTIVE",
+          "INNODB_TEMP_TABLE_INFO\tACTIVE",
+          "INNODB_TRX\tACTIVE",
+          "INNODB_VIRTUAL\tACTIVE",
+          "MEMORY\tACTIVE",
+          "MRG_MYISAM\tACTIVE",
+          "MyISAM\tACTIVE",
+          "mysqlx\tACTIVE",
+          "mysqlx_cache_cleaner\tACTIVE",
+          "mysql_native_password\tACTIVE",
+          "ngram\tACTIVE",
+          "PERFORMANCE_SCHEMA\tACTIVE",
+          "sha256_password\tACTIVE",
+          "sha2_cache_cleaner\tACTIVE",
+          "TempTable\tACTIVE"
+        ]
+      }
+    }
+  ],
+  "inventory": {
+    "auth_plugin_users": {
+      "count": 1
+    },
+    "json_columns": {
+      "count": 1
+    },
+    "encryption_or_compression": {
+      "count": 0
+    },
+    "engines": {
+      "rows": [
+        "PERFORMANCE_SCHEMA\t111",
+        "InnoDB\t56",
+        "CSV\t2"
+      ]
+    },
+    "schema_sizes_mb": {
+      "rows": [
+        "testdb\t38.56",
+        "sakila\t6.45",
+        "mysql\t2.70",
+        "world\t0.77",
+        "sys\t0.02",
+        "information_schema\t0.00",
+        "performance_schema\t0.00"
+      ]
+    },
+    "schema_charsets": {
+      "rows": [
+        "sakila\tutf8mb4\tutf8mb4_0900_ai_ci",
+        "testdb\tutf8mb4\tutf8mb4_0900_ai_ci",
+        "world\tutf8mb4\tutf8mb4_0900_ai_ci"
+      ]
+    },
+    "mysql8_table_collations": {
+      "count": 20
+    },
+    "mysql8_column_collations": {
+      "count": 68
+    },
+    "sql_mode": {
+      "value": "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+    },
+    "definers": {
+      "count": 2
+    },
+    "partitioned_tables": {
+      "count": 0
+    },
+    "active_plugins": {
+      "rows": [
+        "ARCHIVE\tACTIVE",
+        "auth_socket\tACTIVE",
+        "binlog\tACTIVE",
+        "BLACKHOLE\tACTIVE",
+        "caching_sha2_password\tACTIVE",
+        "CSV\tACTIVE",
+        "daemon_keyring_proxy_plugin\tACTIVE",
+        "InnoDB\tACTIVE",
+        "INNODB_BUFFER_PAGE\tACTIVE",
+        "INNODB_BUFFER_PAGE_LRU\tACTIVE",
+        "INNODB_BUFFER_POOL_STATS\tACTIVE",
+        "INNODB_CACHED_INDEXES\tACTIVE",
+        "INNODB_CMP\tACTIVE",
+        "INNODB_CMPMEM\tACTIVE",
+        "INNODB_CMPMEM_RESET\tACTIVE",
+        "INNODB_CMP_PER_INDEX\tACTIVE",
+        "INNODB_CMP_PER_INDEX_RESET\tACTIVE",
+        "INNODB_CMP_RESET\tACTIVE",
+        "INNODB_COLUMNS\tACTIVE",
+        "INNODB_FT_BEING_DELETED\tACTIVE",
+        "INNODB_FT_CONFIG\tACTIVE",
+        "INNODB_FT_DEFAULT_STOPWORD\tACTIVE",
+        "INNODB_FT_DELETED\tACTIVE",
+        "INNODB_FT_INDEX_CACHE\tACTIVE",
+        "INNODB_FT_INDEX_TABLE\tACTIVE",
+        "INNODB_INDEXES\tACTIVE",
+        "INNODB_METRICS\tACTIVE",
+        "INNODB_SESSION_TEMP_TABLESPACES\tACTIVE",
+        "INNODB_TABLES\tACTIVE",
+        "INNODB_TABLESPACES\tACTIVE",
+        "INNODB_TABLESTATS\tACTIVE",
+        "INNODB_TEMP_TABLE_INFO\tACTIVE",
+        "INNODB_TRX\tACTIVE",
+        "INNODB_VIRTUAL\tACTIVE",
+        "MEMORY\tACTIVE",
+        "MRG_MYISAM\tACTIVE",
+        "MyISAM\tACTIVE",
+        "mysqlx\tACTIVE",
+        "mysqlx_cache_cleaner\tACTIVE",
+        "mysql_native_password\tACTIVE",
+        "ngram\tACTIVE",
+        "PERFORMANCE_SCHEMA\tACTIVE",
+        "sha256_password\tACTIVE",
+        "sha2_cache_cleaner\tACTIVE",
+        "TempTable\tACTIVE"
+      ]
+    }
+  },
+  "plan": {},
+  "steps": []
+}

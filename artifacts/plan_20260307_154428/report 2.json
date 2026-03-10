@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "run_id": "20260307T154522Z",
+  "mode": "plan",
+  "config_path": "config/migration.yaml",
+  "started_at": "2026-03-07T15:45:22.963369+00:00",
+  "finished_at": "2026-03-07T15:45:23.458665+00:00",
+  "success": true,
+  "message": "Plan generated (no execution).",
+  "source": {},
+  "target": {},
+  "gates": [],
+  "warnings": [],
+  "inventory": {},
+  "plan": {
+    "mode": "replace_slave",
+    "phases": [
+      "replace_slave_prepare",
+      "precheck_only",
+      "replace_slave_backup",
+      "replace_slave_install",
+      "replace_slave_switch",
+      "binlog_seed",
+      "binlog_replication",
+      "binlog_verify",
+      "replace_slave_cleanup"
+    ],
+    "steps": [
+      {
+        "id": "preflight_replace_slave",
+        "name": "Preflight checks (replace_slave)",
+        "script": "scripts/20_preflight_replace_slave.sh",
+        "args": []
+      },
+      {
+        "id": "precheck",
+        "name": "Precheck source variables and blockers",
+        "script": "scripts/00_precheck.sh",
+        "args": []
+      },
+      {
+        "id": "replace_slave_backup",
+        "name": "Backup current MySQL slave host",
+        "script": "scripts/21_replace_slave_backup.sh",
+        "args": []
+      },
+      {
+        "id": "replace_slave_install_mariadb",
+        "name": "Install MariaDB on target host",
+        "script": "scripts/23_install_mariadb.sh",
+        "args": []
+      },
+      {
+        "id": "replace_slave_switch_engine",
+        "name": "Stop MySQL slave and start/configure MariaDB on same host",
+        "script": "scripts/22_replace_slave_switch_engine.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_seed_dump_restore",
+        "name": "Seed target with dump/restore snapshot",
+        "script": "scripts/14_binlog_seed.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_start_replication",
+        "name": "Configure and start MariaDB replication from MySQL binlog",
+        "script": "scripts/15_binlog_start_replication.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_verify_replication",
+        "name": "Verify replication status and lag",
+        "script": "scripts/16_binlog_verify.sh",
+        "args": []
+      },
+      {
+        "id": "replace_slave_cleanup_old_mysql",
+        "name": "Optional cleanup of old MySQL data on replaced slave host",
+        "script": "scripts/24_replace_slave_cleanup.sh",
+        "args": []
+      }
+    ]
+  },
+  "steps": []
+}

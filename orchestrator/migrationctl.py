@@ -109,6 +109,8 @@ def _prompt_required_env(env: Dict[str, str], mode_value: str, non_interactive: 
         _prompt_env(env, "REPLACE_MARIADB_VERSION", "MariaDB version (for example 11.8)")
     if mode_value == "inplace":
         _prompt_env(env, "INPLACE_BACKUP_DIR", "In-place backup directory")
+        _prompt_env(env, "INPLACE_TARGET_OS", "In-place target OS (ubuntu|debian|rocky|rhel|centos7|sles)")
+        _prompt_env(env, "INPLACE_MARIADB_VERSION", "In-place MariaDB version (for example 11.8)")
 
     # Admin-only flow: align migration creds with admin creds.
     if env.get("SRC_ADMIN_USER"):
@@ -246,7 +248,7 @@ def plan(
     if mode_value == "inplace":
         _require_env(
             env,
-            ["SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS", "INPLACE_BACKUP_DIR"],
+            ["SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS", "INPLACE_BACKUP_DIR", "INPLACE_TARGET_OS", "INPLACE_MARIADB_VERSION"],
             mode_value,
         )
         if env.get("ALLOW_ROOT_USERS") not in ("1", "true", "TRUE", "True"):
@@ -350,7 +352,7 @@ def run(
     if mode_value == "inplace":
         _require_env(
             env,
-            ["SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS", "INPLACE_BACKUP_DIR"],
+            ["SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS", "INPLACE_BACKUP_DIR", "INPLACE_TARGET_OS", "INPLACE_MARIADB_VERSION"],
             mode_value,
         )
         if env.get("ALLOW_ROOT_USERS") not in ("1", "true", "TRUE", "True"):

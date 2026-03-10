@@ -30,6 +30,7 @@ modes:
   inplace:
     - inplace_prepare
     - inplace_backup
+    - inplace_install
     - inplace_upgrade
     - inplace_validate
 
@@ -137,6 +138,12 @@ phases:
     - id: inplace_backup
       name: Backup before in-place upgrade
       script: scripts/17_inplace_backup.sh
+      args: []
+
+  inplace_install:
+    - id: inplace_install_mariadb
+      name: Install MariaDB for in-place upgrade
+      script: scripts/18_inplace_install_mariadb.sh
       args: []
 
   inplace_upgrade:
