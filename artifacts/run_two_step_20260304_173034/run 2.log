@@ -1,0 +1,781 @@
+2026-03-04T17:30:50.326442+00:00 START mode=run config=config/migration.yaml
+2026-03-04T17:30:50.420019+00:00 RUN  preflight_two_step (Preflight checks (two_step)) -> scripts/00_preflight_two_step.sh
+2026-03-04T17:30:50.426414+00:00 CMD /mnt/macshare/scripts/00_preflight_two_step.sh
+2026-03-04T17:30:50.457024+00:00 OUT ==> Preflight checks (two_step)
+2026-03-04T17:30:50.467324+00:00 OUT Checking source connectivity...
+2026-03-04T17:30:50.717542+00:00 OUT Checking source migration user connectivity...
+2026-03-04T17:30:50.970741+00:00 OUT Checking target migration user connectivity...
+2026-03-04T17:30:51.579435+00:00 OUT sqldata found in PATH (OK).
+2026-03-04T17:30:51.585833+00:00 OUT Preflight complete.
+2026-03-04T17:30:51.608879+00:00 RUN  precheck (Precheck source variables and blockers) -> scripts/00_precheck.sh
+2026-03-04T17:30:51.616953+00:00 CMD /mnt/macshare/scripts/00_precheck.sh
+2026-03-04T17:30:51.688017+00:00 OUT == Precheck runner ==
+2026-03-04T17:30:51.709101+00:00 OUT Host: 192.168.64.7  Port: 3306  User: admin
+2026-03-04T17:30:51.734110+00:00 OUT Checks dir: /mnt/macshare/sql/checks
+2026-03-04T17:30:51.755776+00:00 OUT Outdir: /mnt/macshare/artifacts/precheck
+2026-03-04T17:30:51.777420+00:00 OUT 
+2026-03-04T17:30:51.804971+00:00 OUT NOTE: mariadb-migrate-config-file not found; skipping config check.
+2026-03-04T17:30:51.841439+00:00 OUT ---- mysql_version ----
+2026-03-04T17:30:52.130345+00:00 OUT 8.0.45-0ubuntu0.24.04.1
+2026-03-04T17:30:52.169762+00:00 OUT 
+2026-03-04T17:30:52.204667+00:00 OUT ---- innodb_settings ----
+2026-03-04T17:30:52.494286+00:00 OUT 1	1
+2026-03-04T17:30:52.532708+00:00 OUT 
+2026-03-04T17:30:52.569116+00:00 OUT ---- auth_plugins ----
+2026-03-04T17:30:52.861002+00:00 OUT debian-sys-maint	localhost	caching_sha2_password
+2026-03-04T17:30:52.898918+00:00 OUT 
+2026-03-04T17:30:52.932956+00:00 OUT ---- json_columns ----
+2026-03-04T17:30:53.226839+00:00 OUT advanced_test	json_test	data	json
+2026-03-04T17:30:53.233657+00:00 OUT advanced_test	json_test	metadata	json
+2026-03-04T17:30:53.240168+00:00 OUT testdb	orders_json	data_json	json
+2026-03-04T17:30:53.270240+00:00 OUT 
+2026-03-04T17:30:53.302950+00:00 OUT ---- compression_encryption ----
+2026-03-04T17:30:53.592984+00:00 OUT (no rows)
+2026-03-04T17:30:53.616720+00:00 OUT 
+2026-03-04T17:30:53.648245+00:00 OUT ---- engines_summary ----
+2026-03-04T17:30:53.945562+00:00 OUT PERFORMANCE_SCHEMA	111
+2026-03-04T17:30:53.953867+00:00 OUT InnoDB	58
+2026-03-04T17:30:53.961726+00:00 OUT CSV	2
+2026-03-04T17:30:53.990394+00:00 OUT 
+2026-03-04T17:30:54.023304+00:00 OUT ---- schema_sizes ----
+2026-03-04T17:30:54.321230+00:00 OUT testdb	38.56
+2026-03-04T17:30:54.328213+00:00 OUT sakila	6.45
+2026-03-04T17:30:54.334420+00:00 OUT mysql	2.73
+2026-03-04T17:30:54.342293+00:00 OUT world	0.77
+2026-03-04T17:30:54.348339+00:00 OUT sys	0.02
+2026-03-04T17:30:54.359217+00:00 OUT advanced_test	0.02
+2026-03-04T17:30:54.364447+00:00 OUT test_replication	0.02
+2026-03-04T17:30:54.375327+00:00 OUT information_schema	0.00
+2026-03-04T17:30:54.384238+00:00 OUT performance_schema	0.00
+2026-03-04T17:30:54.390927+00:00 OUT 
+2026-03-04T17:30:54.419341+00:00 OUT ---- schema_charsets ----
+2026-03-04T17:30:54.714013+00:00 OUT advanced_test	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:30:54.721908+00:00 OUT sakila	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:30:54.731206+00:00 OUT test_replication	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:30:54.735474+00:00 OUT testdb	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:30:54.742798+00:00 OUT world	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:30:54.770764+00:00 OUT 
+2026-03-04T17:30:54.801867+00:00 OUT ---- mysql8_collations ----
+2026-03-04T17:30:55.097620+00:00 OUT advanced_test	json_test	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.110458+00:00 OUT sakila	actor	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.116488+00:00 OUT sakila	address	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.126980+00:00 OUT sakila	category	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.131811+00:00 OUT sakila	city	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.143125+00:00 OUT sakila	country	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.147054+00:00 OUT sakila	customer	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.154345+00:00 OUT sakila	film	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.160959+00:00 OUT sakila	film_actor	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.167536+00:00 OUT sakila	film_category	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.175300+00:00 OUT sakila	film_text	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.182751+00:00 OUT sakila	inventory	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.186222+00:00 OUT sakila	language	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.196919+00:00 OUT sakila	payment	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.202791+00:00 OUT sakila	rental	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.208923+00:00 OUT sakila	staff	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.213952+00:00 OUT sakila	store	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.222816+00:00 OUT test_replication	customers	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.231030+00:00 OUT testdb	orders_json	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.238055+00:00 OUT world	city	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.243445+00:00 OUT world	country	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.248804+00:00 OUT world	countrylanguage	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.256662+00:00 OUT 
+2026-03-04T17:30:55.263585+00:00 OUT ---- mysql8_column_collations ----
+2026-03-04T17:30:55.527615+00:00 OUT sakila	actor	first_name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.536169+00:00 OUT sakila	actor	last_name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.543950+00:00 OUT sakila	actor_info	film_info	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.552301+00:00 OUT sakila	actor_info	first_name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.556991+00:00 OUT sakila	actor_info	last_name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.564154+00:00 OUT sakila	address	address	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.571939+00:00 OUT sakila	address	address2	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.580937+00:00 OUT sakila	address	district	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.587344+00:00 OUT sakila	address	phone	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.595294+00:00 OUT sakila	address	postal_code	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.603696+00:00 OUT sakila	category	name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.608915+00:00 OUT sakila	city	city	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.617872+00:00 OUT sakila	country	country	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.624039+00:00 OUT sakila	customer	email	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.630974+00:00 OUT sakila	customer	first_name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.639473+00:00 OUT sakila	customer	last_name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.651978+00:00 OUT sakila	customer_list	address	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.657160+00:00 OUT sakila	customer_list	city	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.661183+00:00 OUT sakila	customer_list	country	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.670303+00:00 OUT sakila	customer_list	name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.673591+00:00 OUT sakila	customer_list	notes	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.682651+00:00 OUT sakila	customer_list	phone	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.690434+00:00 OUT sakila	customer_list	zip code	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.697062+00:00 OUT sakila	film	description	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.705653+00:00 OUT sakila	film	rating	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.716321+00:00 OUT sakila	film	special_features	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.720351+00:00 OUT sakila	film	title	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.727295+00:00 OUT sakila	film_list	actors	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.737002+00:00 OUT sakila	film_list	category	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.743523+00:00 OUT sakila	film_list	description	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.747133+00:00 OUT sakila	film_list	rating	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.753608+00:00 OUT sakila	film_list	title	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.759191+00:00 OUT sakila	film_text	description	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.764972+00:00 OUT sakila	film_text	title	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.771408+00:00 OUT sakila	language	name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.776316+00:00 OUT sakila	nicer_but_slower_film_list	actors	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.786150+00:00 OUT sakila	nicer_but_slower_film_list	category	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.790058+00:00 OUT sakila	nicer_but_slower_film_list	description	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.799612+00:00 OUT sakila	nicer_but_slower_film_list	rating	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.804888+00:00 OUT sakila	nicer_but_slower_film_list	title	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.811443+00:00 OUT sakila	sales_by_film_category	category	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.820458+00:00 OUT sakila	sales_by_store	manager	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.825621+00:00 OUT sakila	sales_by_store	store	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.833788+00:00 OUT sakila	staff	email	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.838610+00:00 OUT sakila	staff	first_name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.846955+00:00 OUT sakila	staff	last_name	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.855388+00:00 OUT sakila	staff	username	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.860284+00:00 OUT sakila	staff_list	address	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.866780+00:00 OUT sakila	staff_list	city	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.872407+00:00 OUT sakila	staff_list	country	utf8mb4_0900_ai_ci
+2026-03-04T17:30:55.877763+00:00 OUT ... (truncated; full output in /mnt/macshare/artifacts/precheck/mysql8_column_collations.tsv)
+2026-03-04T17:30:55.886188+00:00 OUT 
+2026-03-04T17:30:55.891171+00:00 OUT ---- sql_mode ----
+2026-03-04T17:30:56.061992+00:00 OUT ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+2026-03-04T17:30:56.100227+00:00 OUT 
+2026-03-04T17:30:56.133885+00:00 OUT ---- definers_inventory ----
+2026-03-04T17:30:56.427461+00:00 OUT TRIGGER	root@localhost	6
+2026-03-04T17:30:56.434914+00:00 OUT VIEW	root@localhost	7
+2026-03-04T17:30:56.470976+00:00 OUT 
+2026-03-04T17:30:56.502608+00:00 OUT ---- partitioned_tables ----
+2026-03-04T17:30:56.790559+00:00 OUT (no rows)
+2026-03-04T17:30:56.813124+00:00 OUT 
+2026-03-04T17:30:56.844421+00:00 OUT ---- active_plugins ----
+2026-03-04T17:30:57.145310+00:00 OUT ARCHIVE	ACTIVE
+2026-03-04T17:30:57.154495+00:00 OUT auth_socket	ACTIVE
+2026-03-04T17:30:57.162069+00:00 OUT binlog	ACTIVE
+2026-03-04T17:30:57.171106+00:00 OUT BLACKHOLE	ACTIVE
+2026-03-04T17:30:57.180965+00:00 OUT caching_sha2_password	ACTIVE
+2026-03-04T17:30:57.186582+00:00 OUT CSV	ACTIVE
+2026-03-04T17:30:57.197918+00:00 OUT daemon_keyring_proxy_plugin	ACTIVE
+2026-03-04T17:30:57.201764+00:00 OUT InnoDB	ACTIVE
+2026-03-04T17:30:57.207331+00:00 OUT INNODB_BUFFER_PAGE	ACTIVE
+2026-03-04T17:30:57.213976+00:00 OUT INNODB_BUFFER_PAGE_LRU	ACTIVE
+2026-03-04T17:30:57.219005+00:00 OUT INNODB_BUFFER_POOL_STATS	ACTIVE
+2026-03-04T17:30:57.225003+00:00 OUT INNODB_CACHED_INDEXES	ACTIVE
+2026-03-04T17:30:57.230150+00:00 OUT INNODB_CMP	ACTIVE
+2026-03-04T17:30:57.235438+00:00 OUT INNODB_CMPMEM	ACTIVE
+2026-03-04T17:30:57.248820+00:00 OUT INNODB_CMPMEM_RESET	ACTIVE
+2026-03-04T17:30:57.255583+00:00 OUT INNODB_CMP_PER_INDEX	ACTIVE
+2026-03-04T17:30:57.261189+00:00 OUT INNODB_CMP_PER_INDEX_RESET	ACTIVE
+2026-03-04T17:30:57.268489+00:00 OUT INNODB_CMP_RESET	ACTIVE
+2026-03-04T17:30:57.279388+00:00 OUT INNODB_COLUMNS	ACTIVE
+2026-03-04T17:30:57.282572+00:00 OUT INNODB_FT_BEING_DELETED	ACTIVE
+2026-03-04T17:30:57.289060+00:00 OUT INNODB_FT_CONFIG	ACTIVE
+2026-03-04T17:30:57.295005+00:00 OUT INNODB_FT_DEFAULT_STOPWORD	ACTIVE
+2026-03-04T17:30:57.298894+00:00 OUT INNODB_FT_DELETED	ACTIVE
+2026-03-04T17:30:57.305650+00:00 OUT INNODB_FT_INDEX_CACHE	ACTIVE
+2026-03-04T17:30:57.311507+00:00 OUT INNODB_FT_INDEX_TABLE	ACTIVE
+2026-03-04T17:30:57.317484+00:00 OUT INNODB_INDEXES	ACTIVE
+2026-03-04T17:30:57.324060+00:00 OUT INNODB_METRICS	ACTIVE
+2026-03-04T17:30:57.334198+00:00 OUT INNODB_SESSION_TEMP_TABLESPACES	ACTIVE
+2026-03-04T17:30:57.337909+00:00 OUT INNODB_TABLES	ACTIVE
+2026-03-04T17:30:57.344142+00:00 OUT INNODB_TABLESPACES	ACTIVE
+2026-03-04T17:30:57.351114+00:00 OUT INNODB_TABLESTATS	ACTIVE
+2026-03-04T17:30:57.357229+00:00 OUT INNODB_TEMP_TABLE_INFO	ACTIVE
+2026-03-04T17:30:57.367423+00:00 OUT INNODB_TRX	ACTIVE
+2026-03-04T17:30:57.371619+00:00 OUT INNODB_VIRTUAL	ACTIVE
+2026-03-04T17:30:57.378821+00:00 OUT MEMORY	ACTIVE
+2026-03-04T17:30:57.384119+00:00 OUT MRG_MYISAM	ACTIVE
+2026-03-04T17:30:57.390759+00:00 OUT MyISAM	ACTIVE
+2026-03-04T17:30:57.397636+00:00 OUT mysqlx	ACTIVE
+2026-03-04T17:30:57.404519+00:00 OUT mysqlx_cache_cleaner	ACTIVE
+2026-03-04T17:30:57.411145+00:00 OUT mysql_native_password	ACTIVE
+2026-03-04T17:30:57.416697+00:00 OUT ngram	ACTIVE
+2026-03-04T17:30:57.421833+00:00 OUT PERFORMANCE_SCHEMA	ACTIVE
+2026-03-04T17:30:57.430705+00:00 OUT sha256_password	ACTIVE
+2026-03-04T17:30:57.433391+00:00 OUT sha2_cache_cleaner	ACTIVE
+2026-03-04T17:30:57.441532+00:00 OUT TempTable	ACTIVE
+2026-03-04T17:30:57.447701+00:00 OUT 
+2026-03-04T17:30:57.459094+00:00 OUT ---- functional_indexes ----
+2026-03-04T17:30:57.644631+00:00 OUT (no rows)
+2026-03-04T17:30:57.668237+00:00 OUT 
+2026-03-04T17:30:57.699348+00:00 OUT ---- functional_defaults ----
+2026-03-04T17:30:57.984219+00:00 OUT (no rows)
+2026-03-04T17:30:58.005424+00:00 OUT 
+2026-03-04T17:30:58.038276+00:00 OUT ---- invisible_columns ----
+2026-03-04T17:30:58.333138+00:00 OUT (no rows)
+2026-03-04T17:30:58.356077+00:00 OUT 
+2026-03-04T17:30:58.387901+00:00 OUT ---- check_constraints ----
+2026-03-04T17:30:58.673179+00:00 OUT (no rows)
+2026-03-04T17:30:58.694936+00:00 OUT 
+2026-03-04T17:30:58.728830+00:00 OUT ---- partial_revokes ----
+2026-03-04T17:30:59.009446+00:00 OUT (no rows)
+2026-03-04T17:30:59.031849+00:00 OUT 
+2026-03-04T17:30:59.064742+00:00 OUT ---- gis_srid_usage ----
+2026-03-04T17:30:59.360046+00:00 OUT sakila	address	location	0
+2026-03-04T17:30:59.403023+00:00 OUT 
+2026-03-04T17:30:59.435596+00:00 OUT ---- resource_groups ----
+2026-03-04T17:30:59.725666+00:00 OUT USR_default	USER	1	0-9	0
+2026-03-04T17:30:59.730421+00:00 OUT SYS_default	SYSTEM	1	0-9	0
+2026-03-04T17:30:59.769343+00:00 OUT 
+2026-03-04T17:30:59.803371+00:00 OUT ---- xplugin_status ----
+2026-03-04T17:31:00.124654+00:00 OUT mysqlx	ACTIVE
+2026-03-04T17:31:00.165036+00:00 OUT 
+2026-03-04T17:31:00.202367+00:00 OUT ---- fk_name_lengths ----
+2026-03-04T17:31:00.498084+00:00 OUT (no rows)
+2026-03-04T17:31:00.521136+00:00 OUT 
+2026-03-04T17:31:00.556066+00:00 OUT ---- trigger_order ----
+2026-03-04T17:31:00.844828+00:00 OUT (no rows)
+2026-03-04T17:31:00.868560+00:00 OUT 
+2026-03-04T17:31:00.926001+00:00 OUT Precheck complete.
+2026-03-04T17:31:00.948523+00:00 OUT TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv
+2026-03-04T17:31:00.973034+00:00 RUN  two_step_schema_only (Export schema only (no data)) -> scripts/11_two_step_schema.sh
+2026-03-04T17:31:00.980542+00:00 CMD /mnt/macshare/scripts/11_two_step_schema.sh
+2026-03-04T17:31:01.008802+00:00 OUT ==> Two-step migration: schema only (no data)
+2026-03-04T17:31:01.016526+00:00 OUT Source: 192.168.64.7:3306  DB: sakila
+2026-03-04T17:31:01.028881+00:00 OUT Target: 192.168.64.3:3306
+2026-03-04T17:31:02.003110+00:00 OUT Schema-only migration completed.
+2026-03-04T17:31:02.031758+00:00 RUN  two_step_parallel_data (Parallel data transfer with SQLines Data) -> scripts/12_two_step_sqldata.sh
+2026-03-04T17:31:02.044175+00:00 CMD /mnt/macshare/scripts/12_two_step_sqldata.sh
+2026-03-04T17:31:02.070419+00:00 OUT ==> Two-step migration: parallel data transfer (SQLines Data)
+2026-03-04T17:31:02.113311+00:00 OUT 
+2026-03-04T17:31:02.118438+00:00 OUT SQLines Data 3.7.11 x86_64 Linux - Database Migration and Validation Tool.
+2026-03-04T17:31:02.130059+00:00 OUT Copyright (c) 2026 SQLines. All Rights Reserved.
+2026-03-04T17:31:02.140371+00:00 OUT 
+2026-03-04T17:31:02.174097+00:00 OUT 14-DAY EVALUATION USE ONLY, MAY SKIP 1 ROW FROM A TABLE. NO OTHER RESTRICTIONS.
+2026-03-04T17:31:02.176903+00:00 OUT 
+2026-03-04T17:31:02.252114+00:00 OUT Connecting to databases (11 ms)
+2026-03-04T17:31:02.272312+00:00 OUT   MySQL 8.0.45-0ubuntu0.24.04.1 (Ubuntu) aarch64 Linux 1.3 (Ok, 10 ms)
+2026-03-04T17:31:02.287754+00:00 OUT   MySQL 11.8.5-2-MariaDB-enterprise MariaDB Enterprise Server aarch64 Linux system a543b7f688b9350edb8cc03534b6bb4b422598ac OpenSSL 3.5.1 1 Jul 2025 (Ok, 8 ms)
+2026-03-04T17:31:02.292155+00:00 OUT 
+2026-03-04T17:31:02.334018+00:00 OUT Reading the database schema (16 tables, 41 ms)
+2026-03-04T17:31:02.340637+00:00 OUT 
+2026-03-04T17:31:02.346987+00:00 OUT Transferring database (6 concurrent sessions):
+2026-03-04T17:31:02.356993+00:00 OUT 
+2026-03-04T17:31:02.375857+00:00 OUT   sakila.actor - Started (1 of 16, session 1)
+2026-03-04T17:31:02.394132+00:00 OUT   sakila.address - Started (2 of 16, session 2)
+2026-03-04T17:31:02.417846+00:00 OUT   sakila.actor - Open cursor (203 rows read, 7 ms, session 1)
+2026-03-04T17:31:02.448088+00:00 OUT   sakila.address - Open cursor (10 rows read, 2 ms, session 2)
+2026-03-04T17:31:02.469124+00:00 OUT   sakila.category - Started (3 of 16, session 3)
+2026-03-04T17:31:02.481550+00:00 OUT   sakila.city - Started (4 of 16, session 5)
+2026-03-04T17:31:02.494624+00:00 OUT   sakila.actor - Drop target table (Failed, 43 ms, session 1)
+2026-03-04T17:31:02.557472+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:02.567035+00:00 OUT   sakila.address - Drop target table (Failed, 14 ms, session 2)
+2026-03-04T17:31:02.598225+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:02.609248+00:00 OUT   sakila.country - Started (5 of 16, session 4)
+2026-03-04T17:31:02.691903+00:00 OUT   sakila.customer - Started (6 of 16, session 6)
+2026-03-04T17:31:02.703152+00:00 OUT   sakila.film - Started (7 of 16, session 2)
+2026-03-04T17:31:02.725352+00:00 OUT   sakila.city - Open cursor (600 rows read, 7 ms, session 5)
+2026-03-04T17:31:02.760977+00:00 OUT   sakila.country - Open cursor (109 rows read, 3 ms, session 4)
+2026-03-04T17:31:02.785433+00:00 OUT   sakila.customer - Open cursor (599 rows read, 11 ms, session 6)
+2026-03-04T17:31:02.805519+00:00 OUT   sakila.category - Open cursor (16 rows read, 4 ms, session 3)
+2026-03-04T17:31:02.816420+00:00 OUT   sakila.city - Drop target table (Failed, 12 ms, session 5)
+2026-03-04T17:31:02.870860+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:02.880186+00:00 OUT   sakila.film_actor - Started (8 of 16, session 1)
+2026-03-04T17:31:02.902218+00:00 OUT   sakila.customer - Drop target table (Failed, 9 ms, session 6)
+2026-03-04T17:31:02.983193+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:02.994306+00:00 OUT   sakila.category - Drop target table (Failed, 6 ms, session 3)
+2026-03-04T17:31:03.048173+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:03.058780+00:00 OUT   sakila.film_category - Started (9 of 16, session 3)
+2026-03-04T17:31:03.078378+00:00 OUT   sakila.film_actor - Open cursor (5462 rows read, 14 ms, session 1)
+2026-03-04T17:31:03.097232+00:00 OUT   sakila.film - Open cursor (1000 rows read, 97 ms, session 2)
+2026-03-04T17:31:03.110956+00:00 OUT   sakila.film_text - Started (10 of 16, session 6)
+2026-03-04T17:31:03.133185+00:00 OUT   sakila.inventory - Started (11 of 16, session 5)
+2026-03-04T17:31:03.170346+00:00 OUT   sakila.film_actor - Drop target table (6 ms, session 1)
+2026-03-04T17:31:03.187845+00:00 OUT   sakila.country - Drop target table (Failed, 12 ms, session 4)
+2026-03-04T17:31:03.241593+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:03.258733+00:00 OUT   sakila.film_category - Open cursor (1000 rows read, 8 ms, session 3)
+2026-03-04T17:31:03.276073+00:00 OUT   sakila.inventory - Open cursor (4581 rows read, 28 ms, session 5)
+2026-03-04T17:31:03.304229+00:00 OUT   sakila.film_actor - Create target table (6 ms, session 1)
+2026-03-04T17:31:03.323985+00:00 OUT   sakila.film_text - Open cursor (1000 rows read, 106 ms, session 6)
+2026-03-04T17:31:03.340205+00:00 OUT   sakila.film - Drop target table (Failed, 7 ms, session 2)
+2026-03-04T17:31:03.435556+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:03.458091+00:00 OUT   sakila.film_category - Drop target table (7 ms, session 3)
+2026-03-04T17:31:03.467928+00:00 OUT   sakila.inventory - Drop target table (Failed, 7 ms, session 5)
+2026-03-04T17:31:03.502366+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:03.528507+00:00 OUT   sakila.film_text - Drop target table (7 ms, session 6)
+2026-03-04T17:31:03.541979+00:00 OUT   sakila.film_actor - Data transfer complete (session 1)
+2026-03-04T17:31:03.546621+00:00 OUT      Rows read:     5462 (5.5K rows, 390143 rows/sec)
+2026-03-04T17:31:03.550711+00:00 OUT      Rows written:  5461 (5.5K rows, 227542 rows/sec, 145.9 KB, 5.9 MB/sec)
+2026-03-04T17:31:03.555233+00:00 OUT      Transfer time: 456 ms (14 ms read, 24 ms write)
+2026-03-04T17:31:03.566141+00:00 OUT   sakila.language - Started (12 of 16, session 1)
+2026-03-04T17:31:03.617380+00:00 OUT   sakila.film_category - Create target table (3 ms, session 3)
+2026-03-04T17:31:03.629608+00:00 OUT   sakila.rental - Started (13 of 16, session 5)
+2026-03-04T17:31:03.648296+00:00 OUT   sakila.staff - Started (14 of 16, session 4)
+2026-03-04T17:31:03.665393+00:00 OUT   sakila.language - Open cursor (6 rows read, 3 ms, session 1)
+2026-03-04T17:31:03.679987+00:00 OUT   sakila.film_category - Data transfer complete (session 3)
+2026-03-04T17:31:03.688003+00:00 OUT      Rows read:     1000 (1000 rows, 125000 rows/sec)
+2026-03-04T17:31:03.696665+00:00 OUT      Rows written:  999 (333000 rows/sec, 25.7 KB, 8.4 MB/sec)
+2026-03-04T17:31:03.703770+00:00 OUT      Transfer time: 541 ms (8 ms read, 3 ms write)
+2026-03-04T17:31:03.734099+00:00 OUT   sakila.film_text - Create target table (3 ms, session 6)
+2026-03-04T17:31:03.753770+00:00 OUT   sakila.payment - Started (15 of 16, session 2)
+2026-03-04T17:31:03.786418+00:00 OUT   sakila.staff - Open cursor (2 rows read, 12 ms, session 4)
+2026-03-04T17:31:03.800017+00:00 OUT   sakila.language - Drop target table (Failed, 8 ms, session 1)
+2026-03-04T17:31:03.862059+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:03.875599+00:00 OUT   sakila.rental - Open cursor (16044 rows read, 159 ms, session 5)
+2026-03-04T17:31:03.886654+00:00 OUT   sakila.film_text - Data transfer complete (session 6)
+2026-03-04T17:31:03.893039+00:00 OUT      Rows read:     1000 (1000 rows, 9434 rows/sec)
+2026-03-04T17:31:03.897272+00:00 OUT      Rows written:  999 (27750 rows/sec, 111.2 KB, 3.0 MB/sec)
+2026-03-04T17:31:03.901827+00:00 OUT      Transfer time: 680 ms (106 ms read, 36 ms write)
+2026-03-04T17:31:03.911854+00:00 OUT   sakila.staff - Drop target table (Failed, 12 ms, session 4)
+2026-03-04T17:31:03.941088+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:03.950872+00:00 OUT   sakila.store - Started (16 of 16, session 3)
+2026-03-04T17:31:03.968837+00:00 OUT   sakila.payment - Open cursor (16044 rows read, 101 ms, session 2)
+2026-03-04T17:31:03.980721+00:00 OUT   sakila.rental - Drop target table (Failed, 7 ms, session 5)
+2026-03-04T17:31:04.103619+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.120120+00:00 OUT   sakila.store - Open cursor (2 rows read, 2 ms, session 3)
+2026-03-04T17:31:04.153059+00:00 OUT   sakila.payment - Drop target table (7 ms, session 2)
+2026-03-04T17:31:04.167264+00:00 OUT   sakila.store - Drop target table (Failed, 8 ms, session 3)
+2026-03-04T17:31:04.227066+00:00 OUT     Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.313918+00:00 OUT   sakila.payment - Create target table (5 ms, session 2)
+2026-03-04T17:31:04.323449+00:00 OUT   sakila.payment - Data transfer complete (session 2)
+2026-03-04T17:31:04.328612+00:00 OUT      Rows read:     16044 (16.0K rows, 158851 rows/sec)
+2026-03-04T17:31:04.333631+00:00 OUT      Rows written:  16044 (16.0K rows, 291709 rows/sec, 962.6 KB, 17.1 MB/sec)
+2026-03-04T17:31:04.341518+00:00 OUT      Transfer time: 563 ms (101 ms read, 55 ms write)
+2026-03-04T17:31:04.345006+00:00 OUT 
+2026-03-04T17:31:04.350758+00:00 OUT Failed tables (12 tables):
+2026-03-04T17:31:04.355561+00:00 OUT 
+2026-03-04T17:31:04.360411+00:00 OUT     1. sakila.address - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.364799+00:00 OUT     2. sakila.actor - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.368854+00:00 OUT     3. sakila.category - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.373424+00:00 OUT     4. sakila.customer - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.378093+00:00 OUT     5. sakila.city - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.382626+00:00 OUT     6. sakila.film - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.387408+00:00 OUT     7. sakila.inventory - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.391854+00:00 OUT     8. sakila.country - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.397033+00:00 OUT     9. sakila.language - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.403547+00:00 OUT    10. sakila.staff - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.406031+00:00 OUT    11. sakila.rental - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.410809+00:00 OUT    12. sakila.store - Cannot delete or update a parent row: a foreign key constraint fails
+2026-03-04T17:31:04.457877+00:00 OUT 
+2026-03-04T17:31:04.463646+00:00 OUT 
+2026-03-04T17:31:04.466604+00:00 OUT Read/write row count differences (3 tables):
+2026-03-04T17:31:04.470699+00:00 OUT 
+2026-03-04T17:31:04.475185+00:00 OUT    1. sakila.film_actor (5462 rows read, 5461 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION
+2026-03-04T17:31:04.479471+00:00 OUT    2. sakila.film_category (1000 rows read, 999 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION
+2026-03-04T17:31:04.483505+00:00 OUT    3. sakila.film_text (1000 rows read, 999 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION
+2026-03-04T17:31:04.489297+00:00 OUT 
+2026-03-04T17:31:04.491896+00:00 OUT Summary:
+2026-03-04T17:31:04.495989+00:00 OUT 
+2026-03-04T17:31:04.500294+00:00 OUT   Tables:        16 (4 Ok, 12 failed)
+2026-03-04T17:31:04.507053+00:00 OUT   Target DDL:    20 (8 Ok, 12 failed)
+2026-03-04T17:31:04.514266+00:00 OUT   Rows read:     23506 (23.5K rows)
+2026-03-04T17:31:04.517404+00:00 OUT   Rows written:  23503 (23.5K rows) (3 row difference)
+2026-03-04T17:31:04.521601+00:00 OUT   Transfer time: 2.0 sec (11793 rows/sec, 1.2 MB, 624.9 KB/sec)
+2026-03-04T17:31:04.527178+00:00 OUT 
+2026-03-04T17:31:04.529838+00:00 OUT Logs:
+2026-03-04T17:31:04.539389+00:00 OUT 
+2026-03-04T17:31:04.545350+00:00 OUT   Execution log:             sqldata.log
+2026-03-04T17:31:04.550079+00:00 OUT   DDL SQL statements:        sqldata_ddl.sql
+2026-03-04T17:31:04.554835+00:00 OUT   Failed DDL SQL statements: sqldata_failed.sql
+2026-03-04T17:31:04.558458+00:00 OUT 
+2026-03-04T17:31:04.583681+00:00 FINISH success=False message=Run failed at step: two_step_parallel_data
+2026-03-04T17:39:24.327889+00:00 START mode=run config=config/migration.yaml
+2026-03-04T17:39:24.419743+00:00 SKIP preflight_two_step (Preflight checks (two_step)) - already DONE
+2026-03-04T17:39:24.433323+00:00 SKIP precheck (Precheck source variables and blockers) - already DONE
+2026-03-04T17:39:24.447796+00:00 SKIP two_step_schema_only (Export schema only (no data)) - already DONE
+2026-03-04T17:39:24.461990+00:00 RUN  two_step_parallel_data (Parallel data transfer with SQLines Data) -> scripts/12_two_step_sqldata.sh
+2026-03-04T17:39:24.469467+00:00 CMD /mnt/macshare/scripts/12_two_step_sqldata.sh
+2026-03-04T17:39:24.495799+00:00 OUT ==> Two-step migration: parallel data transfer (SQLines Data)
+2026-03-04T17:39:24.521548+00:00 OUT 
+2026-03-04T17:39:24.529100+00:00 OUT SQLines Data 3.7.11 x86_64 Linux - Database Migration and Validation Tool.
+2026-03-04T17:39:24.537009+00:00 OUT Copyright (c) 2026 SQLines. All Rights Reserved.
+2026-03-04T17:39:24.542084+00:00 OUT 
+2026-03-04T17:39:24.563289+00:00 OUT 14-DAY EVALUATION USE ONLY, MAY SKIP 1 ROW FROM A TABLE. NO OTHER RESTRICTIONS.
+2026-03-04T17:39:24.571337+00:00 OUT 
+2026-03-04T17:39:24.620653+00:00 OUT Connecting to databases (10 ms)
+2026-03-04T17:39:24.644282+00:00 OUT   MySQL 8.0.45-0ubuntu0.24.04.1 (Ubuntu) aarch64 Linux 1.3 (Ok, 8 ms)
+2026-03-04T17:39:24.663647+00:00 OUT   MySQL 11.8.5-2-MariaDB-enterprise MariaDB Enterprise Server aarch64 Linux system a543b7f688b9350edb8cc03534b6bb4b422598ac OpenSSL 3.5.1 1 Jul 2025 (Ok, 9 ms)
+2026-03-04T17:39:24.668530+00:00 OUT 
+2026-03-04T17:39:24.697057+00:00 OUT Reading the database schema (16 tables, 28 ms)
+2026-03-04T17:39:24.703142+00:00 OUT 
+2026-03-04T17:39:24.708620+00:00 OUT Transferring database (6 concurrent sessions):
+2026-03-04T17:39:24.718345+00:00 OUT 
+2026-03-04T17:39:24.740022+00:00 OUT   sakila.actor - Started (1 of 16, session 1)
+2026-03-04T17:39:24.760976+00:00 OUT   sakila.address - Started (2 of 16, session 2)
+2026-03-04T17:39:24.789498+00:00 OUT   sakila.actor - Open cursor (203 rows read, 11 ms, session 1)
+2026-03-04T17:39:24.820453+00:00 OUT   sakila.address - Open cursor (10 rows read, 9 ms, session 2)
+2026-03-04T17:39:24.843417+00:00 OUT   sakila.category - Started (3 of 16, session 3)
+2026-03-04T17:39:24.889073+00:00 OUT   sakila.actor - Drop target table (22 ms, session 1)
+2026-03-04T17:39:24.903800+00:00 OUT   sakila.city - Started (4 of 16, session 4)
+2026-03-04T17:39:24.935503+00:00 OUT   sakila.address - Drop target table (23 ms, session 2)
+2026-03-04T17:39:24.951750+00:00 OUT   sakila.category - Open cursor (16 rows read, 4 ms, session 3)
+2026-03-04T17:39:24.964843+00:00 OUT   sakila.country - Started (5 of 16, session 5)
+2026-03-04T17:39:24.982324+00:00 OUT   sakila.city - Open cursor (600 rows read, 10 ms, session 4)
+2026-03-04T17:39:25.012827+00:00 OUT   sakila.address - Create target table (4 ms, session 2)
+2026-03-04T17:39:25.032503+00:00 OUT   sakila.customer - Started (6 of 16, session 6)
+2026-03-04T17:39:25.071769+00:00 OUT   sakila.actor - Create target table (8 ms, session 1)
+2026-03-04T17:39:25.097340+00:00 OUT   sakila.category - Drop target table (6 ms, session 3)
+2026-03-04T17:39:25.111979+00:00 OUT   sakila.country - Open cursor (109 rows read, 4 ms, session 5)
+2026-03-04T17:39:25.137225+00:00 OUT   sakila.city - Drop target table (8 ms, session 4)
+2026-03-04T17:39:25.152034+00:00 OUT   sakila.customer - Open cursor (599 rows read, 31 ms, session 6)
+2026-03-04T17:39:25.163073+00:00 OUT   sakila.address - Data transfer complete (session 2)
+2026-03-04T17:39:25.168651+00:00 OUT      Rows read:     603 (60300 rows/sec)
+2026-03-04T17:39:25.174944+00:00 OUT      Rows written:  603 (12060 rows/sec, 61.3 KB, 1.2 MB/sec)
+2026-03-04T17:39:25.181730+00:00 OUT      Transfer time: 319 ms (10 ms read, 50 ms write)
+2026-03-04T17:39:25.190899+00:00 OUT   sakila.film - Started (7 of 16, session 2)
+2026-03-04T17:39:25.224214+00:00 OUT   sakila.category - Create target table (2 ms, session 3)
+2026-03-04T17:39:25.257549+00:00 OUT   sakila.country - Drop target table (7 ms, session 5)
+2026-03-04T17:39:25.294729+00:00 OUT   sakila.city - Create target table (3 ms, session 4)
+2026-03-04T17:39:25.347660+00:00 OUT   sakila.customer - Drop target table (7 ms, session 6)
+2026-03-04T17:39:25.363895+00:00 OUT   sakila.actor - Data transfer complete (session 1)
+2026-03-04T17:39:25.369518+00:00 OUT      Rows read:     203 (18455 rows/sec)
+2026-03-04T17:39:25.374987+00:00 OUT      Rows written:  203 (203000 rows/sec, 7.3 KB, 7.2 MB/sec)
+2026-03-04T17:39:25.382689+00:00 OUT      Transfer time: 348 ms (11 ms read, 1 ms write)
+2026-03-04T17:39:25.391033+00:00 OUT   sakila.film_actor - Started (8 of 16, session 1)
+2026-03-04T17:39:25.425623+00:00 OUT   sakila.country - Create target table (5 ms, session 5)
+2026-03-04T17:39:25.441106+00:00 OUT   sakila.film - Open cursor (1000 rows read, 116 ms, session 2)
+2026-03-04T17:39:25.452600+00:00 OUT   sakila.city - Data transfer complete (session 4)
+2026-03-04T17:39:25.457945+00:00 OUT      Rows read:     600 (60000 rows/sec)
+2026-03-04T17:39:25.462935+00:00 OUT      Rows written:  600 (100000 rows/sec, 21.4 KB, 3.5 MB/sec)
+2026-03-04T17:39:25.468901+00:00 OUT      Transfer time: 407 ms (10 ms read, 6 ms write)
+2026-03-04T17:39:25.477472+00:00 OUT   sakila.film_category - Started (9 of 16, session 4)
+2026-03-04T17:39:25.491081+00:00 OUT   sakila.category - Data transfer complete (session 3)
+2026-03-04T17:39:25.497289+00:00 OUT      Rows read:     16 (4000 rows/sec)
+2026-03-04T17:39:25.502310+00:00 OUT      Rows written:  16 (8000 rows/sec, 478 bytes, 233.4 KB/sec)
+2026-03-04T17:39:25.508425+00:00 OUT      Transfer time: 394 ms (4 ms read, 2 ms write)
+2026-03-04T17:39:25.518119+00:00 OUT   sakila.film_text - Started (10 of 16, session 3)
+2026-03-04T17:39:25.533245+00:00 OUT   sakila.country - Data transfer complete (session 5)
+2026-03-04T17:39:25.544774+00:00 OUT      Rows read:     109 (27250 rows/sec)
+2026-03-04T17:39:25.554482+00:00 OUT      Rows written:  109 (36333 rows/sec, 3.5 KB, 1.1 MB/sec)
+2026-03-04T17:39:25.562292+00:00 OUT      Transfer time: 472 ms (4 ms read, 3 ms write)
+2026-03-04T17:39:25.572942+00:00 OUT   sakila.inventory - Started (11 of 16, session 5)
+2026-03-04T17:39:25.602886+00:00 OUT   sakila.customer - Create target table (2 ms, session 6)
+2026-03-04T17:39:25.628379+00:00 OUT   sakila.film_category - Open cursor (1000 rows read, 7 ms, session 4)
+2026-03-04T17:39:25.641486+00:00 OUT   sakila.customer - Data transfer complete (session 6)
+2026-03-04T17:39:25.652207+00:00 OUT      Rows read:     599 (19323 rows/sec)
+2026-03-04T17:39:25.661019+00:00 OUT      Rows written:  599 (37438 rows/sec, 57.6 KB, 3.5 MB/sec)
+2026-03-04T17:39:25.667012+00:00 OUT      Transfer time: 598 ms (31 ms read, 16 ms write)
+2026-03-04T17:39:25.690422+00:00 OUT   sakila.film - Drop target table (4 ms, session 2)
+2026-03-04T17:39:25.707063+00:00 OUT   sakila.inventory - Open cursor (4581 rows read, 26 ms, session 5)
+2026-03-04T17:39:25.723229+00:00 OUT   sakila.film_actor - Open cursor (5462 rows read, 17 ms, session 1)
+2026-03-04T17:39:25.749987+00:00 OUT   sakila.film_category - Drop target table (5 ms, session 4)
+2026-03-04T17:39:25.766064+00:00 OUT   sakila.film_text - Open cursor (1000 rows read, 142 ms, session 3)
+2026-03-04T17:39:25.776897+00:00 OUT   sakila.language - Started (12 of 16, session 6)
+2026-03-04T17:39:25.813494+00:00 OUT   sakila.film - Create target table (3 ms, session 2)
+2026-03-04T17:39:25.849922+00:00 OUT   sakila.inventory - Drop target table (5 ms, session 5)
+2026-03-04T17:39:25.871143+00:00 OUT   sakila.film_actor - Drop target table (6 ms, session 1)
+2026-03-04T17:39:25.896435+00:00 OUT   sakila.film_category - Create target table (3 ms, session 4)
+2026-03-04T17:39:25.923575+00:00 OUT   sakila.film_text - Drop target table (5 ms, session 3)
+2026-03-04T17:39:25.938270+00:00 OUT   sakila.language - Open cursor (6 rows read, 2 ms, session 6)
+2026-03-04T17:39:25.964537+00:00 OUT   sakila.inventory - Create target table (3 ms, session 5)
+2026-03-04T17:39:25.979379+00:00 OUT   sakila.film - Data transfer complete (session 2)
+2026-03-04T17:39:25.988389+00:00 OUT      Rows read:     1000 (1000 rows, 8621 rows/sec)
+2026-03-04T17:39:25.997419+00:00 OUT      Rows written:  1000 (1000 rows, 41667 rows/sec, 189.0 KB, 7.7 MB/sec)
+2026-03-04T17:39:26.002147+00:00 OUT      Transfer time: 659 ms (116 ms read, 24 ms write)
+2026-03-04T17:39:26.008495+00:00 OUT   sakila.payment - Started (13 of 16, session 2)
+2026-03-04T17:39:26.025993+00:00 OUT   sakila.film_category - Data transfer complete (session 4)
+2026-03-04T17:39:26.035261+00:00 OUT      Rows read:     1000 (1000 rows, 142857 rows/sec)
+2026-03-04T17:39:26.046498+00:00 OUT      Rows written:  1000 (1000 rows, 200000 rows/sec, 25.7 KB, 5.0 MB/sec)
+2026-03-04T17:39:26.057530+00:00 OUT      Transfer time: 429 ms (7 ms read, 5 ms write)
+2026-03-04T17:39:26.072398+00:00 OUT   sakila.rental - Started (14 of 16, session 4)
+2026-03-04T17:39:26.103693+00:00 OUT   sakila.language - Drop target table (5 ms, session 6)
+2026-03-04T17:39:26.121466+00:00 OUT   sakila.inventory - Data transfer complete (session 5)
+2026-03-04T17:39:26.135911+00:00 OUT      Rows read:     4581 (4.6K rows, 176192 rows/sec)
+2026-03-04T17:39:26.146417+00:00 OUT      Rows written:  4581 (4.6K rows, 218143 rows/sec, 137.1 KB, 6.4 MB/sec)
+2026-03-04T17:39:26.162396+00:00 OUT      Transfer time: 427 ms (26 ms read, 21 ms write)
+2026-03-04T17:39:26.172125+00:00 OUT   sakila.staff - Started (15 of 16, session 5)
+2026-03-04T17:39:26.190937+00:00 OUT   sakila.film_text - Create target table (3 ms, session 3)
+2026-03-04T17:39:26.229310+00:00 OUT   sakila.language - Create target table (3 ms, session 6)
+2026-03-04T17:39:26.258074+00:00 OUT   sakila.film_actor - Create target table (3 ms, session 1)
+2026-03-04T17:39:26.277166+00:00 OUT   sakila.payment - Open cursor (16044 rows read, 151 ms, session 2)
+2026-03-04T17:39:26.297258+00:00 OUT   sakila.staff - Open cursor (2 rows read, 11 ms, session 5)
+2026-03-04T17:39:26.307693+00:00 OUT   sakila.film_text - Data transfer complete (session 3)
+2026-03-04T17:39:26.313107+00:00 OUT      Rows read:     1000 (1000 rows, 7042 rows/sec)
+2026-03-04T17:39:26.317684+00:00 OUT      Rows written:  1000 (1000 rows, 37037 rows/sec, 111.3 KB, 4.0 MB/sec)
+2026-03-04T17:39:26.322788+00:00 OUT      Transfer time: 712 ms (142 ms read, 27 ms write)
+2026-03-04T17:39:26.330536+00:00 OUT   sakila.store - Started (16 of 16, session 3)
+2026-03-04T17:39:26.344634+00:00 OUT   sakila.rental - Open cursor (16044 rows read, 182 ms, session 4)
+2026-03-04T17:39:26.355215+00:00 OUT   sakila.film_actor - Data transfer complete (session 1)
+2026-03-04T17:39:26.361016+00:00 OUT      Rows read:     5462 (5.5K rows, 321294 rows/sec)
+2026-03-04T17:39:26.365451+00:00 OUT      Rows written:  5462 (5.5K rows, 287474 rows/sec, 146.0 KB, 7.5 MB/sec)
+2026-03-04T17:39:26.369932+00:00 OUT      Transfer time: 892 ms (17 ms read, 19 ms write)
+2026-03-04T17:39:26.389336+00:00 OUT   sakila.payment - Drop target table (7 ms, session 2)
+2026-03-04T17:39:26.413874+00:00 OUT   sakila.staff - Drop target table (5 ms, session 5)
+2026-03-04T17:39:26.424368+00:00 OUT   sakila.language - Data transfer complete (session 6)
+2026-03-04T17:39:26.428578+00:00 OUT      Rows read:     6 (3000 rows/sec)
+2026-03-04T17:39:26.432357+00:00 OUT      Rows written:  6 (2000 rows/sec, 180 bytes, 58.6 KB/sec)
+2026-03-04T17:39:26.439311+00:00 OUT      Transfer time: 464 ms (2 ms read, 3 ms write)
+2026-03-04T17:39:26.452800+00:00 OUT   sakila.store - Open cursor (2 rows read, 4 ms, session 3)
+2026-03-04T17:39:26.477499+00:00 OUT   sakila.rental - Drop target table (6 ms, session 4)
+2026-03-04T17:39:26.501312+00:00 OUT   sakila.payment - Create target table (3 ms, session 2)
+2026-03-04T17:39:26.532951+00:00 OUT   sakila.staff - Create target table (3 ms, session 5)
+2026-03-04T17:39:26.583233+00:00 OUT   sakila.store - Drop target table (7 ms, session 3)
+2026-03-04T17:39:26.643278+00:00 OUT   sakila.rental - Create target table (6 ms, session 4)
+2026-03-04T17:39:26.661141+00:00 OUT   sakila.staff - Data transfer complete (session 5)
+2026-03-04T17:39:26.672499+00:00 OUT      Rows read:     2 (182 rows/sec)
+2026-03-04T17:39:26.689145+00:00 OUT      Rows written:  2 (250 rows/sec, 36.1 KB, 4.4 MB/sec)
+2026-03-04T17:39:26.703141+00:00 OUT      Transfer time: 397 ms (11 ms read, 8 ms write)
+2026-03-04T17:39:26.723940+00:00 OUT   sakila.store - Create target table (3 ms, session 3)
+2026-03-04T17:39:26.743557+00:00 OUT   sakila.payment - Data transfer complete (session 2)
+2026-03-04T17:39:26.754163+00:00 OUT      Rows read:     16044 (16.0K rows, 106252 rows/sec)
+2026-03-04T17:39:26.764142+00:00 OUT      Rows written:  16044 (16.0K rows, 79034 rows/sec, 962.6 KB, 4.6 MB/sec)
+2026-03-04T17:39:26.774381+00:00 OUT      Transfer time: 708 ms (151 ms read, 203 ms write)
+2026-03-04T17:39:26.783220+00:00 OUT   sakila.store - Data transfer complete (session 3)
+2026-03-04T17:39:26.792231+00:00 OUT      Rows read:     2 (500 rows/sec)
+2026-03-04T17:39:26.802327+00:00 OUT      Rows written:  2 (400 rows/sec, 52 bytes, 10.2 KB/sec)
+2026-03-04T17:39:26.832497+00:00 OUT      Transfer time: 401 ms (4 ms read, 5 ms write)
+2026-03-04T17:39:26.843353+00:00 OUT   sakila.rental - Data transfer complete (session 4)
+2026-03-04T17:39:26.847973+00:00 OUT      Rows read:     16044 (16.0K rows, 88154 rows/sec)
+2026-03-04T17:39:26.852534+00:00 OUT      Rows written:  16044 (16.0K rows, 87196 rows/sec, 1.2 MB, 6.3 MB/sec)
+2026-03-04T17:39:26.859852+00:00 OUT      Transfer time: 769 ms (182 ms read, 184 ms write)
+2026-03-04T17:39:26.865201+00:00 OUT 
+2026-03-04T17:39:26.869688+00:00 OUT Summary:
+2026-03-04T17:39:26.874342+00:00 OUT 
+2026-03-04T17:39:26.878393+00:00 OUT   Tables:        16 (16 Ok, 0 failed)
+2026-03-04T17:39:26.882868+00:00 OUT   Target DDL:    32 (32 Ok, 0 failed)
+2026-03-04T17:39:26.887088+00:00 OUT   Rows read:     47271 (47.3K rows)
+2026-03-04T17:39:26.891041+00:00 OUT   Rows written:  47271 (47.3K rows)
+2026-03-04T17:39:26.895138+00:00 OUT   Transfer time: 2.1 sec (22007 rows/sec, 2.9 MB, 1.3 MB/sec)
+2026-03-04T17:39:26.899667+00:00 OUT 
+2026-03-04T17:39:26.904080+00:00 OUT Logs:
+2026-03-04T17:39:26.911787+00:00 OUT 
+2026-03-04T17:39:26.917247+00:00 OUT   Execution log:             sqldata.log
+2026-03-04T17:39:26.922700+00:00 OUT   DDL SQL statements:        sqldata_ddl.sql
+2026-03-04T17:39:26.927531+00:00 OUT 
+2026-03-04T17:39:26.932655+00:00 OUT SQLines Data transfer completed.
+2026-03-04T17:39:26.958517+00:00 RUN  two_step_finalize_objects (Apply constraints/indexes/routines after data load) -> scripts/13_two_step_finalize.sh
+2026-03-04T17:39:26.968192+00:00 CMD /mnt/macshare/scripts/13_two_step_finalize.sh
+2026-03-04T17:39:26.995150+00:00 OUT ==> Two-step migration: finalize objects (constraints/indexes/routines)
+2026-03-04T17:39:27.023013+00:00 OUT 
+2026-03-04T17:39:27.030086+00:00 OUT SQLines Data 3.7.11 x86_64 Linux - Database Migration and Validation Tool.
+2026-03-04T17:39:27.036515+00:00 OUT Copyright (c) 2026 SQLines. All Rights Reserved.
+2026-03-04T17:39:27.041397+00:00 OUT 
+2026-03-04T17:39:27.067096+00:00 OUT 14-DAY EVALUATION USE ONLY, MAY SKIP 1 ROW FROM A TABLE. NO OTHER RESTRICTIONS.
+2026-03-04T17:39:27.075058+00:00 OUT 
+2026-03-04T17:39:27.119051+00:00 OUT Connecting to databases (9 ms)
+2026-03-04T17:39:27.138286+00:00 OUT   MySQL 8.0.45-0ubuntu0.24.04.1 (Ubuntu) aarch64 Linux 1.3 (Ok, 8 ms)
+2026-03-04T17:39:27.157391+00:00 OUT   MySQL 11.8.5-2-MariaDB-enterprise MariaDB Enterprise Server aarch64 Linux system a543b7f688b9350edb8cc03534b6bb4b422598ac OpenSSL 3.5.1 1 Jul 2025 (Ok, 7 ms)
+2026-03-04T17:39:27.162681+00:00 OUT 
+2026-03-04T17:39:27.187344+00:00 OUT Reading the database schema (16 tables, 23 ms)
+2026-03-04T17:39:27.191880+00:00 OUT 
+2026-03-04T17:39:27.198409+00:00 OUT Transferring database (6 concurrent sessions):
+2026-03-04T17:39:27.211789+00:00 OUT 
+2026-03-04T17:39:27.229129+00:00 OUT   sakila.actor - Started (1 of 16, session 1)
+2026-03-04T17:39:27.245508+00:00 OUT   sakila.address - Started (2 of 16, session 2)
+2026-03-04T17:39:27.267343+00:00 OUT   sakila.address - Open cursor (10 rows read, 3 ms, session 2)
+2026-03-04T17:39:27.290231+00:00 OUT   sakila.actor - Open cursor (203 rows read, 6 ms, session 1)
+2026-03-04T17:39:27.303154+00:00 OUT   sakila.category - Started (3 of 16, session 3)
+2026-03-04T17:39:27.345153+00:00 OUT   sakila.address - Drop target table (6 ms, session 2)
+2026-03-04T17:39:27.356890+00:00 OUT   sakila.city - Started (4 of 16, session 4)
+2026-03-04T17:39:27.369473+00:00 OUT   sakila.country - Started (5 of 16, session 5)
+2026-03-04T17:39:27.389557+00:00 OUT   sakila.actor - Drop target table (6 ms, session 1)
+2026-03-04T17:39:27.413571+00:00 OUT   sakila.address - Create target table (3 ms, session 2)
+2026-03-04T17:39:27.433284+00:00 OUT   sakila.category - Open cursor (16 rows read, 3 ms, session 3)
+2026-03-04T17:39:27.451262+00:00 OUT   sakila.city - Open cursor (600 rows read, 6 ms, session 4)
+2026-03-04T17:39:27.465948+00:00 OUT   sakila.customer - Started (6 of 16, session 6)
+2026-03-04T17:39:27.485558+00:00 OUT   sakila.country - Open cursor (109 rows read, 3 ms, session 5)
+2026-03-04T17:39:27.510300+00:00 OUT   sakila.actor - Create target table (3 ms, session 1)
+2026-03-04T17:39:27.535323+00:00 OUT   sakila.category - Drop target table (7 ms, session 3)
+2026-03-04T17:39:27.559960+00:00 OUT   sakila.city - Drop target table (7 ms, session 4)
+2026-03-04T17:39:27.571553+00:00 OUT   sakila.address - Data transfer complete (session 2)
+2026-03-04T17:39:27.576682+00:00 OUT      Rows read:     603 (67000 rows/sec)
+2026-03-04T17:39:27.581566+00:00 OUT      Rows written:  602 (17200 rows/sec, 61.2 KB, 1.7 MB/sec)
+2026-03-04T17:39:27.586781+00:00 OUT      Transfer time: 223 ms (9 ms read, 35 ms write)
+2026-03-04T17:39:27.595938+00:00 OUT   sakila.film - Started (7 of 16, session 2)
+2026-03-04T17:39:27.626025+00:00 OUT   sakila.country - Drop target table (7 ms, session 5)
+2026-03-04T17:39:27.640725+00:00 OUT   sakila.actor - Data transfer complete (session 1)
+2026-03-04T17:39:27.650220+00:00 OUT      Rows read:     203 (33833 rows/sec)
+2026-03-04T17:39:27.659039+00:00 OUT      Rows written:  202 (101000 rows/sec, 7.3 KB, 3.6 MB/sec)
+2026-03-04T17:39:27.667194+00:00 OUT      Transfer time: 300 ms (6 ms read, 2 ms write)
+2026-03-04T17:39:27.677333+00:00 OUT   sakila.film_actor - Started (8 of 16, session 1)
+2026-03-04T17:39:27.705957+00:00 OUT   sakila.city - Create target table (3 ms, session 4)
+2026-03-04T17:39:27.725016+00:00 OUT   sakila.customer - Open cursor (599 rows read, 14 ms, session 6)
+2026-03-04T17:39:27.749467+00:00 OUT   sakila.country - Create target table (3 ms, session 5)
+2026-03-04T17:39:27.777578+00:00 OUT   sakila.category - Create target table (2 ms, session 3)
+2026-03-04T17:39:27.792743+00:00 OUT   sakila.film_actor - Open cursor (5462 rows read, 24 ms, session 1)
+2026-03-04T17:39:27.809210+00:00 OUT   sakila.film - Open cursor (1000 rows read, 109 ms, session 2)
+2026-03-04T17:39:27.820812+00:00 OUT   sakila.city - Data transfer complete (session 4)
+2026-03-04T17:39:27.825564+00:00 OUT      Rows read:     600 (100000 rows/sec)
+2026-03-04T17:39:27.830182+00:00 OUT      Rows written:  599 (99833 rows/sec, 21.3 KB, 3.5 MB/sec)
+2026-03-04T17:39:27.834409+00:00 OUT      Transfer time: 361 ms (6 ms read, 6 ms write)
+2026-03-04T17:39:27.843789+00:00 OUT   sakila.film_category - Started (9 of 16, session 4)
+2026-03-04T17:39:27.859253+00:00 OUT   sakila.country - Data transfer complete (session 5)
+2026-03-04T17:39:27.864474+00:00 OUT      Rows read:     109 (36333 rows/sec)
+2026-03-04T17:39:27.869150+00:00 OUT      Rows written:  108 (54000 rows/sec, 3.5 KB, 1.7 MB/sec)
+2026-03-04T17:39:27.873612+00:00 OUT      Transfer time: 388 ms (3 ms read, 2 ms write)
+2026-03-04T17:39:27.884413+00:00 OUT   sakila.film_text - Started (10 of 16, session 5)
+2026-03-04T17:39:27.916870+00:00 OUT   sakila.film_actor - Drop target table (4 ms, session 1)
+2026-03-04T17:39:27.951113+00:00 OUT   sakila.film - Drop target table (6 ms, session 2)
+2026-03-04T17:39:27.978515+00:00 OUT   sakila.customer - Drop target table (6 ms, session 6)
+2026-03-04T17:39:27.993907+00:00 OUT   sakila.film_category - Open cursor (1000 rows read, 5 ms, session 4)
+2026-03-04T17:39:28.005980+00:00 OUT   sakila.category - Data transfer complete (session 3)
+2026-03-04T17:39:28.010997+00:00 OUT      Rows read:     16 (5333 rows/sec)
+2026-03-04T17:39:28.015880+00:00 OUT      Rows written:  15 (15000 rows/sec, 449 bytes, 438.5 KB/sec)
+2026-03-04T17:39:28.020947+00:00 OUT      Transfer time: 481 ms (3 ms read, 1 ms write)
+2026-03-04T17:39:28.039597+00:00 OUT   sakila.film_actor - Create target table (5 ms, session 1)
+2026-03-04T17:39:28.071919+00:00 OUT   sakila.film - Create target table (3 ms, session 2)
+2026-03-04T17:39:28.090011+00:00 OUT   sakila.film_text - Open cursor (1000 rows read, 82 ms, session 5)
+2026-03-04T17:39:28.120439+00:00 OUT   sakila.customer - Create target table (3 ms, session 6)
+2026-03-04T17:39:28.149015+00:00 OUT   sakila.film_category - Drop target table (5 ms, session 4)
+2026-03-04T17:39:28.160106+00:00 OUT   sakila.inventory - Started (11 of 16, session 3)
+2026-03-04T17:39:28.175711+00:00 OUT   sakila.film_actor - Data transfer complete (session 1)
+2026-03-04T17:39:28.182676+00:00 OUT      Rows read:     5462 (5.5K rows, 227583 rows/sec)
+2026-03-04T17:39:28.187506+00:00 OUT      Rows written:  5462 (5.5K rows, 260095 rows/sec, 146.0 KB, 6.8 MB/sec)
+2026-03-04T17:39:28.192541+00:00 OUT      Transfer time: 396 ms (24 ms read, 21 ms write)
+2026-03-04T17:39:28.216541+00:00 OUT   sakila.film_text - Drop target table (8 ms, session 5)
+2026-03-04T17:39:28.226344+00:00 OUT   sakila.film - Data transfer complete (session 2)
+2026-03-04T17:39:28.231795+00:00 OUT      Rows read:     1000 (1000 rows, 9174 rows/sec)
+2026-03-04T17:39:28.236185+00:00 OUT      Rows written:  1000 (1000 rows, 35714 rows/sec, 189.0 KB, 6.6 MB/sec)
+2026-03-04T17:39:28.240954+00:00 OUT      Transfer time: 511 ms (109 ms read, 28 ms write)
+2026-03-04T17:39:28.249809+00:00 OUT   sakila.payment - Started (12 of 16, session 2)
+2026-03-04T17:39:28.279192+00:00 OUT   sakila.film_category - Create target table (3 ms, session 4)
+2026-03-04T17:39:28.301510+00:00 OUT   sakila.inventory - Open cursor (4581 rows read, 16 ms, session 3)
+2026-03-04T17:39:28.314642+00:00 OUT   sakila.language - Started (13 of 16, session 1)
+2026-03-04T17:39:28.346214+00:00 OUT   sakila.film_text - Create target table (3 ms, session 5)
+2026-03-04T17:39:28.371536+00:00 OUT   sakila.customer - Data transfer complete (session 6)
+2026-03-04T17:39:28.382452+00:00 OUT      Rows read:     599 (42786 rows/sec)
+2026-03-04T17:39:28.390653+00:00 OUT      Rows written:  599 (59900 rows/sec, 57.6 KB, 5.6 MB/sec)
+2026-03-04T17:39:28.398124+00:00 OUT      Transfer time: 672 ms (14 ms read, 10 ms write)
+2026-03-04T17:39:28.404997+00:00 OUT   sakila.rental - Started (14 of 16, session 6)
+2026-03-04T17:39:28.432608+00:00 OUT   sakila.inventory - Drop target table (5 ms, session 3)
+2026-03-04T17:39:28.451474+00:00 OUT   sakila.language - Open cursor (6 rows read, 2 ms, session 1)
+2026-03-04T17:39:28.474119+00:00 OUT   sakila.payment - Open cursor (16044 rows read, 118 ms, session 2)
+2026-03-04T17:39:28.494109+00:00 OUT   sakila.film_text - Data transfer complete (session 5)
+2026-03-04T17:39:28.506093+00:00 OUT      Rows read:     1000 (1000 rows, 12195 rows/sec)
+2026-03-04T17:39:28.515316+00:00 OUT      Rows written:  1000 (1000 rows, 50000 rows/sec, 111.3 KB, 5.4 MB/sec)
+2026-03-04T17:39:28.523745+00:00 OUT      Transfer time: 492 ms (82 ms read, 20 ms write)
+2026-03-04T17:39:28.532873+00:00 OUT   sakila.staff - Started (15 of 16, session 5)
+2026-03-04T17:39:28.552984+00:00 OUT   sakila.inventory - Create target table (2 ms, session 3)
+2026-03-04T17:39:28.582930+00:00 OUT   sakila.language - Drop target table (9 ms, session 1)
+2026-03-04T17:39:28.607237+00:00 OUT   sakila.payment - Drop target table (4 ms, session 2)
+2026-03-04T17:39:28.619349+00:00 OUT   sakila.film_category - Data transfer complete (session 4)
+2026-03-04T17:39:28.624761+00:00 OUT      Rows read:     1000 (1000 rows, 200000 rows/sec)
+2026-03-04T17:39:28.629009+00:00 OUT      Rows written:  1000 (1000 rows, 166667 rows/sec, 25.7 KB, 4.2 MB/sec)
+2026-03-04T17:39:28.634030+00:00 OUT      Transfer time: 448 ms (5 ms read, 6 ms write)
+2026-03-04T17:39:28.641986+00:00 OUT   sakila.store - Started (16 of 16, session 4)
+2026-03-04T17:39:28.656438+00:00 OUT   sakila.staff - Open cursor (2 rows read, 7 ms, session 5)
+2026-03-04T17:39:28.666885+00:00 OUT   sakila.inventory - Data transfer complete (session 3)
+2026-03-04T17:39:28.671304+00:00 OUT      Rows read:     4581 (4.6K rows, 286312 rows/sec)
+2026-03-04T17:39:28.676250+00:00 OUT      Rows written:  4581 (4.6K rows, 241105 rows/sec, 137.1 KB, 7.0 MB/sec)
+2026-03-04T17:39:28.682558+00:00 OUT      Transfer time: 420 ms (16 ms read, 19 ms write)
+2026-03-04T17:39:28.706918+00:00 OUT   sakila.language - Create target table (2 ms, session 1)
+2026-03-04T17:39:28.733122+00:00 OUT   sakila.payment - Create target table (3 ms, session 2)
+2026-03-04T17:39:28.759926+00:00 OUT   sakila.rental - Open cursor (16044 rows read, 127 ms, session 6)
+2026-03-04T17:39:28.785377+00:00 OUT   sakila.store - Open cursor (2 rows read, 4 ms, session 4)
+2026-03-04T17:39:28.823855+00:00 OUT   sakila.staff - Drop target table (6 ms, session 5)
+2026-03-04T17:39:28.854982+00:00 OUT   sakila.film_actor - Add PRIMARY KEY constraint (12 ms, session 3)
+2026-03-04T17:39:28.869778+00:00 OUT   sakila.language - Data transfer complete (session 1)
+2026-03-04T17:39:28.877974+00:00 OUT      Rows read:     6 (3000 rows/sec)
+2026-03-04T17:39:28.885157+00:00 OUT      Rows written:  6 (3000 rows/sec, 180 bytes, 87.9 KB/sec)
+2026-03-04T17:39:28.897052+00:00 OUT      Transfer time: 401 ms (2 ms read, 2 ms write)
+2026-03-04T17:39:28.916593+00:00 OUT   sakila.rental - Drop target table (12 ms, session 6)
+2026-03-04T17:39:28.945152+00:00 OUT   sakila.store - Drop target table (6 ms, session 4)
+2026-03-04T17:39:28.966071+00:00 OUT   sakila.staff - Create target table (6 ms, session 5)
+2026-03-04T17:39:28.995731+00:00 OUT   sakila.film_category - Add PRIMARY KEY constraint (6 ms, session 3)
+2026-03-04T17:39:29.006968+00:00 OUT   sakila.payment - Data transfer complete (session 2)
+2026-03-04T17:39:29.012693+00:00 OUT      Rows read:     16044 (16.0K rows, 135966 rows/sec)
+2026-03-04T17:39:29.017722+00:00 OUT      Rows written:  16044 (16.0K rows, 106960 rows/sec, 962.6 KB, 6.3 MB/sec)
+2026-03-04T17:39:29.026766+00:00 OUT      Transfer time: 643 ms (118 ms read, 150 ms write)
+2026-03-04T17:39:29.050307+00:00 OUT   sakila.film_text - Add PRIMARY KEY constraint (8 ms, session 1)
+2026-03-04T17:39:29.074902+00:00 OUT   sakila.rental - Create target table (3 ms, session 6)
+2026-03-04T17:39:29.106833+00:00 OUT   sakila.store - Create target table (3 ms, session 4)
+2026-03-04T17:39:29.123646+00:00 OUT   sakila.staff - Data transfer complete (session 5)
+2026-03-04T17:39:29.133244+00:00 OUT      Rows read:     2 (286 rows/sec)
+2026-03-04T17:39:29.142734+00:00 OUT      Rows written:  2 (286 rows/sec, 36.1 KB, 5.0 MB/sec)
+2026-03-04T17:39:29.153357+00:00 OUT      Transfer time: 456 ms (7 ms read, 7 ms write)
+2026-03-04T17:39:29.180273+00:00 OUT   sakila.address - Add FOREIGN KEY constraint (5 ms, session 3)
+2026-03-04T17:39:29.212683+00:00 OUT   sakila.city - Add FOREIGN KEY constraint (6 ms, session 2)
+2026-03-04T17:39:29.243173+00:00 OUT   sakila.customer - Add FOREIGN KEY constraint (5 ms, session 1)
+2026-03-04T17:39:29.258333+00:00 OUT   sakila.store - Data transfer complete (session 4)
+2026-03-04T17:39:29.264128+00:00 OUT      Rows read:     2 (500 rows/sec)
+2026-03-04T17:39:29.269001+00:00 OUT      Rows written:  2 (2000 rows/sec, 52 bytes, 50.8 KB/sec)
+2026-03-04T17:39:29.276500+00:00 OUT      Transfer time: 470 ms (4 ms read, 1 ms write)
+2026-03-04T17:39:29.298379+00:00 OUT   sakila.customer - Add FOREIGN KEY constraint (5 ms, session 5)
+2026-03-04T17:39:29.322195+00:00 OUT   sakila.film_actor - Add FOREIGN KEY constraint (4 ms, session 3)
+2026-03-04T17:39:29.343384+00:00 OUT   sakila.film_actor - Add FOREIGN KEY constraint (10 ms, session 2)
+2026-03-04T17:39:29.367788+00:00 OUT   sakila.film_category - Add FOREIGN KEY constraint (4 ms, session 1)
+2026-03-04T17:39:29.378551+00:00 OUT   sakila.rental - Data transfer complete (session 6)
+2026-03-04T17:39:29.384466+00:00 OUT      Rows read:     16044 (16.0K rows, 126331 rows/sec)
+2026-03-04T17:39:29.389585+00:00 OUT      Rows written:  16044 (16.0K rows, 91159 rows/sec, 1.2 MB, 6.6 MB/sec)
+2026-03-04T17:39:29.394815+00:00 OUT      Transfer time: 856 ms (127 ms read, 176 ms write)
+2026-03-04T17:39:29.420087+00:00 OUT   sakila.film_category - Add FOREIGN KEY constraint (3 ms, session 4)
+2026-03-04T17:39:29.444782+00:00 OUT   sakila.film - Add FOREIGN KEY constraint (4 ms, session 5)
+2026-03-04T17:39:29.470589+00:00 OUT   sakila.film - Add FOREIGN KEY constraint (5 ms, session 3)
+2026-03-04T17:39:29.497934+00:00 OUT   sakila.inventory - Add FOREIGN KEY constraint (7 ms, session 2)
+2026-03-04T17:39:29.523960+00:00 OUT   sakila.inventory - Add FOREIGN KEY constraint (8 ms, session 1)
+2026-03-04T17:39:29.556008+00:00 OUT   sakila.payment - Add FOREIGN KEY constraint (10 ms, session 6)
+2026-03-04T17:39:29.580552+00:00 OUT   sakila.payment - Add FOREIGN KEY constraint (9 ms, session 4)
+2026-03-04T17:39:29.605557+00:00 OUT   sakila.payment - Add FOREIGN KEY constraint (9 ms, session 5)
+2026-03-04T17:39:29.633863+00:00 OUT   sakila.rental - Add FOREIGN KEY constraint (9 ms, session 3)
+2026-03-04T17:39:29.657739+00:00 OUT   sakila.rental - Add FOREIGN KEY constraint (10 ms, session 2)
+2026-03-04T17:39:29.681806+00:00 OUT   sakila.rental - Add FOREIGN KEY constraint (13 ms, session 1)
+2026-03-04T17:39:29.707424+00:00 OUT   sakila.staff - Add FOREIGN KEY constraint (5 ms, session 6)
+2026-03-04T17:39:29.730911+00:00 OUT   sakila.staff - Add FOREIGN KEY constraint (4 ms, session 4)
+2026-03-04T17:39:29.754826+00:00 OUT   sakila.store - Add FOREIGN KEY constraint (4 ms, session 5)
+2026-03-04T17:39:29.782278+00:00 OUT   sakila.store - Add FOREIGN KEY constraint (6 ms, session 3)
+2026-03-04T17:39:29.808196+00:00 OUT   sakila.actor - Create index idx_actor_last_name (4 ms, session 2)
+2026-03-04T17:39:29.834229+00:00 OUT   sakila.address - Create index idx_fk_city_id (4 ms, session 1)
+2026-03-04T17:39:29.860534+00:00 OUT   sakila.address - Create index idx_location (6 ms, session 6)
+2026-03-04T17:39:29.887102+00:00 OUT   sakila.city - Create index idx_fk_country_id (3 ms, session 4)
+2026-03-04T17:39:29.913160+00:00 OUT   sakila.customer - Create index idx_fk_address_id (4 ms, session 5)
+2026-03-04T17:39:29.936475+00:00 OUT   sakila.customer - Create index idx_fk_store_id (4 ms, session 3)
+2026-03-04T17:39:29.962271+00:00 OUT   sakila.customer - Create index idx_last_name (5 ms, session 2)
+2026-03-04T17:39:29.986861+00:00 OUT   sakila.film - Create index idx_fk_language_id (5 ms, session 1)
+2026-03-04T17:39:30.011617+00:00 OUT   sakila.film - Create index idx_fk_original_language_id (5 ms, session 6)
+2026-03-04T17:39:30.036338+00:00 OUT   sakila.film - Create index idx_title (6 ms, session 4)
+2026-03-04T17:39:30.058949+00:00 OUT   sakila.film_actor - Create index idx_fk_film_id (8 ms, session 5)
+2026-03-04T17:39:30.085633+00:00 OUT   sakila.film_category - Create index fk_film_category_category (5 ms, session 3)
+2026-03-04T17:39:30.097761+00:00 OUT   sakila.film_text - Create index idx_title_description (Failed, 2 ms, session 2)
+2026-03-04T17:39:30.148714+00:00 OUT 	Specified key was too long; max key length is 3072 bytes
+2026-03-04T17:39:30.173795+00:00 OUT   sakila.inventory - Create index idx_fk_film_id (6 ms, session 1)
+2026-03-04T17:39:30.200125+00:00 OUT   sakila.inventory - Create index idx_store_id_film_id (8 ms, session 6)
+2026-03-04T17:39:30.230161+00:00 OUT   sakila.payment - Create index fk_payment_rental (9 ms, session 4)
+2026-03-04T17:39:30.256514+00:00 OUT   sakila.payment - Create index idx_fk_customer_id (9 ms, session 5)
+2026-03-04T17:39:30.280566+00:00 OUT   sakila.payment - Create index idx_fk_staff_id (8 ms, session 3)
+2026-03-04T17:39:30.305771+00:00 OUT   sakila.rental - Create index idx_fk_customer_id (10 ms, session 2)
+2026-03-04T17:39:30.330368+00:00 OUT   sakila.rental - Create index idx_fk_inventory_id (10 ms, session 1)
+2026-03-04T17:39:30.354422+00:00 OUT   sakila.rental - Create index idx_fk_staff_id (10 ms, session 6)
+2026-03-04T17:39:30.391525+00:00 OUT   sakila.staff - Create index idx_fk_address_id (4 ms, session 4)
+2026-03-04T17:39:30.423525+00:00 OUT   sakila.staff - Create index idx_fk_store_id (5 ms, session 5)
+2026-03-04T17:39:30.464621+00:00 OUT   sakila.store - Create index idx_fk_address_id (4 ms, session 3)
+2026-03-04T17:39:30.490719+00:00 OUT   sakila.rental - Add UNIQUE constraint (9 ms, session 2)
+2026-03-04T17:39:30.524881+00:00 OUT   sakila.store - Add UNIQUE constraint (3 ms, session 1)
+2026-03-04T17:39:30.535476+00:00 OUT 
+2026-03-04T17:39:30.541358+00:00 OUT Read/write row count differences (5 tables):
+2026-03-04T17:39:30.546734+00:00 OUT 
+2026-03-04T17:39:30.555842+00:00 OUT    1. sakila.address (603 rows read, 602 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION
+2026-03-04T17:39:30.562314+00:00 OUT    2. sakila.actor (203 rows read, 202 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION
+2026-03-04T17:39:30.568534+00:00 OUT    3. sakila.city (600 rows read, 599 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION
+2026-03-04T17:39:30.573397+00:00 OUT    4. sakila.country (109 rows read, 108 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION
+2026-03-04T17:39:30.578496+00:00 OUT    5. sakila.category (16 rows read, 15 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION
+2026-03-04T17:39:30.582677+00:00 OUT 
+2026-03-04T17:39:30.587658+00:00 OUT Summary:
+2026-03-04T17:39:30.592290+00:00 OUT 
+2026-03-04T17:39:30.597062+00:00 OUT   Tables:        16 (16 Ok, 0 failed)
+2026-03-04T17:39:30.602243+00:00 OUT   Target DDL:    83 (82 Ok, 1 failed)
+2026-03-04T17:39:30.607040+00:00 OUT   Rows read:     47271 (47.3K rows)
+2026-03-04T17:39:30.613670+00:00 OUT   Rows written:  47266 (47.3K rows) (5 row difference)
+2026-03-04T17:39:30.618509+00:00 OUT   Transfer time: 3.3 sec (14198 rows/sec, 2.9 MB, 884.7 KB/sec)
+2026-03-04T17:39:30.629560+00:00 OUT 
+2026-03-04T17:39:30.635551+00:00 OUT Logs:
+2026-03-04T17:39:30.640335+00:00 OUT 
+2026-03-04T17:39:30.644948+00:00 OUT   Execution log:             sqldata.log
+2026-03-04T17:39:30.649593+00:00 OUT   DDL SQL statements:        sqldata_ddl.sql
+2026-03-04T17:39:30.654576+00:00 OUT   Failed DDL SQL statements: sqldata_failed.sql
+2026-03-04T17:39:30.657609+00:00 OUT 
+2026-03-04T17:39:30.660782+00:00 OUT SQLines Data finalize completed.
+2026-03-04T17:39:30.690152+00:00 RUN  validate (Validate after upgrade) -> scripts/07_validate.sh
+2026-03-04T17:39:30.699813+00:00 CMD /mnt/macshare/scripts/07_validate.sh
+2026-03-04T17:39:30.728668+00:00 OUT MariaDB version (TCP validation):
+2026-03-04T17:39:31.055055+00:00 OUT 11.8.5-2-MariaDB-enterprise
+2026-03-04T17:39:31.067269+00:00 OUT 
+2026-03-04T17:39:31.073258+00:00 OUT User authentication plugins:
+2026-03-04T17:39:31.364739+00:00 OUT admin	%	mysql_native_password
+2026-03-04T17:39:31.373796+00:00 OUT admin	192.168.64.11	mysql_native_password
+2026-03-04T17:39:31.380916+00:00 OUT admin	192.168.64.3	mysql_native_password
+2026-03-04T17:39:31.387817+00:00 OUT admin	192.168.64.7	mysql_native_password
+2026-03-04T17:39:31.396476+00:00 OUT admin	localhost	mysql_native_password
+2026-03-04T17:39:31.408209+00:00 OUT mariadb.sys	localhost	mysql_native_password
+2026-03-04T17:39:31.414132+00:00 OUT migrate	%	mysql_native_password
+2026-03-04T17:39:31.421252+00:00 OUT mysql	localhost	mysql_native_password
+2026-03-04T17:39:31.429602+00:00 OUT repl	%	mysql_native_password
+2026-03-04T17:39:31.437688+00:00 OUT root	localhost	mysql_native_password
+2026-03-04T17:39:31.443213+00:00 OUT 
+2026-03-04T17:39:31.450362+00:00 OUT Storage engines:
+2026-03-04T17:39:31.692516+00:00 OUT SPIDER	YES	Spider storage engine	YES	YES	NO
+2026-03-04T17:39:31.704208+00:00 OUT CSV	YES	Stores tables as CSV files	NO	NO	NO
+2026-03-04T17:39:31.710520+00:00 OUT MRG_MyISAM	YES	Collection of identical MyISAM tables	NO	NO	NO
+2026-03-04T17:39:31.715897+00:00 OUT Aria	YES	Crash-safe tables with MyISAM heritage. Used for internal temporary tables and privilege tables	NO	NO	NO
+2026-03-04T17:39:31.724812+00:00 OUT MyISAM	YES	Non-transactional engine with good performance and small data footprint	NO	NO	NO
+2026-03-04T17:39:31.733247+00:00 OUT MEMORY	YES	Hash based, stored in memory, useful for temporary tables	NO	NO	NO
+2026-03-04T17:39:31.738707+00:00 OUT InnoDB	DEFAULT	Supports transactions, row-level locking, foreign keys and encryption for tables	YES	YES	YES
+2026-03-04T17:39:31.745760+00:00 OUT SEQUENCE	YES	Generated tables filled with sequential values	YES	NO	YES
+2026-03-04T17:39:31.754666+00:00 OUT PERFORMANCE_SCHEMA	YES	Performance Schema	NO	NO	NO
+2026-03-04T17:39:31.759845+00:00 OUT ROCKSDB	YES	RocksDB storage engine	YES	YES	YES
+2026-03-04T17:39:31.763819+00:00 OUT 
+2026-03-04T17:39:31.771820+00:00 OUT Validation complete (socket-first).
+2026-03-04T17:39:31.811320+00:00 FINISH success=True message=Run completed successfully.

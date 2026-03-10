@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "run_id": "20260226T182142Z",
+  "mode": "assessment",
+  "config_path": "config/source.yaml",
+  "started_at": "2026-02-26T18:21:42.265188+00:00",
+  "finished_at": "2026-02-26T18:21:42.717348+00:00",
+  "success": false,
+  "message": "Assessment failed during checks: unable to authenticate to source for assessment: SRC_ADMIN_USER (admin) failed: ERROR 1045 (28000): Access denied for user 'admin'@'192.168.64.11' (using password: YES)",
+  "source": {},
+  "target": {},
+  "gates": [],
+  "warnings": [],
+  "inventory": {},
+  "plan": {},
+  "steps": []
+}

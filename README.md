@@ -19,7 +19,8 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - MariaDB: 11.x (LTS)
 
 ## Prerequisites (required)
-- MariaDB must be pre-installed on the target and configured per customer requirements.
+- For `one_step`, `two_step`, and `binlog`: MariaDB must be pre-installed on the target and configured per customer requirements.
+- For `replace_slave` and `inplace`: the tool can install MariaDB using OS + version inputs.
 - Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB.
 - The orchestrator can run on a third host; SSH access to the target is required for validation.
 - The tool prompts for required inputs if not provided in config/env.
@@ -86,6 +87,12 @@ Best for low-downtime cutover.
 - Seeds target from a consistent dump snapshot with embedded binlog coordinates.
 - Starts MariaDB replication from MySQL binlog using `REPL_USER`/`REPL_PASS`.
 - Verifies replication thread health and lag after start.
+
+### In-place (same host)
+Best for supported legacy MySQL versions where in-place replacement is allowed.
+- Runs preflight checks and backup.
+- Installs MariaDB on the same host based on `INPLACE_TARGET_OS` and `INPLACE_MARIADB_VERSION`.
+- Stops MySQL, starts MariaDB, and runs `mariadb-upgrade`.
 
 ### Replace MySQL slave (same host)
 Best for replacing an existing MySQL slave host with MariaDB.
@@ -185,6 +192,19 @@ Target host command hooks:
 - `REPLACE_START_MARIADB_CMD`
 - `REPLACE_DELETE_OLD_MYSQL_DATA` (`0` or `1`)
 - `REPLACE_CLEANUP_CMD` (required when delete flag is `1`)
+
+## In-place required envs (config/migration.yaml)
+Source:
+- `SRC_HOST`, `SRC_PORT`, `SRC_ADMIN_USER`, `SRC_ADMIN_PASS`
+
+In-place controls:
+- `INPLACE_BACKUP_DIR`
+- `INPLACE_EXECUTE` (`0` or `1`)
+- `INPLACE_TARGET_OS` (`ubuntu|debian|rocky|rhel|centos7|sles`)
+- `INPLACE_MARIADB_VERSION` (for example `11.8`)
+- `INPLACE_STOP_CMD`
+- `INPLACE_START_CMD`
+- `INPLACE_UPGRADE_CMD`
 
 
 ## Multi-DB example

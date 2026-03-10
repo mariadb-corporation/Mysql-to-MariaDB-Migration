@@ -1,0 +1,336 @@
+{
+  "schema_version": 1,
+  "run_id": "20260307T164338Z",
+  "mode": "run",
+  "config_path": "config/migration.yaml",
+  "started_at": "2026-03-07T16:43:38.363923+00:00",
+  "finished_at": "2026-03-07T16:45:30.044220+00:00",
+  "success": true,
+  "message": "Run completed successfully.",
+  "source": {},
+  "target": {},
+  "gates": [],
+  "warnings": [],
+  "inventory": {},
+  "plan": {
+    "mode": "replace_slave",
+    "phases": [
+      "replace_slave_prepare",
+      "precheck_only",
+      "replace_slave_backup",
+      "replace_slave_install",
+      "replace_slave_switch",
+      "binlog_seed",
+      "binlog_replication",
+      "binlog_verify",
+      "replace_slave_cleanup"
+    ],
+    "steps": [
+      {
+        "id": "preflight_replace_slave",
+        "name": "Preflight checks (replace_slave)",
+        "script": "scripts/20_preflight_replace_slave.sh",
+        "args": []
+      },
+      {
+        "id": "precheck",
+        "name": "Precheck source variables and blockers",
+        "script": "scripts/00_precheck.sh",
+        "args": []
+      },
+      {
+        "id": "replace_slave_backup",
+        "name": "Backup current MySQL slave host",
+        "script": "scripts/21_replace_slave_backup.sh",
+        "args": []
+      },
+      {
+        "id": "replace_slave_install_mariadb",
+        "name": "Install MariaDB on target host",
+        "script": "scripts/23_install_mariadb.sh",
+        "args": []
+      },
+      {
+        "id": "replace_slave_switch_engine",
+        "name": "Stop MySQL slave and start/configure MariaDB on same host",
+        "script": "scripts/22_replace_slave_switch_engine.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_seed_dump_restore",
+        "name": "Seed target with dump/restore snapshot",
+        "script": "scripts/14_binlog_seed.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_start_replication",
+        "name": "Configure and start MariaDB replication from MySQL binlog",
+        "script": "scripts/15_binlog_start_replication.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_verify_replication",
+        "name": "Verify replication status and lag",
+        "script": "scripts/16_binlog_verify.sh",
+        "args": []
+      },
+      {
+        "id": "replace_slave_cleanup_old_mysql",
+        "name": "Optional cleanup of old MySQL data on replaced slave host",
+        "script": "scripts/24_replace_slave_cleanup.sh",
+        "args": []
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "preflight_replace_slave",
+      "name": "Preflight checks (replace_slave)",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/20_preflight_replace_slave.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "==> Preflight checks (replace_slave)",
+          "Checking source admin connectivity...",
+          "Checking source master status visibility...",
+          "Checking target SSH connectivity...",
+          "Checking current MySQL slave status on target host...",
+          "Preflight complete."
+        ]
+      }
+    },
+    {
+      "id": "precheck",
+      "name": "Precheck source variables and blockers",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/00_precheck.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "INNODB_TABLESPACES\tACTIVE",
+          "INNODB_TABLESTATS\tACTIVE",
+          "INNODB_TEMP_TABLE_INFO\tACTIVE",
+          "INNODB_TRX\tACTIVE",
+          "INNODB_VIRTUAL\tACTIVE",
+          "MEMORY\tACTIVE",
+          "MRG_MYISAM\tACTIVE",
+          "MyISAM\tACTIVE",
+          "mysqlx\tACTIVE",
+          "mysqlx_cache_cleaner\tACTIVE",
+          "mysql_native_password\tACTIVE",
+          "ngram\tACTIVE",
+          "PERFORMANCE_SCHEMA\tACTIVE",
+          "sha256_password\tACTIVE",
+          "sha2_cache_cleaner\tACTIVE",
+          "TempTable\tACTIVE",
+          "",
+          "---- functional_indexes ----",
+          "(no rows)",
+          "",
+          "---- functional_defaults ----",
+          "(no rows)",
+          "",
+          "---- invisible_columns ----",
+          "(no rows)",
+          "",
+          "---- check_constraints ----",
+          "(no rows)",
+          "",
+          "---- partial_revokes ----",
+          "(no rows)",
+          "",
+          "---- gis_srid_usage ----",
+          "sakila\taddress\tlocation\t0",
+          "",
+          "---- resource_groups ----",
+          "USR_default\tUSER\t1\t0-9\t0",
+          "SYS_default\tSYSTEM\t1\t0-9\t0",
+          "",
+          "---- xplugin_status ----",
+          "mysqlx\tACTIVE",
+          "",
+          "---- fk_name_lengths ----",
+          "(no rows)",
+          "",
+          "---- trigger_order ----",
+          "(no rows)",
+          "",
+          "Precheck complete.",
+          "TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv"
+        ]
+      }
+    },
+    {
+      "id": "replace_slave_backup",
+      "name": "Backup current MySQL slave host",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/21_replace_slave_backup.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "==> Backup existing MySQL slave host",
+          "Running backup command on target host...",
+          "Backup step completed."
+        ]
+      }
+    },
+    {
+      "id": "replace_slave_install_mariadb",
+      "name": "Install MariaDB on target host",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/23_install_mariadb.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "Selecting previously unselected package libdbd-mysql-perl:arm64.",
+          "Preparing to unpack .../2-libdbd-mysql-perl_4.052-1ubuntu3_arm64.deb ...",
+          "Unpacking libdbd-mysql-perl:arm64 (4.052-1ubuntu3) ...",
+          "Selecting previously unselected package mariadb-client-compat.",
+          "Preparing to unpack .../3-mariadb-client-compat_1%3a11.8.6+maria~ubu2404_all.deb ...",
+          "Unpacking mariadb-client-compat (1:11.8.6+maria~ubu2404) ...",
+          "Selecting previously unselected package mariadb-server-compat.",
+          "Preparing to unpack .../4-mariadb-server-compat_1%3a11.8.6+maria~ubu2404_all.deb ...",
+          "Unpacking mariadb-server-compat (1:11.8.6+maria~ubu2404) ...",
+          "Selecting previously unselected package pv.",
+          "Preparing to unpack .../5-pv_1.8.5-2build1_arm64.deb ...",
+          "Unpacking pv (1.8.5-2build1) ...",
+          "Setting up libconfig-inifiles-perl (3.000003-2) ...",
+          "Setting up galera-4 (26.4.25-ubu2404) ...",
+          "Setting up libmysqlclient21:arm64 (8.0.45-0ubuntu0.24.04.1) ...",
+          "Setting up socat (1.8.0.0-4build3) ...",
+          "Setting up libmariadb3:arm64 (1:11.8.6+maria~ubu2404) ...",
+          "Setting up libpcre2-posix3:arm64 (10.42-4ubuntu2.1) ...",
+          "Setting up pv (1.8.5-2build1) ...",
+          "Setting up liburing2:arm64 (2.5-1build1) ...",
+          "Setting up libdbi-perl:arm64 (1.643-4build3) ...",
+          "Setting up mariadb-client-core (1:11.8.6+maria~ubu2404) ...",
+          "Setting up libdbd-mysql-perl:arm64 (4.052-1ubuntu3) ...",
+          "Setting up mariadb-server-core (1:11.8.6+maria~ubu2404) ...",
+          "Setting up mariadb-client (1:11.8.6+maria~ubu2404) ...",
+          "Setting up mariadb-client-compat (1:11.8.6+maria~ubu2404) ...",
+          "Setting up mariadb-server (1:11.8.6+maria~ubu2404) ...",
+          "Installing new version of config file /etc/mysql/debian-start ...",
+          "\u001b[0;1;31mFailed to stop mariadb.service: Unit mariadb.service not loaded.\u001b[0m",
+          "",
+          "invoke-rc.d: initscript mariadb, action \"stop\" failed.",
+          "Created symlink /etc/systemd/system/multi-user.target.wants/mariadb.service \u2192 /usr/lib/systemd/system/mariadb.service.",
+          "",
+          "Setting up mariadb-server-compat (1:11.8.6+maria~ubu2404) ...",
+          "Processing triggers for man-db (2.12.0-4build2) ...",
+          "Processing triggers for libc-bin (2.39-0ubuntu8.7) ...",
+          "",
+          "Running kernel seems to be up-to-date.",
+          "",
+          "Restarting services...",
+          "",
+          "Service restarts being deferred:",
+          " systemctl restart ssh.service",
+          "",
+          "No containers need to be restarted.",
+          "",
+          "No user sessions are running outdated binaries.",
+          "",
+          "No VM guests are running outdated hypervisor (qemu) binaries on this host.",
+          "MariaDB install step completed."
+        ]
+      }
+    },
+    {
+      "id": "replace_slave_switch_engine",
+      "name": "Stop MySQL slave and start/configure MariaDB on same host",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/22_replace_slave_switch_engine.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "==> Replace MySQL slave engine with MariaDB on target host",
+          "Stopping MySQL service on target host...",
+          "No MySQL uninstall command configured; skipping package removal.",
+          "Configuring MariaDB bind-address on target host...",
+          "Starting MariaDB on target host...",
+          "Ensuring target admin user can connect remotely...",
+          "Verifying MariaDB TCP listener on target host...",
+          "Checking MariaDB remote listener scope on target host...",
+          "Verifying target admin TCP login from target host...",
+          "WARNING: option --ssl-verify-server-cert is disabled, because of an insecure passwordless login.",
+          "Engine switch step completed."
+        ]
+      }
+    },
+    {
+      "id": "binlog_seed_dump_restore",
+      "name": "Seed target with dump/restore snapshot",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/14_binlog_seed.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "==> Binlog migration: seed target from source snapshot",
+          "Preparing target database(s)...",
+          "Creating source snapshot with binlog coordinates...",
+          "Restoring snapshot to target...",
+          "Seed completed.",
+          "Coordinates file: artifacts/binlog_coords.env",
+          "Dump file: artifacts/binlog_seed_20260307_164506.sql"
+        ]
+      }
+    },
+    {
+      "id": "binlog_start_replication",
+      "name": "Configure and start MariaDB replication from MySQL binlog",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/15_binlog_start_replication.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "==> Binlog migration: configure and start replication",
+          "Checking source/target server_id...",
+          "Source/target server_id collision detected (1). Setting target server_id=1921687413",
+          "Target server_id updated to 1921687413",
+          "Ensuring replication user exists on source...",
+          "Applying replication coordinates: mysql-bin.000023:3575",
+          "Replication started."
+        ]
+      }
+    },
+    {
+      "id": "binlog_verify_replication",
+      "name": "Verify replication status and lag",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/16_binlog_verify.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "==> Binlog migration: verify replication",
+          "IO running: Yes",
+          "SQL running: Yes",
+          "Seconds behind master: 0",
+          "Replication verify passed."
+        ]
+      }
+    },
+    {
+      "id": "replace_slave_cleanup_old_mysql",
+      "name": "Optional cleanup of old MySQL data on replaced slave host",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/24_replace_slave_cleanup.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "==> Optional cleanup of old MySQL data on replaced slave host",
+          "Cleanup not requested (REPLACE_DELETE_OLD_MYSQL_DATA != 1); skipping."
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "created_at": "2026-03-04T17:25:41.244112+00:00",
+  "steps": {
+    "create_migration_user": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Skipping migration user creation (admin-only mode)."
+        ],
+        "returncode": 0,
+        "script": "scripts/09_create_migration_user.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-04T17:25:43.970892+00:00"
+    },
+    "one_step_dump_restore": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> One-step migration (mariadb-dump | mariadb)",
+          "Source: 192.168.64.7:3306  DB: sakila",
+          "Target: 192.168.64.3:3306",
+          "pv not found; running without progress meter.",
+          "One-step migration completed."
+        ],
+        "returncode": 0,
+        "script": "scripts/10_one_step_migration.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-04T17:25:55.289492+00:00"
+    },
+    "precheck": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "INNODB_TABLESPACES\tACTIVE",
+          "INNODB_TABLESTATS\tACTIVE",
+          "INNODB_TEMP_TABLE_INFO\tACTIVE",
+          "INNODB_TRX\tACTIVE",
+          "INNODB_VIRTUAL\tACTIVE",
+          "MEMORY\tACTIVE",
+          "MRG_MYISAM\tACTIVE",
+          "MyISAM\tACTIVE",
+          "mysqlx\tACTIVE",
+          "mysqlx_cache_cleaner\tACTIVE",
+          "mysql_native_password\tACTIVE",
+          "ngram\tACTIVE",
+          "PERFORMANCE_SCHEMA\tACTIVE",
+          "sha256_password\tACTIVE",
+          "sha2_cache_cleaner\tACTIVE",
+          "TempTable\tACTIVE",
+          "",
+          "---- functional_indexes ----",
+          "(no rows)",
+          "",
+          "---- functional_defaults ----",
+          "(no rows)",
+          "",
+          "---- invisible_columns ----",
+          "(no rows)",
+          "",
+          "---- check_constraints ----",
+          "(no rows)",
+          "",
+          "---- partial_revokes ----",
+          "(no rows)",
+          "",
+          "---- gis_srid_usage ----",
+          "sakila\taddress\tlocation\t0",
+          "",
+          "---- resource_groups ----",
+          "USR_default\tUSER\t1\t0-9\t0",
+          "SYS_default\tSYSTEM\t1\t0-9\t0",
+          "",
+          "---- xplugin_status ----",
+          "mysqlx\tACTIVE",
+          "",
+          "---- fk_name_lengths ----",
+          "(no rows)",
+          "",
+          "---- trigger_order ----",
+          "(no rows)",
+          "",
+          "Precheck complete.",
+          "TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv"
+        ],
+        "returncode": 0,
+        "script": "scripts/00_precheck.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-04T17:25:53.520340+00:00"
+    },
+    "preflight_one_step": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Preflight checks (one_step)",
+          "Checking source connectivity...",
+          "Checking source migration user readiness...",
+          "Checking source database(s) exist...",
+          "Checking target SSH connectivity...",
+          "Checking target mariadb client...",
+          "Checking target TCP connectivity...",
+          "Checking target migration user readiness...",
+          "pv not found (optional).",
+          "Preflight complete."
+        ],
+        "returncode": 0,
+        "script": "scripts/00_preflight_one_step.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-04T17:25:43.910959+00:00"
+    },
+    "validate": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "MariaDB version (TCP validation):",
+          "11.8.5-2-MariaDB-enterprise",
+          "",
+          "User authentication plugins:",
+          "admin\t%\tmysql_native_password",
+          "admin\t192.168.64.11\tmysql_native_password",
+          "admin\t192.168.64.3\tmysql_native_password",
+          "admin\t192.168.64.7\tmysql_native_password",
+          "admin\tlocalhost\tmysql_native_password",
+          "mariadb.sys\tlocalhost\tmysql_native_password",
+          "migrate\t%\tmysql_native_password",
+          "mysql\tlocalhost\tmysql_native_password",
+          "repl\t%\tmysql_native_password",
+          "root\tlocalhost\tmysql_native_password",
+          "",
+          "Storage engines:",
+          "SPIDER\tYES\tSpider storage engine\tYES\tYES\tNO",
+          "CSV\tYES\tStores tables as CSV files\tNO\tNO\tNO",
+          "MRG_MyISAM\tYES\tCollection of identical MyISAM tables\tNO\tNO\tNO",
+          "Aria\tYES\tCrash-safe tables with MyISAM heritage. Used for internal temporary tables and privilege tables\tNO\tNO\tNO",
+          "MyISAM\tYES\tNon-transactional engine with good performance and small data footprint\tNO\tNO\tNO",
+          "MEMORY\tYES\tHash based, stored in memory, useful for temporary tables\tNO\tNO\tNO",
+          "InnoDB\tDEFAULT\tSupports transactions, row-level locking, foreign keys and encryption for tables\tYES\tYES\tYES",
+          "SEQUENCE\tYES\tGenerated tables filled with sequential values\tYES\tNO\tYES",
+          "PERFORMANCE_SCHEMA\tYES\tPerformance Schema\tNO\tNO\tNO",
+          "ROCKSDB\tYES\tRocksDB storage engine\tYES\tYES\tYES",
+          "",
+          "Validation complete (socket-first)."
+        ],
+        "returncode": 0,
+        "script": "scripts/07_validate.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-04T17:25:56.349481+00:00"
+    }
+  },
+  "version": 1
+}

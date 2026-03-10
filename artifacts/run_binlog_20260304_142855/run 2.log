@@ -1,0 +1,42 @@
+2026-03-04T14:29:11.558924+00:00 START mode=run config=config/migration.yaml
+2026-03-04T14:29:11.649455+00:00 RUN  preflight_binlog (Preflight checks (binlog)) -> scripts/00_preflight_binlog.sh
+2026-03-04T14:29:11.659782+00:00 CMD /mnt/macshare/scripts/00_preflight_binlog.sh
+2026-03-04T14:29:11.688203+00:00 OUT ==> Preflight checks (binlog)
+2026-03-04T14:29:11.699759+00:00 OUT Checking source admin connectivity...
+2026-03-04T14:29:11.951182+00:00 OUT ERROR 1045 (28000): Access denied for user 'admin'@'192.168.64.11' (using password: YES)
+2026-03-04T14:29:11.982916+00:00 FINISH success=False message=Run failed at step: preflight_binlog
+2026-03-04T14:30:59.294788+00:00 START mode=run config=config/migration.yaml
+2026-03-04T14:30:59.388555+00:00 RUN  preflight_binlog (Preflight checks (binlog)) -> scripts/00_preflight_binlog.sh
+2026-03-04T14:30:59.397633+00:00 CMD /mnt/macshare/scripts/00_preflight_binlog.sh
+2026-03-04T14:30:59.423041+00:00 OUT ==> Preflight checks (binlog)
+2026-03-04T14:30:59.430543+00:00 OUT Checking source admin connectivity...
+2026-03-04T14:30:59.663896+00:00 OUT ERROR 1045 (28000): Access denied for user 'admin'@'192.168.64.11' (using password: YES)
+2026-03-04T14:30:59.689299+00:00 FINISH success=False message=Run failed at step: preflight_binlog
+2026-03-04T14:32:50.476837+00:00 START mode=run config=config/migration.yaml
+2026-03-04T14:32:50.967146+00:00 RUN  preflight_binlog (Preflight checks (binlog)) -> scripts/00_preflight_binlog.sh
+2026-03-04T14:32:50.997775+00:00 CMD /mnt/macshare/scripts/00_preflight_binlog.sh
+2026-03-04T14:32:51.154752+00:00 OUT ==> Preflight checks (binlog)
+2026-03-04T14:32:51.176513+00:00 OUT Checking source admin connectivity...
+2026-03-04T14:32:53.015643+00:00 OUT ERROR 1045 (28000): Access denied for user 'admin'@'192.168.64.11' (using password: YES)
+2026-03-04T14:32:53.106177+00:00 FINISH success=False message=Run failed at step: preflight_binlog
+2026-03-04T15:51:04.424612+00:00 START mode=run config=config/migration.yaml
+2026-03-04T15:51:04.802576+00:00 RUN  preflight_binlog (Preflight checks (binlog)) -> scripts/00_preflight_binlog.sh
+2026-03-04T15:51:04.826066+00:00 CMD /mnt/macshare/scripts/00_preflight_binlog.sh
+2026-03-04T15:51:04.942345+00:00 OUT ==> Preflight checks (binlog)
+2026-03-04T15:51:04.971874+00:00 OUT Checking source admin connectivity...
+2026-03-04T15:51:06.313398+00:00 OUT ERROR 1045 (28000): Access denied for user 'admin'@'192.168.64.11' (using password: YES)
+2026-03-04T15:51:06.395311+00:00 FINISH success=False message=Run failed at step: preflight_binlog
+2026-03-04T15:58:38.558052+00:00 START mode=run config=config/migration.yaml
+2026-03-04T15:58:38.649827+00:00 RUN  preflight_binlog (Preflight checks (binlog)) -> scripts/00_preflight_binlog.sh
+2026-03-04T15:58:38.657078+00:00 CMD /mnt/macshare/scripts/00_preflight_binlog.sh
+2026-03-04T15:58:38.684187+00:00 OUT ==> Preflight checks (binlog)
+2026-03-04T15:58:38.691326+00:00 OUT Checking source admin connectivity...
+2026-03-04T15:58:38.934277+00:00 OUT ERROR 1045 (28000): Access denied for user 'admin'@'192.168.64.11' (using password: YES)
+2026-03-04T15:58:38.958110+00:00 FINISH success=False message=Run failed at step: preflight_binlog
+2026-03-04T16:01:04.225639+00:00 START mode=run config=config/migration.yaml
+2026-03-04T16:01:04.329943+00:00 RUN  preflight_binlog (Preflight checks (binlog)) -> scripts/00_preflight_binlog.sh
+2026-03-04T16:01:04.336388+00:00 CMD /mnt/macshare/scripts/00_preflight_binlog.sh
+2026-03-04T16:01:04.364010+00:00 OUT ==> Preflight checks (binlog)
+2026-03-04T16:01:04.377539+00:00 OUT Checking source admin connectivity...
+2026-03-04T16:01:04.723381+00:00 OUT ERROR 1045 (28000): Access denied for user 'admin'@'192.168.64.11' (using password: YES)
+2026-03-04T16:01:04.761670+00:00 FINISH success=False message=Run failed at step: preflight_binlog

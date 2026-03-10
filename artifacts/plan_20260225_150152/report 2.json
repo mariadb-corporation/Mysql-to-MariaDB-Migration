@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "run_id": "20260225T150205Z",
+  "mode": "plan",
+  "config_path": "config/migration.yaml",
+  "started_at": "2026-02-25T15:02:05.646545+00:00",
+  "finished_at": "2026-02-25T15:02:05.715044+00:00",
+  "success": true,
+  "message": "Plan generated (no execution).",
+  "source": {},
+  "target": {},
+  "gates": [],
+  "warnings": [],
+  "inventory": {},
+  "plan": {
+    "mode": "binlog",
+    "phases": [
+      "binlog_prepare",
+      "precheck_only",
+      "binlog_seed",
+      "binlog_replication",
+      "binlog_verify"
+    ],
+    "steps": [
+      {
+        "id": "preflight_binlog",
+        "name": "Preflight checks (binlog)",
+        "script": "scripts/00_preflight_binlog.sh",
+        "args": []
+      },
+      {
+        "id": "precheck",
+        "name": "Precheck source variables and blockers",
+        "script": "scripts/00_precheck.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_seed_dump_restore",
+        "name": "Seed target with dump/restore snapshot",
+        "script": "scripts/14_binlog_seed.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_start_replication",
+        "name": "Configure and start MariaDB replication from MySQL binlog",
+        "script": "scripts/15_binlog_start_replication.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_verify_replication",
+        "name": "Verify replication status and lag",
+        "script": "scripts/16_binlog_verify.sh",
+        "args": []
+      }
+    ]
+  },
+  "steps": []
+}

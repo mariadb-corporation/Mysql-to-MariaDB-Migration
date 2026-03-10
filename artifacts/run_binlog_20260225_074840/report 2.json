@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "run_id": "20260225T145538Z",
+  "mode": "run",
+  "config_path": "config/migration.yaml",
+  "started_at": "2026-02-25T14:55:38.402766+00:00",
+  "finished_at": "2026-02-25T14:55:39.737659+00:00",
+  "success": false,
+  "message": "Run failed at step: binlog_verify_replication",
+  "source": {},
+  "target": {},
+  "gates": [],
+  "warnings": [],
+  "inventory": {},
+  "plan": {
+    "mode": "binlog",
+    "phases": [
+      "binlog_prepare",
+      "precheck_only",
+      "binlog_seed",
+      "binlog_replication",
+      "binlog_verify"
+    ],
+    "steps": [
+      {
+        "id": "preflight_binlog",
+        "name": "Preflight checks (binlog)",
+        "script": "scripts/00_preflight_binlog.sh",
+        "args": []
+      },
+      {
+        "id": "precheck",
+        "name": "Precheck source variables and blockers",
+        "script": "scripts/00_precheck.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_seed_dump_restore",
+        "name": "Seed target with dump/restore snapshot",
+        "script": "scripts/14_binlog_seed.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_start_replication",
+        "name": "Configure and start MariaDB replication from MySQL binlog",
+        "script": "scripts/15_binlog_start_replication.sh",
+        "args": []
+      },
+      {
+        "id": "binlog_verify_replication",
+        "name": "Verify replication status and lag",
+        "script": "scripts/16_binlog_verify.sh",
+        "args": []
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "preflight_binlog",
+      "name": "Preflight checks (binlog)",
+      "status": "SKIPPED",
+      "details": {
+        "reason": "already_done"
+      }
+    },
+    {
+      "id": "precheck",
+      "name": "Precheck source variables and blockers",
+      "status": "SKIPPED",
+      "details": {
+        "reason": "already_done"
+      }
+    },
+    {
+      "id": "binlog_seed_dump_restore",
+      "name": "Seed target with dump/restore snapshot",
+      "status": "SKIPPED",
+      "details": {
+        "reason": "already_done"
+      }
+    },
+    {
+      "id": "binlog_start_replication",
+      "name": "Configure and start MariaDB replication from MySQL binlog",
+      "status": "SKIPPED",
+      "details": {
+        "reason": "already_done"
+      }
+    },
+    {
+      "id": "binlog_verify_replication",
+      "name": "Verify replication status and lag",
+      "status": "FAILED",
+      "details": {
+        "script": "scripts/16_binlog_verify.sh",
+        "args": [],
+        "returncode": 2,
+        "output_tail": [
+          "           Read_Master_Log_Pos: 4444",
+          "                Relay_Log_File: localhost-relay-bin.000002",
+          "                 Relay_Log_Pos: 425",
+          "         Relay_Master_Log_File: mysql-bin.000009",
+          "              Slave_IO_Running: Yes",
+          "             Slave_SQL_Running: No",
+          "               Replicate_Do_DB: ",
+          "           Replicate_Ignore_DB: ",
+          "            Replicate_Do_Table: ",
+          "        Replicate_Ignore_Table: ",
+          "       Replicate_Wild_Do_Table: ",
+          "   Replicate_Wild_Ignore_Table: ",
+          "                    Last_Errno: 1524",
+          "                    Last_Error: Error 'Plugin 'caching_sha2_password' is not loaded' on query. Default database: ''. Query: 'CREATE USER IF NOT EXISTS 'repl'@'%' IDENTIFIED WITH 'caching_sha2_password' AS '$A$005$EG\u0002fk\u0012R#\\\"h\u0003|fgaF7%-72nOXplAv1vYtKjL96BEYhFs9DQEL210KJlAYwd4hHm8''",
+          "                  Skip_Counter: 0",
+          "           Exec_Master_Log_Pos: 1893",
+          "               Relay_Log_Space: 2920",
+          "               Until_Condition: None",
+          "                Until_Log_File: ",
+          "                 Until_Log_Pos: 0",
+          "            Master_SSL_Allowed: No",
+          "            Master_SSL_CA_File: ",
+          "            Master_SSL_CA_Path: ",
+          "               Master_SSL_Cert: ",
+          "             Master_SSL_Cipher: ",
+          "                Master_SSL_Key: ",
+          "         Seconds_Behind_Master: NULL",
+          " Master_SSL_Verify_Server_Cert: Yes",
+          "                 Last_IO_Errno: 0",
+          "                 Last_IO_Error: ",
+          "                Last_SQL_Errno: 1524",
+          "                Last_SQL_Error: Error 'Plugin 'caching_sha2_password' is not loaded' on query. Default database: ''. Query: 'CREATE USER IF NOT EXISTS 'repl'@'%' IDENTIFIED WITH 'caching_sha2_password' AS '$A$005$EG\u0002fk\u0012R#\\\"h\u0003|fgaF7%-72nOXplAv1vYtKjL96BEYhFs9DQEL210KJlAYwd4hHm8''",
+          "   Replicate_Ignore_Server_Ids: ",
+          "              Master_Server_Id: 1",
+          "                Master_SSL_Crl: ",
+          "            Master_SSL_Crlpath: ",
+          "                    Using_Gtid: No",
+          "                   Gtid_IO_Pos: ",
+          "       Replicate_Do_Domain_Ids: ",
+          "   Replicate_Ignore_Domain_Ids: ",
+          "                 Parallel_Mode: optimistic",
+          "                     SQL_Delay: 0",
+          "           SQL_Remaining_Delay: NULL",
+          "       Slave_SQL_Running_State: ",
+          "              Slave_DDL_Groups: 0",
+          "Slave_Non_Transactional_Groups: 0",
+          "    Slave_Transactional_Groups: 0",
+          "          Replicate_Rewrite_DB: ",
+          "                Connects_Tried: 1",
+          "            Master_Retry_Count: 100000"
+        ]
+      }
+    }
+  ]
+}

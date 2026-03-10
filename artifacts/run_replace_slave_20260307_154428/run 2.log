@@ -1,0 +1,646 @@
+2026-03-07T15:45:30.380295+00:00 START mode=run config=config/migration.yaml
+2026-03-07T15:45:30.849618+00:00 RUN  preflight_replace_slave (Preflight checks (replace_slave)) -> scripts/20_preflight_replace_slave.sh
+2026-03-07T15:45:30.865284+00:00 CMD /mnt/macshare/scripts/20_preflight_replace_slave.sh
+2026-03-07T15:45:30.965814+00:00 OUT ==> Preflight checks (replace_slave)
+2026-03-07T15:45:31.125167+00:00 OUT Checking source admin connectivity...
+2026-03-07T15:45:32.215671+00:00 OUT Checking source master status visibility...
+2026-03-07T15:45:33.396758+00:00 OUT Checking target SSH connectivity...
+2026-03-07T15:45:35.496073+00:00 OUT Checking current MySQL slave status on target host...
+2026-03-07T15:45:36.842701+00:00 OUT Preflight complete.
+2026-03-07T15:45:36.908235+00:00 RUN  precheck (Precheck source variables and blockers) -> scripts/00_precheck.sh
+2026-03-07T15:45:36.931784+00:00 CMD /mnt/macshare/scripts/00_precheck.sh
+2026-03-07T15:45:37.236563+00:00 OUT == Precheck runner ==
+2026-03-07T15:45:37.309167+00:00 OUT Host: 192.168.64.7  Port: 3306  User: admin
+2026-03-07T15:45:37.400931+00:00 OUT Checks dir: /mnt/macshare/sql/checks
+2026-03-07T15:45:37.482524+00:00 OUT Outdir: /mnt/macshare/artifacts/precheck
+2026-03-07T15:45:37.558492+00:00 OUT 
+2026-03-07T15:45:37.655749+00:00 OUT NOTE: mariadb-migrate-config-file not found; skipping config check.
+2026-03-07T15:45:37.797875+00:00 OUT ---- mysql_version ----
+2026-03-07T15:45:39.138951+00:00 OUT 8.0.45-0ubuntu0.24.04.1
+2026-03-07T15:45:39.298437+00:00 OUT 
+2026-03-07T15:45:39.441761+00:00 OUT ---- innodb_settings ----
+2026-03-07T15:45:40.754967+00:00 OUT 1	1
+2026-03-07T15:45:40.874991+00:00 OUT 
+2026-03-07T15:45:40.982607+00:00 OUT ---- auth_plugins ----
+2026-03-07T15:45:42.301553+00:00 OUT debian-sys-maint	localhost	caching_sha2_password
+2026-03-07T15:45:42.456287+00:00 OUT 
+2026-03-07T15:45:42.587641+00:00 OUT ---- json_columns ----
+2026-03-07T15:45:43.904822+00:00 OUT advanced_test	json_test	data	json
+2026-03-07T15:45:43.933976+00:00 OUT advanced_test	json_test	metadata	json
+2026-03-07T15:45:43.964485+00:00 OUT testdb	orders_json	data_json	json
+2026-03-07T15:45:44.082881+00:00 OUT 
+2026-03-07T15:45:44.226330+00:00 OUT ---- compression_encryption ----
+2026-03-07T15:45:45.534559+00:00 OUT (no rows)
+2026-03-07T15:45:45.618675+00:00 OUT 
+2026-03-07T15:45:45.742223+00:00 OUT ---- engines_summary ----
+2026-03-07T15:45:46.755346+00:00 OUT PERFORMANCE_SCHEMA	111
+2026-03-07T15:45:46.780162+00:00 OUT InnoDB	59
+2026-03-07T15:45:46.798751+00:00 OUT CSV	2
+2026-03-07T15:45:46.917954+00:00 OUT 
+2026-03-07T15:45:47.046765+00:00 OUT ---- schema_sizes ----
+2026-03-07T15:45:48.370426+00:00 OUT testdb	38.56
+2026-03-07T15:45:48.394205+00:00 OUT sakila	6.45
+2026-03-07T15:45:48.421976+00:00 OUT mysql	2.73
+2026-03-07T15:45:48.454425+00:00 OUT world	0.77
+2026-03-07T15:45:48.475811+00:00 OUT test_replication	0.03
+2026-03-07T15:45:48.500012+00:00 OUT sys	0.02
+2026-03-07T15:45:48.535672+00:00 OUT advanced_test	0.02
+2026-03-07T15:45:48.560831+00:00 OUT information_schema	0.00
+2026-03-07T15:45:48.584218+00:00 OUT performance_schema	0.00
+2026-03-07T15:45:48.616521+00:00 OUT 
+2026-03-07T15:45:48.750758+00:00 OUT ---- schema_charsets ----
+2026-03-07T15:45:50.088667+00:00 OUT advanced_test	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-07T15:45:50.110499+00:00 OUT sakila	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-07T15:45:50.139089+00:00 OUT test_replication	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-07T15:45:50.163823+00:00 OUT testdb	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-07T15:45:50.199444+00:00 OUT world	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-07T15:45:50.291346+00:00 OUT 
+2026-03-07T15:45:50.428147+00:00 OUT ---- mysql8_collations ----
+2026-03-07T15:45:51.533891+00:00 OUT advanced_test	json_test	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.552495+00:00 OUT sakila	actor	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.574866+00:00 OUT sakila	address	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.587433+00:00 OUT sakila	category	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.599713+00:00 OUT sakila	city	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.609171+00:00 OUT sakila	country	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.620263+00:00 OUT sakila	customer	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.629915+00:00 OUT sakila	film	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.648250+00:00 OUT sakila	film_actor	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.663515+00:00 OUT sakila	film_category	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.673490+00:00 OUT sakila	film_text	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.680794+00:00 OUT sakila	inventory	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.698069+00:00 OUT sakila	language	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.713612+00:00 OUT sakila	payment	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.724731+00:00 OUT sakila	rental	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.741372+00:00 OUT sakila	staff	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.753757+00:00 OUT sakila	store	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.767449+00:00 OUT test_replication	customers	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.783982+00:00 OUT test_replication	replication_test	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.798077+00:00 OUT testdb	orders_json	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.804831+00:00 OUT world	city	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.816036+00:00 OUT world	country	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.825926+00:00 OUT world	countrylanguage	utf8mb4_0900_ai_ci
+2026-03-07T15:45:51.837590+00:00 OUT 
+2026-03-07T15:45:51.850683+00:00 OUT ---- mysql8_column_collations ----
+2026-03-07T15:45:52.999636+00:00 OUT sakila	actor	first_name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.012609+00:00 OUT sakila	actor	last_name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.035389+00:00 OUT sakila	actor_info	film_info	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.064037+00:00 OUT sakila	actor_info	first_name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.089775+00:00 OUT sakila	actor_info	last_name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.104947+00:00 OUT sakila	address	address	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.125898+00:00 OUT sakila	address	address2	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.154331+00:00 OUT sakila	address	district	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.183231+00:00 OUT sakila	address	phone	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.213719+00:00 OUT sakila	address	postal_code	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.236773+00:00 OUT sakila	category	name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.248439+00:00 OUT sakila	city	city	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.283459+00:00 OUT sakila	country	country	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.315488+00:00 OUT sakila	customer	email	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.348259+00:00 OUT sakila	customer	first_name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.369158+00:00 OUT sakila	customer	last_name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.404429+00:00 OUT sakila	customer_list	address	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.425063+00:00 OUT sakila	customer_list	city	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.446275+00:00 OUT sakila	customer_list	country	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.461564+00:00 OUT sakila	customer_list	name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.495336+00:00 OUT sakila	customer_list	notes	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.516191+00:00 OUT sakila	customer_list	phone	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.540731+00:00 OUT sakila	customer_list	zip code	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.560125+00:00 OUT sakila	film	description	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.580515+00:00 OUT sakila	film	rating	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.611350+00:00 OUT sakila	film	special_features	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.640735+00:00 OUT sakila	film	title	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.660454+00:00 OUT sakila	film_list	actors	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.687749+00:00 OUT sakila	film_list	category	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.714150+00:00 OUT sakila	film_list	description	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.740583+00:00 OUT sakila	film_list	rating	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.766538+00:00 OUT sakila	film_list	title	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.790867+00:00 OUT sakila	film_text	description	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.821562+00:00 OUT sakila	film_text	title	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.849872+00:00 OUT sakila	language	name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.883323+00:00 OUT sakila	nicer_but_slower_film_list	actors	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.904436+00:00 OUT sakila	nicer_but_slower_film_list	category	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.928710+00:00 OUT sakila	nicer_but_slower_film_list	description	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.952136+00:00 OUT sakila	nicer_but_slower_film_list	rating	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.972527+00:00 OUT sakila	nicer_but_slower_film_list	title	utf8mb4_0900_ai_ci
+2026-03-07T15:45:53.993772+00:00 OUT sakila	sales_by_film_category	category	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.007288+00:00 OUT sakila	sales_by_store	manager	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.038678+00:00 OUT sakila	sales_by_store	store	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.051283+00:00 OUT sakila	staff	email	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.082937+00:00 OUT sakila	staff	first_name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.107393+00:00 OUT sakila	staff	last_name	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.114904+00:00 OUT sakila	staff	username	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.145061+00:00 OUT sakila	staff_list	address	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.165026+00:00 OUT sakila	staff_list	city	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.187698+00:00 OUT sakila	staff_list	country	utf8mb4_0900_ai_ci
+2026-03-07T15:45:54.204752+00:00 OUT ... (truncated; full output in /mnt/macshare/artifacts/precheck/mysql8_column_collations.tsv)
+2026-03-07T15:45:54.243413+00:00 OUT 
+2026-03-07T15:45:54.261129+00:00 OUT ---- sql_mode ----
+2026-03-07T15:45:55.190611+00:00 OUT ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+2026-03-07T15:45:55.327373+00:00 OUT 
+2026-03-07T15:45:55.444292+00:00 OUT ---- definers_inventory ----
+2026-03-07T15:45:56.623386+00:00 OUT TRIGGER	root@localhost	6
+2026-03-07T15:45:56.643163+00:00 OUT VIEW	root@localhost	7
+2026-03-07T15:45:56.729108+00:00 OUT 
+2026-03-07T15:45:56.813263+00:00 OUT ---- partitioned_tables ----
+2026-03-07T15:45:57.780199+00:00 OUT (no rows)
+2026-03-07T15:45:57.855233+00:00 OUT 
+2026-03-07T15:45:57.964615+00:00 OUT ---- active_plugins ----
+2026-03-07T15:45:59.137065+00:00 OUT ARCHIVE	ACTIVE
+2026-03-07T15:45:59.160356+00:00 OUT auth_socket	ACTIVE
+2026-03-07T15:45:59.184810+00:00 OUT binlog	ACTIVE
+2026-03-07T15:45:59.207638+00:00 OUT BLACKHOLE	ACTIVE
+2026-03-07T15:45:59.240138+00:00 OUT caching_sha2_password	ACTIVE
+2026-03-07T15:45:59.261907+00:00 OUT CSV	ACTIVE
+2026-03-07T15:45:59.292855+00:00 OUT daemon_keyring_proxy_plugin	ACTIVE
+2026-03-07T15:45:59.318054+00:00 OUT InnoDB	ACTIVE
+2026-03-07T15:45:59.344319+00:00 OUT INNODB_BUFFER_PAGE	ACTIVE
+2026-03-07T15:45:59.369896+00:00 OUT INNODB_BUFFER_PAGE_LRU	ACTIVE
+2026-03-07T15:45:59.383297+00:00 OUT INNODB_BUFFER_POOL_STATS	ACTIVE
+2026-03-07T15:45:59.403352+00:00 OUT INNODB_CACHED_INDEXES	ACTIVE
+2026-03-07T15:45:59.442098+00:00 OUT INNODB_CMP	ACTIVE
+2026-03-07T15:45:59.469394+00:00 OUT INNODB_CMPMEM	ACTIVE
+2026-03-07T15:45:59.484340+00:00 OUT INNODB_CMPMEM_RESET	ACTIVE
+2026-03-07T15:45:59.520916+00:00 OUT INNODB_CMP_PER_INDEX	ACTIVE
+2026-03-07T15:45:59.551509+00:00 OUT INNODB_CMP_PER_INDEX_RESET	ACTIVE
+2026-03-07T15:45:59.569575+00:00 OUT INNODB_CMP_RESET	ACTIVE
+2026-03-07T15:45:59.594170+00:00 OUT INNODB_COLUMNS	ACTIVE
+2026-03-07T15:45:59.603979+00:00 OUT INNODB_FT_BEING_DELETED	ACTIVE
+2026-03-07T15:45:59.642783+00:00 OUT INNODB_FT_CONFIG	ACTIVE
+2026-03-07T15:45:59.660095+00:00 OUT INNODB_FT_DEFAULT_STOPWORD	ACTIVE
+2026-03-07T15:45:59.691277+00:00 OUT INNODB_FT_DELETED	ACTIVE
+2026-03-07T15:45:59.713581+00:00 OUT INNODB_FT_INDEX_CACHE	ACTIVE
+2026-03-07T15:45:59.736874+00:00 OUT INNODB_FT_INDEX_TABLE	ACTIVE
+2026-03-07T15:45:59.754983+00:00 OUT INNODB_INDEXES	ACTIVE
+2026-03-07T15:45:59.781785+00:00 OUT INNODB_METRICS	ACTIVE
+2026-03-07T15:45:59.803704+00:00 OUT INNODB_SESSION_TEMP_TABLESPACES	ACTIVE
+2026-03-07T15:45:59.824515+00:00 OUT INNODB_TABLES	ACTIVE
+2026-03-07T15:45:59.843485+00:00 OUT INNODB_TABLESPACES	ACTIVE
+2026-03-07T15:45:59.872281+00:00 OUT INNODB_TABLESTATS	ACTIVE
+2026-03-07T15:45:59.894615+00:00 OUT INNODB_TEMP_TABLE_INFO	ACTIVE
+2026-03-07T15:45:59.918555+00:00 OUT INNODB_TRX	ACTIVE
+2026-03-07T15:45:59.940846+00:00 OUT INNODB_VIRTUAL	ACTIVE
+2026-03-07T15:45:59.965540+00:00 OUT MEMORY	ACTIVE
+2026-03-07T15:45:59.992215+00:00 OUT MRG_MYISAM	ACTIVE
+2026-03-07T15:46:00.018624+00:00 OUT MyISAM	ACTIVE
+2026-03-07T15:46:00.051870+00:00 OUT mysqlx	ACTIVE
+2026-03-07T15:46:00.084419+00:00 OUT mysqlx_cache_cleaner	ACTIVE
+2026-03-07T15:46:00.107871+00:00 OUT mysql_native_password	ACTIVE
+2026-03-07T15:46:00.126243+00:00 OUT ngram	ACTIVE
+2026-03-07T15:46:00.149239+00:00 OUT PERFORMANCE_SCHEMA	ACTIVE
+2026-03-07T15:46:00.172584+00:00 OUT sha256_password	ACTIVE
+2026-03-07T15:46:00.195630+00:00 OUT sha2_cache_cleaner	ACTIVE
+2026-03-07T15:46:00.213904+00:00 OUT TempTable	ACTIVE
+2026-03-07T15:46:00.239421+00:00 OUT 
+2026-03-07T15:46:00.272324+00:00 OUT ---- functional_indexes ----
+2026-03-07T15:46:01.220656+00:00 OUT (no rows)
+2026-03-07T15:46:01.286985+00:00 OUT 
+2026-03-07T15:46:01.411817+00:00 OUT ---- functional_defaults ----
+2026-03-07T15:46:02.379738+00:00 OUT (no rows)
+2026-03-07T15:46:02.434011+00:00 OUT 
+2026-03-07T15:46:02.512508+00:00 OUT ---- invisible_columns ----
+2026-03-07T15:46:03.748392+00:00 OUT (no rows)
+2026-03-07T15:46:03.827399+00:00 OUT 
+2026-03-07T15:46:03.955876+00:00 OUT ---- check_constraints ----
+2026-03-07T15:46:05.185857+00:00 OUT (no rows)
+2026-03-07T15:46:05.276664+00:00 OUT 
+2026-03-07T15:46:05.417109+00:00 OUT ---- partial_revokes ----
+2026-03-07T15:46:06.762623+00:00 OUT (no rows)
+2026-03-07T15:46:06.860475+00:00 OUT 
+2026-03-07T15:46:06.998810+00:00 OUT ---- gis_srid_usage ----
+2026-03-07T15:46:08.097585+00:00 OUT sakila	address	location	0
+2026-03-07T15:46:08.248727+00:00 OUT 
+2026-03-07T15:46:08.382266+00:00 OUT ---- resource_groups ----
+2026-03-07T15:46:09.694304+00:00 OUT USR_default	USER	1	0-9	0
+2026-03-07T15:46:09.722607+00:00 OUT SYS_default	SYSTEM	1	0-9	0
+2026-03-07T15:46:09.864357+00:00 OUT 
+2026-03-07T15:46:10.003077+00:00 OUT ---- xplugin_status ----
+2026-03-07T15:46:11.296331+00:00 OUT mysqlx	ACTIVE
+2026-03-07T15:46:11.450809+00:00 OUT 
+2026-03-07T15:46:11.595379+00:00 OUT ---- fk_name_lengths ----
+2026-03-07T15:46:12.849767+00:00 OUT (no rows)
+2026-03-07T15:46:12.909947+00:00 OUT 
+2026-03-07T15:46:13.016569+00:00 OUT ---- trigger_order ----
+2026-03-07T15:46:14.236683+00:00 OUT (no rows)
+2026-03-07T15:46:14.318848+00:00 OUT 
+2026-03-07T15:46:14.561580+00:00 OUT Precheck complete.
+2026-03-07T15:46:14.645877+00:00 OUT TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv
+2026-03-07T15:46:14.717206+00:00 RUN  replace_slave_backup (Backup current MySQL slave host) -> scripts/21_replace_slave_backup.sh
+2026-03-07T15:46:14.736671+00:00 CMD /mnt/macshare/scripts/21_replace_slave_backup.sh
+2026-03-07T15:46:14.834186+00:00 OUT ==> Backup existing MySQL slave host
+2026-03-07T15:46:14.857777+00:00 OUT Running backup command on target host...
+2026-03-07T15:46:19.637329+00:00 OUT Backup step completed.
+2026-03-07T15:46:19.695403+00:00 RUN  replace_slave_install_mariadb (Install MariaDB on target host) -> scripts/23_install_mariadb.sh
+2026-03-07T15:46:19.719885+00:00 CMD /mnt/macshare/scripts/23_install_mariadb.sh
+2026-03-07T15:46:19.808667+00:00 OUT ==> Install MariaDB on target host
+2026-03-07T15:46:20.064199+00:00 OUT Installing MariaDB 11.8 for target OS: ubuntu
+2026-03-07T15:46:23.742712+00:00 OUT # [info] Checking for script prerequisites.
+2026-03-07T15:46:24.664087+00:00 OUT # [info] MariaDB Server version 11.8 is valid
+2026-03-07T15:46:24.673540+00:00 OUT # [info] Repository file successfully written to /etc/apt/sources.list.d/mariadb.list
+2026-03-07T15:46:24.684199+00:00 OUT # [info] Adding trusted package signing keys...
+2026-03-07T15:46:25.428878+00:00 OUT # [info] Running apt-get update...
+2026-03-07T15:46:31.732572+00:00 OUT # [info] Done adding trusted package signing keys
+2026-03-07T15:46:32.219654+00:00 OUT Hit:1 http://ports.ubuntu.com/ubuntu-ports noble InRelease
+2026-03-07T15:46:32.432981+00:00 OUT Hit:3 http://ports.ubuntu.com/ubuntu-ports noble-updates InRelease
+2026-03-07T15:46:32.642426+00:00 OUT Hit:2 https://dlm.mariadb.com/repo/mariadb-server/11.8/repo/ubuntu noble InRelease
+2026-03-07T15:46:32.655832+00:00 OUT Hit:4 http://ports.ubuntu.com/ubuntu-ports noble-backports InRelease
+2026-03-07T15:46:32.866317+00:00 OUT Hit:6 http://ports.ubuntu.com/ubuntu-ports noble-security InRelease
+2026-03-07T15:46:32.957650+00:00 OUT Hit:5 https://dlm.mariadb.com/repo/maxscale/latest/apt noble InRelease
+2026-03-07T15:46:33.785812+00:00 OUT Reading package lists...
+2026-03-07T15:46:33.920583+00:00 OUT Reading package lists...
+2026-03-07T15:46:34.065073+00:00 OUT Building dependency tree...
+2026-03-07T15:46:34.079630+00:00 OUT Reading state information...
+2026-03-07T15:46:34.234676+00:00 OUT 0 upgraded, 0 newly installed, 0 to remove and 4 not upgraded.
+2026-03-07T15:46:34.254620+00:00 OUT Reading package lists...
+2026-03-07T15:46:34.396241+00:00 OUT Building dependency tree...
+2026-03-07T15:46:34.415375+00:00 OUT Reading state information...
+2026-03-07T15:46:34.581027+00:00 OUT The following packages were automatically installed and are no longer required:
+2026-03-07T15:46:34.610637+00:00 OUT   libevent-pthreads-2.1-7t64 libmecab2 libprotobuf-lite32t64 mecab-ipadic
+2026-03-07T15:46:34.620237+00:00 OUT   mecab-ipadic-utf8 mecab-utils
+2026-03-07T15:46:34.625147+00:00 OUT Use 'sudo apt autoremove' to remove them.
+2026-03-07T15:46:34.636211+00:00 OUT The following additional packages will be installed:
+2026-03-07T15:46:34.639975+00:00 OUT   galera-4 libconfig-inifiles-perl libdbd-mysql-perl libdbi-perl libmariadb3
+2026-03-07T15:46:34.650386+00:00 OUT   libmysqlclient21 libpcre2-posix3 liburing2 mariadb-client-compat
+2026-03-07T15:46:34.655443+00:00 OUT   mariadb-client-core mariadb-common mariadb-server-compat mariadb-server-core
+2026-03-07T15:46:34.660753+00:00 OUT   mysql-common pv socat
+2026-03-07T15:46:34.673823+00:00 OUT Suggested packages:
+2026-03-07T15:46:34.681245+00:00 OUT   libmldbm-perl libnet-daemon-perl libsql-statement-perl mailx mariadb-test
+2026-03-07T15:46:34.689615+00:00 OUT   doc-base
+2026-03-07T15:46:34.697243+00:00 OUT The following packages will be REMOVED:
+2026-03-07T15:46:34.702207+00:00 OUT   mysql-client-8.0 mysql-client-core-8.0 mysql-server mysql-server-8.0
+2026-03-07T15:46:34.712965+00:00 OUT   mysql-server-core-8.0
+2026-03-07T15:46:34.722134+00:00 OUT The following NEW packages will be installed:
+2026-03-07T15:46:34.732275+00:00 OUT   galera-4 libconfig-inifiles-perl libdbd-mysql-perl libdbi-perl libmariadb3
+2026-03-07T15:46:34.737261+00:00 OUT   libmysqlclient21 libpcre2-posix3 liburing2 mariadb-client
+2026-03-07T15:46:34.745823+00:00 OUT   mariadb-client-compat mariadb-client-core mariadb-common mariadb-server
+2026-03-07T15:46:34.753773+00:00 OUT   mariadb-server-compat mariadb-server-core pv socat
+2026-03-07T15:46:34.761885+00:00 OUT The following packages will be upgraded:
+2026-03-07T15:46:34.769015+00:00 OUT   mysql-common
+2026-03-07T15:46:35.600766+00:00 OUT 1 upgraded, 17 newly installed, 5 to remove and 3 not upgraded.
+2026-03-07T15:46:35.610196+00:00 OUT Need to get 9,884 kB/27.0 MB of archives.
+2026-03-07T15:46:35.623933+00:00 OUT After this operation, 20.7 MB disk space will be freed.
+2026-03-07T15:46:35.629415+00:00 OUT Get:1 https://dlm.mariadb.com/repo/mariadb-server/11.8/repo/ubuntu noble/main arm64 galera-4 arm64 26.4.25-ubu2404 [9,884 kB]
+2026-03-07T15:46:38.561685+00:00 OUT N: Ignoring file 'mariadb.list.old_1' in directory '/etc/apt/sources.list.d/' as it has an invalid filename extension
+2026-03-07T15:46:38.583503+00:00 OUT Preconfiguring packages ...
+2026-03-07T15:46:38.642136+00:00 OUT Fetched 9,884 kB in 4s (2,642 kB/s)
+2026-03-07T15:46:38.671850+00:00 OUT (Reading database ... 
+2026-03-07T15:46:38.680238+00:00 OUT (Reading database ... 5%
+2026-03-07T15:46:38.689400+00:00 OUT (Reading database ... 10%
+2026-03-07T15:46:38.699482+00:00 OUT (Reading database ... 15%
+2026-03-07T15:46:38.708511+00:00 OUT (Reading database ... 20%
+2026-03-07T15:46:38.721831+00:00 OUT (Reading database ... 25%
+2026-03-07T15:46:38.737285+00:00 OUT (Reading database ... 30%
+2026-03-07T15:46:38.753058+00:00 OUT (Reading database ... 35%
+2026-03-07T15:46:38.763347+00:00 OUT (Reading database ... 40%
+2026-03-07T15:46:38.773631+00:00 OUT (Reading database ... 45%
+2026-03-07T15:46:38.785164+00:00 OUT (Reading database ... 50%
+2026-03-07T15:46:38.795951+00:00 OUT (Reading database ... 55%
+2026-03-07T15:46:38.807315+00:00 OUT (Reading database ... 60%
+2026-03-07T15:46:38.820743+00:00 OUT (Reading database ... 65%
+2026-03-07T15:46:38.836916+00:00 OUT (Reading database ... 70%
+2026-03-07T15:46:38.850508+00:00 OUT (Reading database ... 75%
+2026-03-07T15:46:38.896851+00:00 OUT (Reading database ... 80%
+2026-03-07T15:46:38.948461+00:00 OUT (Reading database ... 85%
+2026-03-07T15:46:38.986419+00:00 OUT (Reading database ... 90%
+2026-03-07T15:46:39.034774+00:00 OUT (Reading database ... 95%
+2026-03-07T15:46:39.052742+00:00 OUT (Reading database ... 100%
+2026-03-07T15:46:39.071015+00:00 OUT (Reading database ... 174195 files and directories currently installed.)
+2026-03-07T15:46:39.082198+00:00 OUT Removing mysql-server (8.0.45-0ubuntu0.24.04.1) ...
+2026-03-07T15:46:39.095467+00:00 OUT Removing mysql-server-8.0 (8.0.45-0ubuntu0.24.04.1) ...
+2026-03-07T15:46:42.613180+00:00 OUT update-alternatives: using /etc/mysql/my.cnf.fallback to provide /etc/mysql/my.cnf (my.cnf) in auto mode
+2026-03-07T15:46:42.643139+00:00 OUT Removing mysql-client-8.0 (8.0.45-0ubuntu0.24.04.1) ...
+2026-03-07T15:46:42.667402+00:00 OUT Removing mysql-client-core-8.0 (8.0.45-0ubuntu0.24.04.1) ...
+2026-03-07T15:46:42.691095+00:00 OUT Removing mysql-server-core-8.0 (8.0.45-0ubuntu0.24.04.1) ...
+2026-03-07T15:46:42.738931+00:00 OUT (Reading database ... 
+2026-03-07T15:46:42.753636+00:00 OUT (Reading database ... 5%
+2026-03-07T15:46:42.774430+00:00 OUT (Reading database ... 10%
+2026-03-07T15:46:42.787870+00:00 OUT (Reading database ... 15%
+2026-03-07T15:46:42.801060+00:00 OUT (Reading database ... 20%
+2026-03-07T15:46:42.813492+00:00 OUT (Reading database ... 25%
+2026-03-07T15:46:42.825286+00:00 OUT (Reading database ... 30%
+2026-03-07T15:46:42.844889+00:00 OUT (Reading database ... 35%
+2026-03-07T15:46:42.861422+00:00 OUT (Reading database ... 40%
+2026-03-07T15:46:42.879074+00:00 OUT (Reading database ... 45%
+2026-03-07T15:46:42.888817+00:00 OUT (Reading database ... 50%
+2026-03-07T15:46:42.911760+00:00 OUT (Reading database ... 55%
+2026-03-07T15:46:42.922099+00:00 OUT (Reading database ... 60%
+2026-03-07T15:46:42.928894+00:00 OUT (Reading database ... 65%
+2026-03-07T15:46:42.941736+00:00 OUT (Reading database ... 70%
+2026-03-07T15:46:42.949098+00:00 OUT (Reading database ... 75%
+2026-03-07T15:46:42.957317+00:00 OUT (Reading database ... 80%
+2026-03-07T15:46:42.966023+00:00 OUT (Reading database ... 85%
+2026-03-07T15:46:42.974670+00:00 OUT (Reading database ... 90%
+2026-03-07T15:46:42.992860+00:00 OUT (Reading database ... 95%
+2026-03-07T15:46:43.006165+00:00 OUT (Reading database ... 100%
+2026-03-07T15:46:43.019485+00:00 OUT (Reading database ... 173985 files and directories currently installed.)
+2026-03-07T15:46:43.035415+00:00 OUT Preparing to unpack .../00-mysql-common_1%3a11.8.6+maria~ubu2404_all.deb ...
+2026-03-07T15:46:43.053764+00:00 OUT Unpacking mysql-common (1:11.8.6+maria~ubu2404) over (5.8+1.1.0build1) ...
+2026-03-07T15:46:43.066651+00:00 OUT Selecting previously unselected package mariadb-common.
+2026-03-07T15:46:43.084961+00:00 OUT Preparing to unpack .../01-mariadb-common_1%3a11.8.6+maria~ubu2404_all.deb ...
+2026-03-07T15:46:43.113327+00:00 OUT Unpacking mariadb-common (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:43.140939+00:00 OUT Selecting previously unselected package galera-4.
+2026-03-07T15:46:43.158917+00:00 OUT Preparing to unpack .../02-galera-4_26.4.25-ubu2404_arm64.deb ...
+2026-03-07T15:46:43.171822+00:00 OUT Unpacking galera-4 (26.4.25-ubu2404) ...
+2026-03-07T15:46:43.186016+00:00 OUT Selecting previously unselected package libdbi-perl:arm64.
+2026-03-07T15:46:43.196788+00:00 OUT Preparing to unpack .../03-libdbi-perl_1.643-4build3_arm64.deb ...
+2026-03-07T15:46:43.208303+00:00 OUT Unpacking libdbi-perl:arm64 (1.643-4build3) ...
+2026-03-07T15:46:43.225930+00:00 OUT Selecting previously unselected package libconfig-inifiles-perl.
+2026-03-07T15:46:43.237473+00:00 OUT Preparing to unpack .../04-libconfig-inifiles-perl_3.000003-2_all.deb ...
+2026-03-07T15:46:43.255433+00:00 OUT Unpacking libconfig-inifiles-perl (3.000003-2) ...
+2026-03-07T15:46:43.273444+00:00 OUT Selecting previously unselected package libmariadb3:arm64.
+2026-03-07T15:46:43.288690+00:00 OUT Preparing to unpack .../05-libmariadb3_1%3a11.8.6+maria~ubu2404_arm64.deb ...
+2026-03-07T15:46:43.302353+00:00 OUT Unpacking libmariadb3:arm64 (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:43.322752+00:00 OUT Selecting previously unselected package mariadb-client-core.
+2026-03-07T15:46:43.333811+00:00 OUT Preparing to unpack .../06-mariadb-client-core_1%3a11.8.6+maria~ubu2404_arm64.deb ...
+2026-03-07T15:46:43.341785+00:00 OUT Unpacking mariadb-client-core (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:43.351621+00:00 OUT Selecting previously unselected package libpcre2-posix3:arm64.
+2026-03-07T15:46:43.357673+00:00 OUT Preparing to unpack .../07-libpcre2-posix3_10.42-4ubuntu2.1_arm64.deb ...
+2026-03-07T15:46:43.375825+00:00 OUT Unpacking libpcre2-posix3:arm64 (10.42-4ubuntu2.1) ...
+2026-03-07T15:46:43.383907+00:00 OUT Selecting previously unselected package mariadb-client.
+2026-03-07T15:46:43.398192+00:00 OUT Preparing to unpack .../08-mariadb-client_1%3a11.8.6+maria~ubu2404_arm64.deb ...
+2026-03-07T15:46:43.410646+00:00 OUT Unpacking mariadb-client (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:43.424479+00:00 OUT Selecting previously unselected package liburing2:arm64.
+2026-03-07T15:46:43.436903+00:00 OUT Preparing to unpack .../09-liburing2_2.5-1build1_arm64.deb ...
+2026-03-07T15:46:43.447397+00:00 OUT Unpacking liburing2:arm64 (2.5-1build1) ...
+2026-03-07T15:46:43.459174+00:00 OUT Selecting previously unselected package mariadb-server-core.
+2026-03-07T15:46:43.471368+00:00 OUT Preparing to unpack .../10-mariadb-server-core_1%3a11.8.6+maria~ubu2404_arm64.deb ...
+2026-03-07T15:46:43.483254+00:00 OUT Unpacking mariadb-server-core (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:43.536775+00:00 OUT Selecting previously unselected package socat.
+2026-03-07T15:46:43.558467+00:00 OUT Preparing to unpack .../11-socat_1.8.0.0-4build3_arm64.deb ...
+2026-03-07T15:46:43.571560+00:00 OUT Unpacking socat (1.8.0.0-4build3) ...
+2026-03-07T15:46:43.591986+00:00 OUT Setting up mysql-common (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:43.610932+00:00 OUT Setting up mariadb-common (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:43.635211+00:00 OUT update-alternatives: using /etc/mysql/mariadb.cnf to provide /etc/mysql/my.cnf (my.cnf) in auto mode
+2026-03-07T15:46:43.673052+00:00 OUT Selecting previously unselected package mariadb-server.
+2026-03-07T15:46:43.699090+00:00 OUT (Reading database ... 
+2026-03-07T15:46:43.720242+00:00 OUT (Reading database ... 5%
+2026-03-07T15:46:43.737849+00:00 OUT (Reading database ... 10%
+2026-03-07T15:46:43.756393+00:00 OUT (Reading database ... 15%
+2026-03-07T15:46:43.769306+00:00 OUT (Reading database ... 20%
+2026-03-07T15:46:43.785515+00:00 OUT (Reading database ... 25%
+2026-03-07T15:46:43.798973+00:00 OUT (Reading database ... 30%
+2026-03-07T15:46:43.810554+00:00 OUT (Reading database ... 35%
+2026-03-07T15:46:43.822234+00:00 OUT (Reading database ... 40%
+2026-03-07T15:46:43.843014+00:00 OUT (Reading database ... 45%
+2026-03-07T15:46:43.859198+00:00 OUT (Reading database ... 50%
+2026-03-07T15:46:43.865095+00:00 OUT (Reading database ... 55%
+2026-03-07T15:46:43.879736+00:00 OUT (Reading database ... 60%
+2026-03-07T15:46:43.891705+00:00 OUT (Reading database ... 65%
+2026-03-07T15:46:43.901932+00:00 OUT (Reading database ... 70%
+2026-03-07T15:46:43.924811+00:00 OUT (Reading database ... 75%
+2026-03-07T15:46:43.948777+00:00 OUT (Reading database ... 80%
+2026-03-07T15:46:43.967013+00:00 OUT (Reading database ... 85%
+2026-03-07T15:46:43.980017+00:00 OUT (Reading database ... 90%
+2026-03-07T15:46:43.994358+00:00 OUT (Reading database ... 95%
+2026-03-07T15:46:44.003173+00:00 OUT (Reading database ... 100%
+2026-03-07T15:46:44.015245+00:00 OUT (Reading database ... 174406 files and directories currently installed.)
+2026-03-07T15:46:44.031989+00:00 OUT Preparing to unpack .../0-mariadb-server_1%3a11.8.6+maria~ubu2404_arm64.deb ...
+2026-03-07T15:46:44.055831+00:00 OUT /var/lib/mysql: found previous version 8.0
+2026-03-07T15:46:44.064225+00:00 OUT The file /var/lib/mysql/debian-8.0.flag indicates a
+2026-03-07T15:46:44.075120+00:00 OUT version that cannot automatically be upgraded. Therefore the
+2026-03-07T15:46:44.088311+00:00 OUT previous data directory will be renamed to /var/lib/mysql-8.0 and
+2026-03-07T15:46:44.107357+00:00 OUT a new data directory will be initialized at /var/lib/mysql.
+2026-03-07T15:46:44.118458+00:00 OUT Please manually export/import your data (e.g. with mysqldump) if needed.
+2026-03-07T15:46:44.135588+00:00 OUT mv: cannot overwrite '/var/lib/mysql-8.0/mysql': Directory not empty
+2026-03-07T15:46:44.156695+00:00 OUT dpkg: error processing archive /tmp/apt-dpkg-install-spVEaX/0-mariadb-server_1%3a11.8.6+maria~ubu2404_arm64.deb (--unpack):
+2026-03-07T15:46:44.171273+00:00 OUT  new mariadb-server package pre-installation script subprocess returned error exit status 1
+2026-03-07T15:46:44.186813+00:00 OUT Selecting previously unselected package libmysqlclient21:arm64.
+2026-03-07T15:46:44.210645+00:00 OUT Preparing to unpack .../1-libmysqlclient21_8.0.45-0ubuntu0.24.04.1_arm64.deb ...
+2026-03-07T15:46:44.228905+00:00 OUT Unpacking libmysqlclient21:arm64 (8.0.45-0ubuntu0.24.04.1) ...
+2026-03-07T15:46:44.243618+00:00 OUT Selecting previously unselected package libdbd-mysql-perl:arm64.
+2026-03-07T15:46:44.259530+00:00 OUT Preparing to unpack .../2-libdbd-mysql-perl_4.052-1ubuntu3_arm64.deb ...
+2026-03-07T15:46:44.273868+00:00 OUT Unpacking libdbd-mysql-perl:arm64 (4.052-1ubuntu3) ...
+2026-03-07T15:46:44.290052+00:00 OUT Selecting previously unselected package mariadb-client-compat.
+2026-03-07T15:46:44.306894+00:00 OUT Preparing to unpack .../3-mariadb-client-compat_1%3a11.8.6+maria~ubu2404_all.deb ...
+2026-03-07T15:46:44.318157+00:00 OUT Unpacking mariadb-client-compat (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:44.332066+00:00 OUT Selecting previously unselected package mariadb-server-compat.
+2026-03-07T15:46:44.348257+00:00 OUT Preparing to unpack .../4-mariadb-server-compat_1%3a11.8.6+maria~ubu2404_all.deb ...
+2026-03-07T15:46:44.367361+00:00 OUT Unpacking mariadb-server-compat (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:46:44.379240+00:00 OUT Selecting previously unselected package pv.
+2026-03-07T15:46:44.390596+00:00 OUT Preparing to unpack .../5-pv_1.8.5-2build1_arm64.deb ...
+2026-03-07T15:46:44.408083+00:00 OUT Unpacking pv (1.8.5-2build1) ...
+2026-03-07T15:46:44.422902+00:00 OUT Errors were encountered while processing:
+2026-03-07T15:46:44.433760+00:00 OUT  /tmp/apt-dpkg-install-spVEaX/0-mariadb-server_1%3a11.8.6+maria~ubu2404_arm64.deb
+2026-03-07T15:46:44.448874+00:00 OUT needrestart is being skipped since dpkg has failed
+2026-03-07T15:46:44.554990+00:00 OUT E: Sub-process /usr/bin/dpkg returned an error code (1)
+2026-03-07T15:46:44.642823+00:00 FINISH success=False message=Run failed at step: replace_slave_install_mariadb
+2026-03-07T15:50:06.007772+00:00 START mode=run config=config/migration.yaml
+2026-03-07T15:50:06.458842+00:00 SKIP preflight_replace_slave (Preflight checks (replace_slave)) - already DONE
+2026-03-07T15:50:06.481372+00:00 SKIP precheck (Precheck source variables and blockers) - already DONE
+2026-03-07T15:50:06.512699+00:00 SKIP replace_slave_backup (Backup current MySQL slave host) - already DONE
+2026-03-07T15:50:06.546980+00:00 RUN  replace_slave_install_mariadb (Install MariaDB on target host) -> scripts/23_install_mariadb.sh
+2026-03-07T15:50:06.565619+00:00 CMD /mnt/macshare/scripts/23_install_mariadb.sh
+2026-03-07T15:50:06.669805+00:00 OUT ==> Install MariaDB on target host
+2026-03-07T15:50:06.957538+00:00 OUT Installing MariaDB 11.8 for target OS: ubuntu
+2026-03-07T15:50:10.235289+00:00 OUT # [info] Checking for script prerequisites.
+2026-03-07T15:50:10.255326+00:00 OUT # [warning] Found existing file at /etc/apt/sources.list.d/mariadb.list. Moving to /etc/apt/sources.list.d/mariadb.list.old_2
+2026-03-07T15:50:11.210025+00:00 OUT # [info] MariaDB Server version 11.8 is valid
+2026-03-07T15:50:11.220868+00:00 OUT # [info] Repository file successfully written to /etc/apt/sources.list.d/mariadb.list
+2026-03-07T15:50:11.230300+00:00 OUT # [info] Adding trusted package signing keys...
+2026-03-07T15:50:11.939734+00:00 OUT # [info] Running apt-get update...
+2026-03-07T15:50:14.438561+00:00 OUT # [info] Done adding trusted package signing keys
+2026-03-07T15:50:14.817466+00:00 OUT Hit:3 http://ports.ubuntu.com/ubuntu-ports noble InRelease
+2026-03-07T15:50:14.908013+00:00 OUT Hit:1 https://dlm.mariadb.com/repo/mariadb-server/11.8/repo/ubuntu noble InRelease
+2026-03-07T15:50:14.984387+00:00 OUT Hit:4 http://ports.ubuntu.com/ubuntu-ports noble-updates InRelease
+2026-03-07T15:50:15.153769+00:00 OUT Hit:5 http://ports.ubuntu.com/ubuntu-ports noble-backports InRelease
+2026-03-07T15:50:15.320989+00:00 OUT Hit:6 http://ports.ubuntu.com/ubuntu-ports noble-security InRelease
+2026-03-07T15:50:15.886851+00:00 OUT Hit:2 https://dlm.mariadb.com/repo/maxscale/latest/apt noble InRelease
+2026-03-07T15:50:16.678440+00:00 OUT Reading package lists...
+2026-03-07T15:50:16.694882+00:00 OUT Setting up libconfig-inifiles-perl (3.000003-2) ...
+2026-03-07T15:50:16.722650+00:00 OUT Setting up galera-4 (26.4.25-ubu2404) ...
+2026-03-07T15:50:16.739051+00:00 OUT Setting up libmysqlclient21:arm64 (8.0.45-0ubuntu0.24.04.1) ...
+2026-03-07T15:50:16.754640+00:00 OUT Setting up socat (1.8.0.0-4build3) ...
+2026-03-07T15:50:16.766095+00:00 OUT Setting up libmariadb3:arm64 (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:50:16.775937+00:00 OUT dpkg: dependency problems prevent configuration of mariadb-server-compat:
+2026-03-07T15:50:16.783321+00:00 OUT  mariadb-server-compat depends on mariadb-server (>= 1:11.8.6+maria~ubu2404); however:
+2026-03-07T15:50:16.790612+00:00 OUT   Package mariadb-server is not installed.
+2026-03-07T15:50:16.802590+00:00 OUT 
+2026-03-07T15:50:16.813938+00:00 OUT dpkg: error processing package mariadb-server-compat (--configure):
+2026-03-07T15:50:16.821377+00:00 OUT  dependency problems - leaving unconfigured
+2026-03-07T15:50:16.827729+00:00 OUT Setting up libpcre2-posix3:arm64 (10.42-4ubuntu2.1) ...
+2026-03-07T15:50:16.836009+00:00 OUT Setting up pv (1.8.5-2build1) ...
+2026-03-07T15:50:16.845831+00:00 OUT Setting up liburing2:arm64 (2.5-1build1) ...
+2026-03-07T15:50:16.852733+00:00 OUT Setting up libdbi-perl:arm64 (1.643-4build3) ...
+2026-03-07T15:50:16.857201+00:00 OUT Setting up mariadb-client-core (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:50:16.864796+00:00 OUT Setting up libdbd-mysql-perl:arm64 (4.052-1ubuntu3) ...
+2026-03-07T15:50:16.870336+00:00 OUT Setting up mariadb-server-core (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:50:16.878045+00:00 OUT Setting up mariadb-client (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:50:16.883303+00:00 OUT Setting up mariadb-client-compat (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:50:16.889926+00:00 OUT Processing triggers for man-db (2.12.0-4build2) ...
+2026-03-07T15:50:17.761346+00:00 OUT Processing triggers for libc-bin (2.39-0ubuntu8.7) ...
+2026-03-07T15:50:17.791002+00:00 OUT Errors were encountered while processing:
+2026-03-07T15:50:17.802475+00:00 OUT  mariadb-server-compat
+2026-03-07T15:50:17.857697+00:00 OUT Reading package lists...
+2026-03-07T15:50:18.002593+00:00 OUT Building dependency tree...
+2026-03-07T15:50:18.015185+00:00 OUT Reading state information...
+2026-03-07T15:50:18.061469+00:00 OUT Correcting dependencies... Done
+2026-03-07T15:50:18.212038+00:00 OUT The following packages were automatically installed and are no longer required:
+2026-03-07T15:50:18.228957+00:00 OUT   galera-4 libcgi-fast-perl libcgi-pm-perl libevent-pthreads-2.1-7t64
+2026-03-07T15:50:18.247534+00:00 OUT   libfcgi-bin libfcgi-perl libfcgi0t64 libhtml-template-perl libmecab2
+2026-03-07T15:50:18.260864+00:00 OUT   libprotobuf-lite32t64 liburing2 mariadb-server mariadb-server-compat
+2026-03-07T15:50:18.266005+00:00 OUT   mariadb-server-core mecab-ipadic mecab-ipadic-utf8 mecab-utils pv socat
+2026-03-07T15:50:18.275730+00:00 OUT Use 'sudo apt autoremove' to remove them.
+2026-03-07T15:50:18.283320+00:00 OUT The following additional packages will be installed:
+2026-03-07T15:50:18.292309+00:00 OUT   mariadb-server
+2026-03-07T15:50:18.296934+00:00 OUT Suggested packages:
+2026-03-07T15:50:18.307080+00:00 OUT   mailx mariadb-test
+2026-03-07T15:50:18.315899+00:00 OUT The following NEW packages will be installed:
+2026-03-07T15:50:18.327463+00:00 OUT   mariadb-server
+2026-03-07T15:50:18.392333+00:00 OUT N: Ignoring file 'mariadb.list.old_1' in directory '/etc/apt/sources.list.d/' as it has an invalid filename extension
+2026-03-07T15:50:18.409076+00:00 OUT N: Ignoring file 'mariadb.list.old_2' in directory '/etc/apt/sources.list.d/' as it has an invalid filename extension
+2026-03-07T15:50:18.419769+00:00 OUT Preconfiguring packages ...
+2026-03-07T15:50:18.451227+00:00 OUT 0 upgraded, 1 newly installed, 0 to remove and 3 not upgraded.
+2026-03-07T15:50:18.467800+00:00 OUT 1 not fully installed or removed.
+2026-03-07T15:50:18.482445+00:00 OUT Need to get 0 B/3,334 kB of archives.
+2026-03-07T15:50:18.499819+00:00 OUT After this operation, 44.9 MB of additional disk space will be used.
+2026-03-07T15:50:18.519165+00:00 OUT (Reading database ... 
+2026-03-07T15:50:18.531631+00:00 OUT (Reading database ... 5%
+2026-03-07T15:50:18.545929+00:00 OUT (Reading database ... 10%
+2026-03-07T15:50:18.558750+00:00 OUT (Reading database ... 15%
+2026-03-07T15:50:18.570982+00:00 OUT (Reading database ... 20%
+2026-03-07T15:50:18.581362+00:00 OUT (Reading database ... 25%
+2026-03-07T15:50:18.607939+00:00 OUT (Reading database ... 30%
+2026-03-07T15:50:18.620067+00:00 OUT (Reading database ... 35%
+2026-03-07T15:50:18.632802+00:00 OUT (Reading database ... 40%
+2026-03-07T15:50:18.644968+00:00 OUT (Reading database ... 45%
+2026-03-07T15:50:18.655793+00:00 OUT (Reading database ... 50%
+2026-03-07T15:50:18.669745+00:00 OUT (Reading database ... 55%
+2026-03-07T15:50:18.685013+00:00 OUT (Reading database ... 60%
+2026-03-07T15:50:18.698269+00:00 OUT (Reading database ... 65%
+2026-03-07T15:50:18.714187+00:00 OUT (Reading database ... 70%
+2026-03-07T15:50:18.722871+00:00 OUT (Reading database ... 75%
+2026-03-07T15:50:18.731233+00:00 OUT (Reading database ... 80%
+2026-03-07T15:50:18.743479+00:00 OUT (Reading database ... 85%
+2026-03-07T15:50:18.760440+00:00 OUT (Reading database ... 90%
+2026-03-07T15:50:18.769516+00:00 OUT (Reading database ... 95%
+2026-03-07T15:50:18.781023+00:00 OUT (Reading database ... 100%
+2026-03-07T15:50:18.790959+00:00 OUT (Reading database ... 174497 files and directories currently installed.)
+2026-03-07T15:50:18.809256+00:00 OUT Preparing to unpack .../mariadb-server_1%3a11.8.6+maria~ubu2404_arm64.deb ...
+2026-03-07T15:50:18.818713+00:00 OUT /var/lib/mysql: found previous version 8.0
+2026-03-07T15:50:18.829464+00:00 OUT The file /var/lib/mysql/debian-8.0.flag indicates a
+2026-03-07T15:50:18.837834+00:00 OUT version that cannot automatically be upgraded. Therefore the
+2026-03-07T15:50:18.855197+00:00 OUT previous data directory will be renamed to /var/lib/mysql-8.0 and
+2026-03-07T15:50:18.863013+00:00 OUT a new data directory will be initialized at /var/lib/mysql.
+2026-03-07T15:50:18.874465+00:00 OUT Please manually export/import your data (e.g. with mysqldump) if needed.
+2026-03-07T15:50:18.879556+00:00 OUT Unpacking mariadb-server (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:50:18.896549+00:00 OUT Setting up mariadb-server (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:50:18.908004+00:00 OUT Installing new version of config file /etc/mysql/debian-start ...
+2026-03-07T15:50:19.706447+00:00 OUT renamed '/etc/logrotate.d/mysql-server' -> '/etc/logrotate.d/mysql-server.dpkg-bak'
+2026-03-07T15:50:19.761770+00:00 OUT Created symlink /etc/systemd/system/multi-user.target.wants/mariadb.service → /usr/lib/systemd/system/mariadb.service.
+2026-03-07T15:50:19.779969+00:00 OUT 
+2026-03-07T15:50:22.059951+00:00 OUT Setting up mariadb-server-compat (1:11.8.6+maria~ubu2404) ...
+2026-03-07T15:50:22.072853+00:00 OUT Processing triggers for man-db (2.12.0-4build2) ...
+2026-03-07T15:50:22.400651+00:00 OUT needrestart is being skipped since dpkg has failed
+2026-03-07T15:50:23.077966+00:00 OUT Reading package lists...
+2026-03-07T15:50:23.214647+00:00 OUT Building dependency tree...
+2026-03-07T15:50:23.229556+00:00 OUT Reading state information...
+2026-03-07T15:50:23.378326+00:00 OUT mariadb-server is already the newest version (1:11.8.6+maria~ubu2404).
+2026-03-07T15:50:23.402539+00:00 OUT mariadb-server set to manually installed.
+2026-03-07T15:50:23.433739+00:00 OUT mariadb-client is already the newest version (1:11.8.6+maria~ubu2404).
+2026-03-07T15:50:23.458652+00:00 OUT The following packages were automatically installed and are no longer required:
+2026-03-07T15:50:23.470395+00:00 OUT   libevent-pthreads-2.1-7t64 libmecab2 libprotobuf-lite32t64 mecab-ipadic
+2026-03-07T15:50:23.478902+00:00 OUT   mecab-ipadic-utf8 mecab-utils
+2026-03-07T15:50:23.486320+00:00 OUT Use 'sudo apt autoremove' to remove them.
+2026-03-07T15:50:23.494377+00:00 OUT 0 upgraded, 0 newly installed, 0 to remove and 3 not upgraded.
+2026-03-07T15:50:23.499314+00:00 OUT MariaDB install step completed.
+2026-03-07T15:50:23.557674+00:00 RUN  replace_slave_switch_engine (Stop MySQL slave and start/configure MariaDB on same host) -> scripts/22_replace_slave_switch_engine.sh
+2026-03-07T15:50:23.589044+00:00 CMD /mnt/macshare/scripts/22_replace_slave_switch_engine.sh
+2026-03-07T15:50:23.680978+00:00 OUT ==> Replace MySQL slave engine with MariaDB on target host
+2026-03-07T15:50:23.702827+00:00 OUT Stopping MySQL service on target host...
+2026-03-07T15:50:26.006989+00:00 OUT No MySQL uninstall command configured; skipping package removal.
+2026-03-07T15:50:26.032957+00:00 OUT Configuring MariaDB bind-address on target host...
+2026-03-07T15:50:27.643045+00:00 OUT Starting MariaDB on target host...
+2026-03-07T15:50:30.008396+00:00 OUT Ensuring target admin user can connect remotely...
+2026-03-07T15:50:31.965436+00:00 OUT Verifying MariaDB TCP listener on target host...
+2026-03-07T15:50:33.959745+00:00 OUT Checking MariaDB remote listener scope on target host...
+2026-03-07T15:50:36.137104+00:00 OUT Verifying target admin TCP login from target host...
+2026-03-07T15:50:38.075609+00:00 OUT WARNING: option --ssl-verify-server-cert is disabled, because of an insecure passwordless login.
+2026-03-07T15:50:38.119115+00:00 OUT Engine switch step completed.
+2026-03-07T15:50:38.203293+00:00 RUN  binlog_seed_dump_restore (Seed target with dump/restore snapshot) -> scripts/14_binlog_seed.sh
+2026-03-07T15:50:38.227113+00:00 CMD /mnt/macshare/scripts/14_binlog_seed.sh
+2026-03-07T15:50:38.319433+00:00 OUT ==> Binlog migration: seed target from source snapshot
+2026-03-07T15:50:38.526173+00:00 OUT Preparing target database(s)...
+2026-03-07T15:50:39.731577+00:00 OUT Creating source snapshot with binlog coordinates...
+2026-03-07T15:50:43.578472+00:00 OUT Restoring snapshot to target...
+2026-03-07T15:50:47.175517+00:00 OUT Seed completed.
+2026-03-07T15:50:47.193175+00:00 OUT Coordinates file: artifacts/binlog_coords.env
+2026-03-07T15:50:47.200470+00:00 OUT Dump file: artifacts/binlog_seed_20260307_155038.sql
+2026-03-07T15:50:47.274485+00:00 RUN  binlog_start_replication (Configure and start MariaDB replication from MySQL binlog) -> scripts/15_binlog_start_replication.sh
+2026-03-07T15:50:47.299193+00:00 CMD /mnt/macshare/scripts/15_binlog_start_replication.sh
+2026-03-07T15:50:47.396155+00:00 OUT ==> Binlog migration: configure and start replication
+2026-03-07T15:50:47.427093+00:00 OUT Ensuring replication user exists on source...
+2026-03-07T15:50:51.734210+00:00 OUT Applying replication coordinates: mysql-bin.000023:638
+2026-03-07T15:50:54.803774+00:00 OUT Replication started.
+2026-03-07T15:50:54.872194+00:00 RUN  binlog_verify_replication (Verify replication status and lag) -> scripts/16_binlog_verify.sh
+2026-03-07T15:50:54.892649+00:00 CMD /mnt/macshare/scripts/16_binlog_verify.sh
+2026-03-07T15:50:54.969607+00:00 OUT ==> Binlog migration: verify replication
+2026-03-07T15:50:56.462319+00:00 OUT IO running: Connecting
+2026-03-07T15:50:56.478609+00:00 OUT SQL running: Yes
+2026-03-07T15:50:56.484770+00:00 OUT Seconds behind master: NULL
+2026-03-07T15:50:56.492051+00:00 OUT ERROR: Replication threads are not healthy.
+2026-03-07T15:50:56.545134+00:00 FINISH success=False message=Run failed at step: binlog_verify_replication
+2026-03-07T15:54:41.878928+00:00 START mode=run config=config/migration.yaml
+2026-03-07T15:54:42.331272+00:00 SKIP preflight_replace_slave (Preflight checks (replace_slave)) - already DONE
+2026-03-07T15:54:42.366168+00:00 SKIP precheck (Precheck source variables and blockers) - already DONE
+2026-03-07T15:54:42.394731+00:00 SKIP replace_slave_backup (Backup current MySQL slave host) - already DONE
+2026-03-07T15:54:42.421880+00:00 SKIP replace_slave_install_mariadb (Install MariaDB on target host) - already DONE
+2026-03-07T15:54:42.447244+00:00 SKIP replace_slave_switch_engine (Stop MySQL slave and start/configure MariaDB on same host) - already DONE
+2026-03-07T15:54:42.473357+00:00 SKIP binlog_seed_dump_restore (Seed target with dump/restore snapshot) - already DONE
+2026-03-07T15:54:42.505711+00:00 SKIP binlog_start_replication (Configure and start MariaDB replication from MySQL binlog) - already DONE
+2026-03-07T15:54:42.535949+00:00 RUN  binlog_verify_replication (Verify replication status and lag) -> scripts/16_binlog_verify.sh
+2026-03-07T15:54:42.558265+00:00 CMD /mnt/macshare/scripts/16_binlog_verify.sh
+2026-03-07T15:54:42.648321+00:00 OUT ==> Binlog migration: verify replication
+2026-03-07T15:56:16.584193+00:00 OUT IO running: Connecting
+2026-03-07T15:56:16.599456+00:00 OUT SQL running: Yes
+2026-03-07T15:56:16.604789+00:00 OUT Seconds behind master: NULL
+2026-03-07T15:56:16.612177+00:00 OUT ERROR: Replication threads are not healthy.
+2026-03-07T15:56:16.621768+00:00 OUT Last_IO_Error: error connecting to master 'repl@192.168.64.7:3306' - retry-time
+2026-03-07T15:56:16.674043+00:00 FINISH success=False message=Run failed at step: binlog_verify_replication
+2026-03-07T16:02:56.778597+00:00 START mode=run config=config/migration.yaml
+2026-03-07T16:02:57.185616+00:00 SKIP preflight_replace_slave (Preflight checks (replace_slave)) - already DONE
+2026-03-07T16:02:57.209875+00:00 SKIP precheck (Precheck source variables and blockers) - already DONE
+2026-03-07T16:02:57.235799+00:00 SKIP replace_slave_backup (Backup current MySQL slave host) - already DONE
+2026-03-07T16:02:57.263777+00:00 SKIP replace_slave_install_mariadb (Install MariaDB on target host) - already DONE
+2026-03-07T16:02:57.286934+00:00 SKIP replace_slave_switch_engine (Stop MySQL slave and start/configure MariaDB on same host) - already DONE
+2026-03-07T16:02:57.310914+00:00 SKIP binlog_seed_dump_restore (Seed target with dump/restore snapshot) - already DONE
+2026-03-07T16:02:57.342908+00:00 RUN  binlog_start_replication (Configure and start MariaDB replication from MySQL binlog) -> scripts/15_binlog_start_replication.sh
+2026-03-07T16:02:57.357900+00:00 CMD /mnt/macshare/scripts/15_binlog_start_replication.sh
+2026-03-07T16:02:57.449165+00:00 OUT ==> Binlog migration: configure and start replication
+2026-03-07T16:02:57.473099+00:00 OUT Ensuring replication user exists on source...
+2026-03-07T16:03:01.683630+00:00 OUT Applying replication coordinates: mysql-bin.000023:638
+2026-03-07T16:03:04.883475+00:00 OUT Replication started.
+2026-03-07T16:03:04.946316+00:00 RUN  binlog_verify_replication (Verify replication status and lag) -> scripts/16_binlog_verify.sh
+2026-03-07T16:03:04.966555+00:00 CMD /mnt/macshare/scripts/16_binlog_verify.sh
+2026-03-07T16:03:05.053482+00:00 OUT ==> Binlog migration: verify replication
+2026-03-07T16:04:40.755657+00:00 OUT IO running: No
+2026-03-07T16:04:40.783162+00:00 OUT SQL running: Yes
+2026-03-07T16:04:40.792154+00:00 OUT Seconds behind master: NULL
+2026-03-07T16:04:40.800036+00:00 OUT ERROR: Replication threads are not healthy.
+2026-03-07T16:04:40.807721+00:00 OUT Last_IO_Error: Fatal error
+2026-03-07T16:04:40.896455+00:00 FINISH success=False message=Run failed at step: binlog_verify_replication
+2026-03-07T16:08:59.392241+00:00 START mode=run config=config/migration.yaml
+2026-03-07T16:08:59.835585+00:00 SKIP preflight_replace_slave (Preflight checks (replace_slave)) - already DONE
+2026-03-07T16:08:59.858087+00:00 SKIP precheck (Precheck source variables and blockers) - already DONE
+2026-03-07T16:08:59.877374+00:00 SKIP replace_slave_backup (Backup current MySQL slave host) - already DONE
+2026-03-07T16:08:59.896606+00:00 SKIP replace_slave_install_mariadb (Install MariaDB on target host) - already DONE
+2026-03-07T16:08:59.916051+00:00 SKIP replace_slave_switch_engine (Stop MySQL slave and start/configure MariaDB on same host) - already DONE
+2026-03-07T16:08:59.935030+00:00 SKIP binlog_seed_dump_restore (Seed target with dump/restore snapshot) - already DONE
+2026-03-07T16:08:59.951810+00:00 RUN  binlog_start_replication (Configure and start MariaDB replication from MySQL binlog) -> scripts/15_binlog_start_replication.sh
+2026-03-07T16:08:59.960683+00:00 CMD /mnt/macshare/scripts/15_binlog_start_replication.sh
+2026-03-07T16:09:00.030530+00:00 OUT ==> Binlog migration: configure and start replication
+2026-03-07T16:09:00.043462+00:00 OUT Checking source/target server_id...
+2026-03-07T16:09:02.156825+00:00 OUT Source/target server_id collision detected (1). Setting target server_id=1921687413
+2026-03-07T16:09:04.402085+00:00 OUT Target server_id updated to 1921687413
+2026-03-07T16:09:04.444676+00:00 OUT Ensuring replication user exists on source...
+2026-03-07T16:09:08.786608+00:00 OUT Applying replication coordinates: mysql-bin.000023:638
+2026-03-07T16:09:12.051211+00:00 OUT Replication started.
+2026-03-07T16:09:12.125107+00:00 RUN  binlog_verify_replication (Verify replication status and lag) -> scripts/16_binlog_verify.sh
+2026-03-07T16:09:12.146770+00:00 CMD /mnt/macshare/scripts/16_binlog_verify.sh
+2026-03-07T16:09:12.250385+00:00 OUT ==> Binlog migration: verify replication
+2026-03-07T16:09:14.760760+00:00 OUT IO running: Yes
+2026-03-07T16:09:14.782984+00:00 OUT SQL running: Yes
+2026-03-07T16:09:14.792569+00:00 OUT Seconds behind master: 0
+2026-03-07T16:09:14.799128+00:00 OUT Replication verify passed.
+2026-03-07T16:09:14.859473+00:00 RUN  replace_slave_cleanup_old_mysql (Optional cleanup of old MySQL data on replaced slave host) -> scripts/24_replace_slave_cleanup.sh
+2026-03-07T16:09:14.879771+00:00 CMD /mnt/macshare/scripts/24_replace_slave_cleanup.sh
+2026-03-07T16:09:14.969416+00:00 OUT ==> Optional cleanup of old MySQL data on replaced slave host
+2026-03-07T16:09:14.978566+00:00 OUT Cleanup not requested (REPLACE_DELETE_OLD_MYSQL_DATA != 1); skipping.
+2026-03-07T16:09:15.035077+00:00 FINISH success=True message=Run completed successfully.

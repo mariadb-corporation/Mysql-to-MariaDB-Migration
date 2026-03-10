@@ -1,0 +1,246 @@
+{
+  "created_at": "2026-03-07T15:45:30.350997+00:00",
+  "steps": {
+    "binlog_seed_dump_restore": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Binlog migration: seed target from source snapshot",
+          "Preparing target database(s)...",
+          "Creating source snapshot with binlog coordinates...",
+          "Restoring snapshot to target...",
+          "Seed completed.",
+          "Coordinates file: artifacts/binlog_coords.env",
+          "Dump file: artifacts/binlog_seed_20260307_155038.sql"
+        ],
+        "returncode": 0,
+        "script": "scripts/14_binlog_seed.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T15:50:47.215549+00:00"
+    },
+    "binlog_start_replication": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Binlog migration: configure and start replication",
+          "Checking source/target server_id...",
+          "Source/target server_id collision detected (1). Setting target server_id=1921687413",
+          "Target server_id updated to 1921687413",
+          "Ensuring replication user exists on source...",
+          "Applying replication coordinates: mysql-bin.000023:638",
+          "Replication started."
+        ],
+        "returncode": 0,
+        "script": "scripts/15_binlog_start_replication.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T16:09:12.082685+00:00"
+    },
+    "binlog_verify_replication": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Binlog migration: verify replication",
+          "IO running: Yes",
+          "SQL running: Yes",
+          "Seconds behind master: 0",
+          "Replication verify passed."
+        ],
+        "returncode": 0,
+        "script": "scripts/16_binlog_verify.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T16:09:14.809971+00:00"
+    },
+    "precheck": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "INNODB_TABLESPACES\tACTIVE",
+          "INNODB_TABLESTATS\tACTIVE",
+          "INNODB_TEMP_TABLE_INFO\tACTIVE",
+          "INNODB_TRX\tACTIVE",
+          "INNODB_VIRTUAL\tACTIVE",
+          "MEMORY\tACTIVE",
+          "MRG_MYISAM\tACTIVE",
+          "MyISAM\tACTIVE",
+          "mysqlx\tACTIVE",
+          "mysqlx_cache_cleaner\tACTIVE",
+          "mysql_native_password\tACTIVE",
+          "ngram\tACTIVE",
+          "PERFORMANCE_SCHEMA\tACTIVE",
+          "sha256_password\tACTIVE",
+          "sha2_cache_cleaner\tACTIVE",
+          "TempTable\tACTIVE",
+          "",
+          "---- functional_indexes ----",
+          "(no rows)",
+          "",
+          "---- functional_defaults ----",
+          "(no rows)",
+          "",
+          "---- invisible_columns ----",
+          "(no rows)",
+          "",
+          "---- check_constraints ----",
+          "(no rows)",
+          "",
+          "---- partial_revokes ----",
+          "(no rows)",
+          "",
+          "---- gis_srid_usage ----",
+          "sakila\taddress\tlocation\t0",
+          "",
+          "---- resource_groups ----",
+          "USR_default\tUSER\t1\t0-9\t0",
+          "SYS_default\tSYSTEM\t1\t0-9\t0",
+          "",
+          "---- xplugin_status ----",
+          "mysqlx\tACTIVE",
+          "",
+          "---- fk_name_lengths ----",
+          "(no rows)",
+          "",
+          "---- trigger_order ----",
+          "(no rows)",
+          "",
+          "Precheck complete.",
+          "TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv"
+        ],
+        "returncode": 0,
+        "script": "scripts/00_precheck.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T15:46:14.678721+00:00"
+    },
+    "preflight_replace_slave": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Preflight checks (replace_slave)",
+          "Checking source admin connectivity...",
+          "Checking source master status visibility...",
+          "Checking target SSH connectivity...",
+          "Checking current MySQL slave status on target host...",
+          "Preflight complete."
+        ],
+        "returncode": 0,
+        "script": "scripts/20_preflight_replace_slave.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T15:45:36.869361+00:00"
+    },
+    "replace_slave_backup": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Backup existing MySQL slave host",
+          "Running backup command on target host...",
+          "Backup step completed."
+        ],
+        "returncode": 0,
+        "script": "scripts/21_replace_slave_backup.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T15:46:19.660982+00:00"
+    },
+    "replace_slave_cleanup_old_mysql": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Optional cleanup of old MySQL data on replaced slave host",
+          "Cleanup not requested (REPLACE_DELETE_OLD_MYSQL_DATA != 1); skipping."
+        ],
+        "returncode": 0,
+        "script": "scripts/24_replace_slave_cleanup.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T16:09:14.996027+00:00"
+    },
+    "replace_slave_install_mariadb": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "(Reading database ... ",
+          "(Reading database ... 5%",
+          "(Reading database ... 10%",
+          "(Reading database ... 15%",
+          "(Reading database ... 20%",
+          "(Reading database ... 25%",
+          "(Reading database ... 30%",
+          "(Reading database ... 35%",
+          "(Reading database ... 40%",
+          "(Reading database ... 45%",
+          "(Reading database ... 50%",
+          "(Reading database ... 55%",
+          "(Reading database ... 60%",
+          "(Reading database ... 65%",
+          "(Reading database ... 70%",
+          "(Reading database ... 75%",
+          "(Reading database ... 80%",
+          "(Reading database ... 85%",
+          "(Reading database ... 90%",
+          "(Reading database ... 95%",
+          "(Reading database ... 100%",
+          "(Reading database ... 174497 files and directories currently installed.)",
+          "Preparing to unpack .../mariadb-server_1%3a11.8.6+maria~ubu2404_arm64.deb ...",
+          "/var/lib/mysql: found previous version 8.0",
+          "The file /var/lib/mysql/debian-8.0.flag indicates a",
+          "version that cannot automatically be upgraded. Therefore the",
+          "previous data directory will be renamed to /var/lib/mysql-8.0 and",
+          "a new data directory will be initialized at /var/lib/mysql.",
+          "Please manually export/import your data (e.g. with mysqldump) if needed.",
+          "Unpacking mariadb-server (1:11.8.6+maria~ubu2404) ...",
+          "Setting up mariadb-server (1:11.8.6+maria~ubu2404) ...",
+          "Installing new version of config file /etc/mysql/debian-start ...",
+          "renamed '/etc/logrotate.d/mysql-server' -> '/etc/logrotate.d/mysql-server.dpkg-bak'",
+          "Created symlink /etc/systemd/system/multi-user.target.wants/mariadb.service \u2192 /usr/lib/systemd/system/mariadb.service.",
+          "",
+          "Setting up mariadb-server-compat (1:11.8.6+maria~ubu2404) ...",
+          "Processing triggers for man-db (2.12.0-4build2) ...",
+          "needrestart is being skipped since dpkg has failed",
+          "Reading package lists...",
+          "Building dependency tree...",
+          "Reading state information...",
+          "mariadb-server is already the newest version (1:11.8.6+maria~ubu2404).",
+          "mariadb-server set to manually installed.",
+          "mariadb-client is already the newest version (1:11.8.6+maria~ubu2404).",
+          "The following packages were automatically installed and are no longer required:",
+          "  libevent-pthreads-2.1-7t64 libmecab2 libprotobuf-lite32t64 mecab-ipadic",
+          "  mecab-ipadic-utf8 mecab-utils",
+          "Use 'sudo apt autoremove' to remove them.",
+          "0 upgraded, 0 newly installed, 0 to remove and 3 not upgraded.",
+          "MariaDB install step completed."
+        ],
+        "returncode": 0,
+        "script": "scripts/23_install_mariadb.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T15:50:23.518063+00:00"
+    },
+    "replace_slave_switch_engine": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Replace MySQL slave engine with MariaDB on target host",
+          "Stopping MySQL service on target host...",
+          "No MySQL uninstall command configured; skipping package removal.",
+          "Configuring MariaDB bind-address on target host...",
+          "Starting MariaDB on target host...",
+          "Ensuring target admin user can connect remotely...",
+          "Verifying MariaDB TCP listener on target host...",
+          "Checking MariaDB remote listener scope on target host...",
+          "Verifying target admin TCP login from target host...",
+          "WARNING: option --ssl-verify-server-cert is disabled, because of an insecure passwordless login.",
+          "Engine switch step completed."
+        ],
+        "returncode": 0,
+        "script": "scripts/22_replace_slave_switch_engine.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-07T15:50:38.155334+00:00"
+    }
+  },
+  "version": 1
+}

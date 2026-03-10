@@ -17,6 +17,8 @@ run_signature() {
     "REPL_USER=$REPL_USER" \
     "INPLACE_BACKUP_DIR=$INPLACE_BACKUP_DIR" \
     "INPLACE_EXECUTE=$INPLACE_EXECUTE" \
+    "INPLACE_TARGET_OS=$INPLACE_TARGET_OS" \
+    "INPLACE_MARIADB_VERSION=$INPLACE_MARIADB_VERSION" \
     "REPLACE_TARGET_OS=$REPLACE_TARGET_OS" \
     "REPLACE_MARIADB_VERSION=$REPLACE_MARIADB_VERSION" \
     "REPLACE_DELETE_OLD_MYSQL_DATA=$REPLACE_DELETE_OLD_MYSQL_DATA"
@@ -74,7 +76,8 @@ CFG_REPL_PASS=""
 CFG_INPLACE_BACKUP_DIR=""
 CFG_INPLACE_EXECUTE=""
 CFG_INPLACE_STOP_CMD=""
-CFG_INPLACE_INSTALL_CMD=""
+CFG_INPLACE_TARGET_OS=""
+CFG_INPLACE_MARIADB_VERSION=""
 CFG_INPLACE_START_CMD=""
 CFG_INPLACE_UPGRADE_CMD=""
 CFG_REPLACE_BACKUP_CMD=""
@@ -94,7 +97,8 @@ if [[ -f "config/migration.yaml" ]]; then
       INPLACE_BACKUP_DIR) CFG_INPLACE_BACKUP_DIR="$cfg_val" ;;
       INPLACE_EXECUTE) CFG_INPLACE_EXECUTE="$cfg_val" ;;
       INPLACE_STOP_CMD) CFG_INPLACE_STOP_CMD="$cfg_val" ;;
-      INPLACE_INSTALL_CMD) CFG_INPLACE_INSTALL_CMD="$cfg_val" ;;
+      INPLACE_TARGET_OS) CFG_INPLACE_TARGET_OS="$cfg_val" ;;
+      INPLACE_MARIADB_VERSION) CFG_INPLACE_MARIADB_VERSION="$cfg_val" ;;
       INPLACE_START_CMD) CFG_INPLACE_START_CMD="$cfg_val" ;;
       INPLACE_UPGRADE_CMD) CFG_INPLACE_UPGRADE_CMD="$cfg_val" ;;
       REPLACE_BACKUP_CMD) CFG_REPLACE_BACKUP_CMD="$cfg_val" ;;
@@ -188,11 +192,14 @@ fi
 INPLACE_BACKUP_DIR="$CFG_INPLACE_BACKUP_DIR"
 INPLACE_EXECUTE="$CFG_INPLACE_EXECUTE"
 INPLACE_STOP_CMD="$CFG_INPLACE_STOP_CMD"
-INPLACE_INSTALL_CMD="$CFG_INPLACE_INSTALL_CMD"
+INPLACE_TARGET_OS="$CFG_INPLACE_TARGET_OS"
+INPLACE_MARIADB_VERSION="$CFG_INPLACE_MARIADB_VERSION"
 INPLACE_START_CMD="$CFG_INPLACE_START_CMD"
 INPLACE_UPGRADE_CMD="$CFG_INPLACE_UPGRADE_CMD"
 if [[ "$MODE" == "inplace" ]]; then
   if [[ -z "$INPLACE_BACKUP_DIR" ]]; then INPLACE_BACKUP_DIR="artifacts/inplace_backup"; fi
+  if [[ -z "$INPLACE_TARGET_OS" ]]; then INPLACE_TARGET_OS="ubuntu"; fi
+  if [[ -z "$INPLACE_MARIADB_VERSION" ]]; then INPLACE_MARIADB_VERSION="11.8"; fi
   INPLACE_BACKUP_DIR="$(prompt "In-place backup directory" "$INPLACE_BACKUP_DIR")"
   inplace_execute_answer="$(prompt "Execute in-place commands now? (y/n)" "n")"
   if [[ "$(printf "%s" "$inplace_execute_answer" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
@@ -203,14 +210,21 @@ if [[ "$MODE" == "inplace" ]]; then
   if [[ -z "$INPLACE_STOP_CMD" ]]; then INPLACE_STOP_CMD="sudo systemctl stop mysql || sudo systemctl stop mysqld"; fi
   if [[ -z "$INPLACE_START_CMD" ]]; then INPLACE_START_CMD="sudo systemctl start mariadb || sudo systemctl start mysql"; fi
   if [[ -z "$INPLACE_UPGRADE_CMD" ]]; then INPLACE_UPGRADE_CMD="mariadb-upgrade"; fi
+  INPLACE_TARGET_OS="$(prompt "In-place target OS (ubuntu|debian|rocky|rhel|centos7|sles)" "$INPLACE_TARGET_OS")"
+  INPLACE_TARGET_OS="$(printf "%s" "$INPLACE_TARGET_OS" | tr '[:upper:]' '[:lower:]' | xargs)"
+  INPLACE_MARIADB_VERSION="$(prompt "In-place MariaDB version (for example 11.8)" "$INPLACE_MARIADB_VERSION")"
+  INPLACE_MARIADB_VERSION="$(printf "%s" "$INPLACE_MARIADB_VERSION" | xargs)"
+  case "$INPLACE_TARGET_OS" in
+    ubuntu|debian|rocky|rhel|centos7|sles)
+      ;;
+    *)
+      echo "ERROR: Unsupported in-place target OS '$INPLACE_TARGET_OS'. Use ubuntu|debian|rocky|rhel|centos7|sles."
+      exit 1
+      ;;
+  esac
   INPLACE_STOP_CMD="$(prompt "In-place stop command" "$INPLACE_STOP_CMD")"
-  INPLACE_INSTALL_CMD="$(prompt "In-place install command (required if execute=y)" "$INPLACE_INSTALL_CMD")"
   INPLACE_START_CMD="$(prompt "In-place start command" "$INPLACE_START_CMD")"
   INPLACE_UPGRADE_CMD="$(prompt "In-place upgrade command" "$INPLACE_UPGRADE_CMD")"
-  if [[ "$INPLACE_EXECUTE" == "1" && -z "$INPLACE_INSTALL_CMD" ]]; then
-    echo "ERROR: In-place install command is required when execute=y."
-    exit 1
-  fi
 else
   if [[ -z "$INPLACE_BACKUP_DIR" ]]; then INPLACE_BACKUP_DIR=""; fi
   if [[ -z "$INPLACE_EXECUTE" ]]; then INPLACE_EXECUTE="0"; fi
@@ -301,6 +315,10 @@ if [[ "$MODE" == "replace_slave" && -z "$REPLACE_MARIADB_VERSION" ]]; then
   echo "ERROR: MariaDB version is required for replace_slave mode."
   exit 1
 fi
+if [[ "$MODE" == "inplace" && ( -z "$INPLACE_TARGET_OS" || -z "$INPLACE_MARIADB_VERSION" ) ]]; then
+  echo "ERROR: INPLACE_TARGET_OS and INPLACE_MARIADB_VERSION are required for inplace mode."
+  exit 1
+fi
 if [[ "$MODE" == "replace_slave" && "$REPLACE_DELETE_OLD_MYSQL_DATA" == "1" && -z "$REPLACE_CLEANUP_CMD" ]]; then
   echo "ERROR: Cleanup command is required when delete old MySQL data is enabled."
   exit 1
@@ -381,8 +399,9 @@ save_config() {
       -v repl_pass="$(yaml_quote "$repl_pass_save")" \
       -v inplace_backup_dir="$(yaml_quote "$INPLACE_BACKUP_DIR")" \
       -v inplace_execute="$(yaml_quote "$INPLACE_EXECUTE")" \
+      -v inplace_target_os="$(yaml_quote "$INPLACE_TARGET_OS")" \
+      -v inplace_mariadb_version="$(yaml_quote "$INPLACE_MARIADB_VERSION")" \
       -v inplace_stop_cmd="$(yaml_quote "$INPLACE_STOP_CMD")" \
-      -v inplace_install_cmd="$(yaml_quote "$INPLACE_INSTALL_CMD")" \
       -v inplace_start_cmd="$(yaml_quote "$INPLACE_START_CMD")" \
       -v inplace_upgrade_cmd="$(yaml_quote "$INPLACE_UPGRADE_CMD")" \
       -v replace_backup_cmd="$(yaml_quote "$REPLACE_BACKUP_CMD")" \
@@ -423,8 +442,10 @@ BEGIN { in_env=0 }
     if ($0 ~ /^  REPL_PASS:/) { print "  REPL_PASS: " repl_pass; next }
     if ($0 ~ /^  INPLACE_BACKUP_DIR:/) { print "  INPLACE_BACKUP_DIR: " inplace_backup_dir; next }
     if ($0 ~ /^  INPLACE_EXECUTE:/) { print "  INPLACE_EXECUTE: " inplace_execute; next }
+    if ($0 ~ /^  INPLACE_TARGET_OS:/) { print "  INPLACE_TARGET_OS: " inplace_target_os; next }
+    if ($0 ~ /^  INPLACE_MARIADB_VERSION:/) { print "  INPLACE_MARIADB_VERSION: " inplace_mariadb_version; next }
     if ($0 ~ /^  INPLACE_STOP_CMD:/) { print "  INPLACE_STOP_CMD: " inplace_stop_cmd; next }
-    if ($0 ~ /^  INPLACE_INSTALL_CMD:/) { print "  INPLACE_INSTALL_CMD: " inplace_install_cmd; next }
+    if ($0 ~ /^  INPLACE_INSTALL_CMD:/) { next }
     if ($0 ~ /^  INPLACE_START_CMD:/) { print "  INPLACE_START_CMD: " inplace_start_cmd; next }
     if ($0 ~ /^  INPLACE_UPGRADE_CMD:/) { print "  INPLACE_UPGRADE_CMD: " inplace_upgrade_cmd; next }
     if ($0 ~ /^  REPLACE_BACKUP_CMD:/) { print "  REPLACE_BACKUP_CMD: " replace_backup_cmd; next }
@@ -456,8 +477,9 @@ if [[ -n "${REPL_USER:-}" ]]; then export REPL_USER; fi
 if [[ -n "${REPL_PASS:-}" ]]; then export REPL_PASS; fi
 if [[ -n "${INPLACE_BACKUP_DIR:-}" ]]; then export INPLACE_BACKUP_DIR; fi
 if [[ -n "${INPLACE_EXECUTE:-}" ]]; then export INPLACE_EXECUTE; fi
+if [[ -n "${INPLACE_TARGET_OS:-}" ]]; then export INPLACE_TARGET_OS; fi
+if [[ -n "${INPLACE_MARIADB_VERSION:-}" ]]; then export INPLACE_MARIADB_VERSION; fi
 if [[ -n "${INPLACE_STOP_CMD:-}" ]]; then export INPLACE_STOP_CMD; fi
-if [[ -n "${INPLACE_INSTALL_CMD:-}" ]]; then export INPLACE_INSTALL_CMD; fi
 if [[ -n "${INPLACE_START_CMD:-}" ]]; then export INPLACE_START_CMD; fi
 if [[ -n "${INPLACE_UPGRADE_CMD:-}" ]]; then export INPLACE_UPGRADE_CMD; fi
 if [[ -n "${REPLACE_BACKUP_CMD:-}" ]]; then export REPLACE_BACKUP_CMD; fi
