@@ -1,0 +1,20 @@
+{
+  "created_at": "2026-03-04T16:26:11.692150+00:00",
+  "steps": {
+    "preflight_binlog": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Preflight checks (binlog)",
+          "Checking source admin connectivity...",
+          "ERROR 1045 (28000): Access denied for user 'admin'@'192.168.64.11' (using password: YES)"
+        ],
+        "returncode": 1,
+        "script": "scripts/00_preflight_binlog.sh"
+      },
+      "status": "FAILED",
+      "updated_at": "2026-03-04T16:26:13.429089+00:00"
+    }
+  },
+  "version": 1
+}

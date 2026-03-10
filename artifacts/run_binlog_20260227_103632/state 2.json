@@ -1,0 +1,135 @@
+{
+  "created_at": "2026-02-27T10:36:50.385243+00:00",
+  "steps": {
+    "binlog_seed_dump_restore": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Binlog migration: seed target from source snapshot",
+          "Preparing target database(s)...",
+          "Creating source snapshot with binlog coordinates...",
+          "Restoring snapshot to target...",
+          "Seed completed.",
+          "Coordinates file: artifacts/binlog_coords.env",
+          "Dump file: artifacts/binlog_seed_20260227_103703.sql"
+        ],
+        "returncode": 0,
+        "script": "scripts/14_binlog_seed.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-02-27T10:37:06.494750+00:00"
+    },
+    "binlog_start_replication": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Binlog migration: configure and start replication",
+          "Ensuring replication user exists on source...",
+          "Applying replication coordinates: mysql-bin.000013:3520",
+          "Replication started."
+        ],
+        "returncode": 0,
+        "script": "scripts/15_binlog_start_replication.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-02-27T10:37:08.510113+00:00"
+    },
+    "binlog_verify_replication": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Binlog migration: verify replication",
+          "IO running: Yes",
+          "SQL running: Yes",
+          "Seconds behind master: 0",
+          "Replication verify passed."
+        ],
+        "returncode": 0,
+        "script": "scripts/16_binlog_verify.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-02-27T10:37:08.984653+00:00"
+    },
+    "precheck": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "INNODB_TABLESPACES\tACTIVE",
+          "INNODB_TABLESTATS\tACTIVE",
+          "INNODB_TEMP_TABLE_INFO\tACTIVE",
+          "INNODB_TRX\tACTIVE",
+          "INNODB_VIRTUAL\tACTIVE",
+          "MEMORY\tACTIVE",
+          "MRG_MYISAM\tACTIVE",
+          "MyISAM\tACTIVE",
+          "mysqlx\tACTIVE",
+          "mysqlx_cache_cleaner\tACTIVE",
+          "mysql_native_password\tACTIVE",
+          "ngram\tACTIVE",
+          "PERFORMANCE_SCHEMA\tACTIVE",
+          "sha256_password\tACTIVE",
+          "sha2_cache_cleaner\tACTIVE",
+          "TempTable\tACTIVE",
+          "",
+          "---- functional_indexes ----",
+          "(no rows)",
+          "",
+          "---- functional_defaults ----",
+          "(no rows)",
+          "",
+          "---- invisible_columns ----",
+          "(no rows)",
+          "",
+          "---- check_constraints ----",
+          "(no rows)",
+          "",
+          "---- partial_revokes ----",
+          "(no rows)",
+          "",
+          "---- gis_srid_usage ----",
+          "sakila\taddress\tlocation\t0",
+          "",
+          "---- resource_groups ----",
+          "USR_default\tUSER\t1\t0-9\t0",
+          "SYS_default\tSYSTEM\t1\t0-9\t0",
+          "",
+          "---- xplugin_status ----",
+          "mysqlx\tACTIVE",
+          "",
+          "---- fk_name_lengths ----",
+          "(no rows)",
+          "",
+          "---- trigger_order ----",
+          "(no rows)",
+          "",
+          "Precheck complete.",
+          "TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv"
+        ],
+        "returncode": 0,
+        "script": "scripts/00_precheck.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-02-27T10:37:03.436885+00:00"
+    },
+    "preflight_binlog": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Preflight checks (binlog)",
+          "Checking source admin connectivity...",
+          "Checking target admin connectivity...",
+          "Checking source binary logging...",
+          "Checking source binlog format...",
+          "Checking source master status visibility...",
+          "Checking source database(s) exist...",
+          "Preflight complete."
+        ],
+        "returncode": 0,
+        "script": "scripts/00_preflight_binlog.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-02-27T10:36:52.642007+00:00"
+    }
+  },
+  "version": 1
+}

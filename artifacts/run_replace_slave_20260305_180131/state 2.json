@@ -1,0 +1,111 @@
+{
+  "created_at": "2026-03-05T18:01:47.160391+00:00",
+  "steps": {
+    "precheck": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "INNODB_TABLESPACES\tACTIVE",
+          "INNODB_TABLESTATS\tACTIVE",
+          "INNODB_TEMP_TABLE_INFO\tACTIVE",
+          "INNODB_TRX\tACTIVE",
+          "INNODB_VIRTUAL\tACTIVE",
+          "MEMORY\tACTIVE",
+          "MRG_MYISAM\tACTIVE",
+          "MyISAM\tACTIVE",
+          "mysqlx\tACTIVE",
+          "mysqlx_cache_cleaner\tACTIVE",
+          "mysql_native_password\tACTIVE",
+          "ngram\tACTIVE",
+          "PERFORMANCE_SCHEMA\tACTIVE",
+          "sha256_password\tACTIVE",
+          "sha2_cache_cleaner\tACTIVE",
+          "TempTable\tACTIVE",
+          "",
+          "---- functional_indexes ----",
+          "(no rows)",
+          "",
+          "---- functional_defaults ----",
+          "(no rows)",
+          "",
+          "---- invisible_columns ----",
+          "(no rows)",
+          "",
+          "---- check_constraints ----",
+          "(no rows)",
+          "",
+          "---- partial_revokes ----",
+          "(no rows)",
+          "",
+          "---- gis_srid_usage ----",
+          "sakila\taddress\tlocation\t0",
+          "",
+          "---- resource_groups ----",
+          "USR_default\tUSER\t1\t0-9\t0",
+          "SYS_default\tSYSTEM\t1\t0-9\t0",
+          "",
+          "---- xplugin_status ----",
+          "mysqlx\tACTIVE",
+          "",
+          "---- fk_name_lengths ----",
+          "(no rows)",
+          "",
+          "---- trigger_order ----",
+          "(no rows)",
+          "",
+          "Precheck complete.",
+          "TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv"
+        ],
+        "returncode": 0,
+        "script": "scripts/00_precheck.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-05T18:09:08.499222+00:00"
+    },
+    "preflight_replace_slave": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Preflight checks (replace_slave)",
+          "Checking source admin connectivity...",
+          "Checking source master status visibility...",
+          "Checking target SSH connectivity...",
+          "Checking current MySQL slave status on target host...",
+          "Preflight complete."
+        ],
+        "returncode": 0,
+        "script": "scripts/20_preflight_replace_slave.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-05T18:08:59.193125+00:00"
+    },
+    "replace_slave_backup": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Backup existing MySQL slave host",
+          "Running backup command on target host...",
+          "Backup step completed."
+        ],
+        "returncode": 0,
+        "script": "scripts/21_replace_slave_backup.sh"
+      },
+      "status": "DONE",
+      "updated_at": "2026-03-05T18:09:09.141640+00:00"
+    },
+    "replace_slave_switch_engine": {
+      "meta": {
+        "args": [],
+        "output_tail": [
+          "==> Replace MySQL slave engine with MariaDB on target host",
+          "ERROR: Invalid install command: 'yes'"
+        ],
+        "returncode": 4,
+        "script": "scripts/22_replace_slave_switch_engine.sh"
+      },
+      "status": "FAILED",
+      "updated_at": "2026-03-05T18:14:54.432019+00:00"
+    }
+  },
+  "version": 1
+}

@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "run_id": "20260304T173924Z",
+  "mode": "run",
+  "config_path": "config/migration.yaml",
+  "started_at": "2026-03-04T17:39:24.327356+00:00",
+  "finished_at": "2026-03-04T17:39:31.811163+00:00",
+  "success": true,
+  "message": "Run completed successfully.",
+  "source": {},
+  "target": {},
+  "gates": [],
+  "warnings": [],
+  "inventory": {},
+  "plan": {
+    "mode": "two_step",
+    "phases": [
+      "two_step_prepare",
+      "precheck_only",
+      "two_step_schema",
+      "two_step_data",
+      "two_step_finalize",
+      "validate"
+    ],
+    "steps": [
+      {
+        "id": "preflight_two_step",
+        "name": "Preflight checks (two_step)",
+        "script": "scripts/00_preflight_two_step.sh",
+        "args": []
+      },
+      {
+        "id": "precheck",
+        "name": "Precheck source variables and blockers",
+        "script": "scripts/00_precheck.sh",
+        "args": []
+      },
+      {
+        "id": "two_step_schema_only",
+        "name": "Export schema only (no data)",
+        "script": "scripts/11_two_step_schema.sh",
+        "args": []
+      },
+      {
+        "id": "two_step_parallel_data",
+        "name": "Parallel data transfer with SQLines Data",
+        "script": "scripts/12_two_step_sqldata.sh",
+        "args": []
+      },
+      {
+        "id": "two_step_finalize_objects",
+        "name": "Apply constraints/indexes/routines after data load",
+        "script": "scripts/13_two_step_finalize.sh",
+        "args": []
+      },
+      {
+        "id": "validate",
+        "name": "Validate after upgrade",
+        "script": "scripts/07_validate.sh",
+        "args": []
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "preflight_two_step",
+      "name": "Preflight checks (two_step)",
+      "status": "SKIPPED",
+      "details": {
+        "reason": "already_done"
+      }
+    },
+    {
+      "id": "precheck",
+      "name": "Precheck source variables and blockers",
+      "status": "SKIPPED",
+      "details": {
+        "reason": "already_done"
+      }
+    },
+    {
+      "id": "two_step_schema_only",
+      "name": "Export schema only (no data)",
+      "status": "SKIPPED",
+      "details": {
+        "reason": "already_done"
+      }
+    },
+    {
+      "id": "two_step_parallel_data",
+      "name": "Parallel data transfer with SQLines Data",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/12_two_step_sqldata.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "  sakila.store - Started (16 of 16, session 3)",
+          "  sakila.rental - Open cursor (16044 rows read, 182 ms, session 4)",
+          "  sakila.film_actor - Data transfer complete (session 1)",
+          "     Rows read:     5462 (5.5K rows, 321294 rows/sec)",
+          "     Rows written:  5462 (5.5K rows, 287474 rows/sec, 146.0 KB, 7.5 MB/sec)",
+          "     Transfer time: 892 ms (17 ms read, 19 ms write)",
+          "  sakila.payment - Drop target table (7 ms, session 2)",
+          "  sakila.staff - Drop target table (5 ms, session 5)",
+          "  sakila.language - Data transfer complete (session 6)",
+          "     Rows read:     6 (3000 rows/sec)",
+          "     Rows written:  6 (2000 rows/sec, 180 bytes, 58.6 KB/sec)",
+          "     Transfer time: 464 ms (2 ms read, 3 ms write)",
+          "  sakila.store - Open cursor (2 rows read, 4 ms, session 3)",
+          "  sakila.rental - Drop target table (6 ms, session 4)",
+          "  sakila.payment - Create target table (3 ms, session 2)",
+          "  sakila.staff - Create target table (3 ms, session 5)",
+          "  sakila.store - Drop target table (7 ms, session 3)",
+          "  sakila.rental - Create target table (6 ms, session 4)",
+          "  sakila.staff - Data transfer complete (session 5)",
+          "     Rows read:     2 (182 rows/sec)",
+          "     Rows written:  2 (250 rows/sec, 36.1 KB, 4.4 MB/sec)",
+          "     Transfer time: 397 ms (11 ms read, 8 ms write)",
+          "  sakila.store - Create target table (3 ms, session 3)",
+          "  sakila.payment - Data transfer complete (session 2)",
+          "     Rows read:     16044 (16.0K rows, 106252 rows/sec)",
+          "     Rows written:  16044 (16.0K rows, 79034 rows/sec, 962.6 KB, 4.6 MB/sec)",
+          "     Transfer time: 708 ms (151 ms read, 203 ms write)",
+          "  sakila.store - Data transfer complete (session 3)",
+          "     Rows read:     2 (500 rows/sec)",
+          "     Rows written:  2 (400 rows/sec, 52 bytes, 10.2 KB/sec)",
+          "     Transfer time: 401 ms (4 ms read, 5 ms write)",
+          "  sakila.rental - Data transfer complete (session 4)",
+          "     Rows read:     16044 (16.0K rows, 88154 rows/sec)",
+          "     Rows written:  16044 (16.0K rows, 87196 rows/sec, 1.2 MB, 6.3 MB/sec)",
+          "     Transfer time: 769 ms (182 ms read, 184 ms write)",
+          "",
+          "Summary:",
+          "",
+          "  Tables:        16 (16 Ok, 0 failed)",
+          "  Target DDL:    32 (32 Ok, 0 failed)",
+          "  Rows read:     47271 (47.3K rows)",
+          "  Rows written:  47271 (47.3K rows)",
+          "  Transfer time: 2.1 sec (22007 rows/sec, 2.9 MB, 1.3 MB/sec)",
+          "",
+          "Logs:",
+          "",
+          "  Execution log:             sqldata.log",
+          "  DDL SQL statements:        sqldata_ddl.sql",
+          "",
+          "SQLines Data transfer completed."
+        ]
+      }
+    },
+    {
+      "id": "two_step_finalize_objects",
+      "name": "Apply constraints/indexes/routines after data load",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/13_two_step_finalize.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "  sakila.address - Create index idx_fk_city_id (4 ms, session 1)",
+          "  sakila.address - Create index idx_location (6 ms, session 6)",
+          "  sakila.city - Create index idx_fk_country_id (3 ms, session 4)",
+          "  sakila.customer - Create index idx_fk_address_id (4 ms, session 5)",
+          "  sakila.customer - Create index idx_fk_store_id (4 ms, session 3)",
+          "  sakila.customer - Create index idx_last_name (5 ms, session 2)",
+          "  sakila.film - Create index idx_fk_language_id (5 ms, session 1)",
+          "  sakila.film - Create index idx_fk_original_language_id (5 ms, session 6)",
+          "  sakila.film - Create index idx_title (6 ms, session 4)",
+          "  sakila.film_actor - Create index idx_fk_film_id (8 ms, session 5)",
+          "  sakila.film_category - Create index fk_film_category_category (5 ms, session 3)",
+          "  sakila.film_text - Create index idx_title_description (Failed, 2 ms, session 2)",
+          "\tSpecified key was too long; max key length is 3072 bytes",
+          "  sakila.inventory - Create index idx_fk_film_id (6 ms, session 1)",
+          "  sakila.inventory - Create index idx_store_id_film_id (8 ms, session 6)",
+          "  sakila.payment - Create index fk_payment_rental (9 ms, session 4)",
+          "  sakila.payment - Create index idx_fk_customer_id (9 ms, session 5)",
+          "  sakila.payment - Create index idx_fk_staff_id (8 ms, session 3)",
+          "  sakila.rental - Create index idx_fk_customer_id (10 ms, session 2)",
+          "  sakila.rental - Create index idx_fk_inventory_id (10 ms, session 1)",
+          "  sakila.rental - Create index idx_fk_staff_id (10 ms, session 6)",
+          "  sakila.staff - Create index idx_fk_address_id (4 ms, session 4)",
+          "  sakila.staff - Create index idx_fk_store_id (5 ms, session 5)",
+          "  sakila.store - Create index idx_fk_address_id (4 ms, session 3)",
+          "  sakila.rental - Add UNIQUE constraint (9 ms, session 2)",
+          "  sakila.store - Add UNIQUE constraint (3 ms, session 1)",
+          "",
+          "Read/write row count differences (5 tables):",
+          "",
+          "   1. sakila.address (603 rows read, 602 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION",
+          "   2. sakila.actor (203 rows read, 202 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION",
+          "   3. sakila.city (600 rows read, 599 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION",
+          "   4. sakila.country (109 rows read, 108 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION",
+          "   5. sakila.category (16 rows read, 15 rows written, 1 row difference) - THE EVALUATION VERSION RESTRICTION",
+          "",
+          "Summary:",
+          "",
+          "  Tables:        16 (16 Ok, 0 failed)",
+          "  Target DDL:    83 (82 Ok, 1 failed)",
+          "  Rows read:     47271 (47.3K rows)",
+          "  Rows written:  47266 (47.3K rows) (5 row difference)",
+          "  Transfer time: 3.3 sec (14198 rows/sec, 2.9 MB, 884.7 KB/sec)",
+          "",
+          "Logs:",
+          "",
+          "  Execution log:             sqldata.log",
+          "  DDL SQL statements:        sqldata_ddl.sql",
+          "  Failed DDL SQL statements: sqldata_failed.sql",
+          "",
+          "SQLines Data finalize completed."
+        ]
+      }
+    },
+    {
+      "id": "validate",
+      "name": "Validate after upgrade",
+      "status": "DONE",
+      "details": {
+        "script": "scripts/07_validate.sh",
+        "args": [],
+        "returncode": 0,
+        "output_tail": [
+          "MariaDB version (TCP validation):",
+          "11.8.5-2-MariaDB-enterprise",
+          "",
+          "User authentication plugins:",
+          "admin\t%\tmysql_native_password",
+          "admin\t192.168.64.11\tmysql_native_password",
+          "admin\t192.168.64.3\tmysql_native_password",
+          "admin\t192.168.64.7\tmysql_native_password",
+          "admin\tlocalhost\tmysql_native_password",
+          "mariadb.sys\tlocalhost\tmysql_native_password",
+          "migrate\t%\tmysql_native_password",
+          "mysql\tlocalhost\tmysql_native_password",
+          "repl\t%\tmysql_native_password",
+          "root\tlocalhost\tmysql_native_password",
+          "",
+          "Storage engines:",
+          "SPIDER\tYES\tSpider storage engine\tYES\tYES\tNO",
+          "CSV\tYES\tStores tables as CSV files\tNO\tNO\tNO",
+          "MRG_MyISAM\tYES\tCollection of identical MyISAM tables\tNO\tNO\tNO",
+          "Aria\tYES\tCrash-safe tables with MyISAM heritage. Used for internal temporary tables and privilege tables\tNO\tNO\tNO",
+          "MyISAM\tYES\tNon-transactional engine with good performance and small data footprint\tNO\tNO\tNO",
+          "MEMORY\tYES\tHash based, stored in memory, useful for temporary tables\tNO\tNO\tNO",
+          "InnoDB\tDEFAULT\tSupports transactions, row-level locking, foreign keys and encryption for tables\tYES\tYES\tYES",
+          "SEQUENCE\tYES\tGenerated tables filled with sequential values\tYES\tNO\tYES",
+          "PERFORMANCE_SCHEMA\tYES\tPerformance Schema\tNO\tNO\tNO",
+          "ROCKSDB\tYES\tRocksDB storage engine\tYES\tYES\tYES",
+          "",
+          "Validation complete (socket-first)."
+        ]
+      }
+    }
+  ]
+}

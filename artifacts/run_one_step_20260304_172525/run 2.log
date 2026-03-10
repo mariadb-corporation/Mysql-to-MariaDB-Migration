@@ -1,0 +1,269 @@
+2026-03-04T17:25:41.252867+00:00 START mode=run config=config/migration.yaml
+2026-03-04T17:25:41.348595+00:00 RUN  preflight_one_step (Preflight checks (one_step)) -> scripts/00_preflight_one_step.sh
+2026-03-04T17:25:41.355776+00:00 CMD /mnt/macshare/scripts/00_preflight_one_step.sh
+2026-03-04T17:25:41.383462+00:00 OUT ==> Preflight checks (one_step)
+2026-03-04T17:25:41.393955+00:00 OUT Checking source connectivity...
+2026-03-04T17:25:41.645578+00:00 OUT Checking source migration user readiness...
+2026-03-04T17:25:41.902275+00:00 OUT Checking source database(s) exist...
+2026-03-04T17:25:42.170970+00:00 OUT Checking target SSH connectivity...
+2026-03-04T17:25:42.602151+00:00 OUT Checking target mariadb client...
+2026-03-04T17:25:42.931674+00:00 OUT Checking target TCP connectivity...
+2026-03-04T17:25:43.245283+00:00 OUT Checking target migration user readiness...
+2026-03-04T17:25:43.889871+00:00 OUT pv not found (optional).
+2026-03-04T17:25:43.897384+00:00 OUT Preflight complete.
+2026-03-04T17:25:43.926589+00:00 RUN  create_migration_user (Create migration user on source and target) -> scripts/09_create_migration_user.sh
+2026-03-04T17:25:43.936355+00:00 CMD /mnt/macshare/scripts/09_create_migration_user.sh
+2026-03-04T17:25:43.964076+00:00 OUT ==> Skipping migration user creation (admin-only mode).
+2026-03-04T17:25:43.984609+00:00 RUN  precheck (Precheck source variables and blockers) -> scripts/00_precheck.sh
+2026-03-04T17:25:43.992143+00:00 CMD /mnt/macshare/scripts/00_precheck.sh
+2026-03-04T17:25:44.068585+00:00 OUT == Precheck runner ==
+2026-03-04T17:25:44.089050+00:00 OUT Host: 192.168.64.7  Port: 3306  User: admin
+2026-03-04T17:25:44.111972+00:00 OUT Checks dir: /mnt/macshare/sql/checks
+2026-03-04T17:25:44.134397+00:00 OUT Outdir: /mnt/macshare/artifacts/precheck
+2026-03-04T17:25:44.158828+00:00 OUT 
+2026-03-04T17:25:44.188515+00:00 OUT NOTE: mariadb-migrate-config-file not found; skipping config check.
+2026-03-04T17:25:44.227693+00:00 OUT ---- mysql_version ----
+2026-03-04T17:25:44.521828+00:00 OUT 8.0.45-0ubuntu0.24.04.1
+2026-03-04T17:25:44.558404+00:00 OUT 
+2026-03-04T17:25:44.591241+00:00 OUT ---- innodb_settings ----
+2026-03-04T17:25:44.910701+00:00 OUT 1	1
+2026-03-04T17:25:44.951086+00:00 OUT 
+2026-03-04T17:25:44.984919+00:00 OUT ---- auth_plugins ----
+2026-03-04T17:25:45.292210+00:00 OUT debian-sys-maint	localhost	caching_sha2_password
+2026-03-04T17:25:45.329955+00:00 OUT 
+2026-03-04T17:25:45.364065+00:00 OUT ---- json_columns ----
+2026-03-04T17:25:45.676093+00:00 OUT advanced_test	json_test	data	json
+2026-03-04T17:25:45.684028+00:00 OUT advanced_test	json_test	metadata	json
+2026-03-04T17:25:45.694427+00:00 OUT testdb	orders_json	data_json	json
+2026-03-04T17:25:45.722335+00:00 OUT 
+2026-03-04T17:25:45.759595+00:00 OUT ---- compression_encryption ----
+2026-03-04T17:25:46.059203+00:00 OUT (no rows)
+2026-03-04T17:25:46.082664+00:00 OUT 
+2026-03-04T17:25:46.117515+00:00 OUT ---- engines_summary ----
+2026-03-04T17:25:46.426675+00:00 OUT PERFORMANCE_SCHEMA	111
+2026-03-04T17:25:46.433853+00:00 OUT InnoDB	58
+2026-03-04T17:25:46.440899+00:00 OUT CSV	2
+2026-03-04T17:25:46.473442+00:00 OUT 
+2026-03-04T17:25:46.507229+00:00 OUT ---- schema_sizes ----
+2026-03-04T17:25:46.812208+00:00 OUT testdb	38.56
+2026-03-04T17:25:46.817995+00:00 OUT sakila	6.45
+2026-03-04T17:25:46.825259+00:00 OUT mysql	2.73
+2026-03-04T17:25:46.835238+00:00 OUT world	0.77
+2026-03-04T17:25:46.841815+00:00 OUT sys	0.02
+2026-03-04T17:25:46.850957+00:00 OUT advanced_test	0.02
+2026-03-04T17:25:46.854949+00:00 OUT test_replication	0.02
+2026-03-04T17:25:46.860271+00:00 OUT information_schema	0.00
+2026-03-04T17:25:46.869070+00:00 OUT performance_schema	0.00
+2026-03-04T17:25:46.874205+00:00 OUT 
+2026-03-04T17:25:46.912239+00:00 OUT ---- schema_charsets ----
+2026-03-04T17:25:47.219877+00:00 OUT advanced_test	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.226601+00:00 OUT sakila	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.235141+00:00 OUT test_replication	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.239432+00:00 OUT testdb	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.245515+00:00 OUT world	utf8mb4	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.273709+00:00 OUT 
+2026-03-04T17:25:47.308960+00:00 OUT ---- mysql8_collations ----
+2026-03-04T17:25:47.676312+00:00 OUT advanced_test	json_test	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.683237+00:00 OUT sakila	actor	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.688783+00:00 OUT sakila	address	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.694401+00:00 OUT sakila	category	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.700459+00:00 OUT sakila	city	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.707073+00:00 OUT sakila	country	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.714188+00:00 OUT sakila	customer	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.719974+00:00 OUT sakila	film	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.723529+00:00 OUT sakila	film_actor	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.728315+00:00 OUT sakila	film_category	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.732820+00:00 OUT sakila	film_text	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.737940+00:00 OUT sakila	inventory	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.742618+00:00 OUT sakila	language	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.749646+00:00 OUT sakila	payment	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.756979+00:00 OUT sakila	rental	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.763675+00:00 OUT sakila	staff	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.768281+00:00 OUT sakila	store	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.776358+00:00 OUT test_replication	customers	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.782033+00:00 OUT testdb	orders_json	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.786102+00:00 OUT world	city	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.790384+00:00 OUT world	country	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.797376+00:00 OUT world	countrylanguage	utf8mb4_0900_ai_ci
+2026-03-04T17:25:47.803521+00:00 OUT 
+2026-03-04T17:25:47.808409+00:00 OUT ---- mysql8_column_collations ----
+2026-03-04T17:25:48.099799+00:00 OUT sakila	actor	first_name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.105890+00:00 OUT sakila	actor	last_name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.113049+00:00 OUT sakila	actor_info	film_info	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.119434+00:00 OUT sakila	actor_info	first_name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.124097+00:00 OUT sakila	actor_info	last_name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.130300+00:00 OUT sakila	address	address	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.134217+00:00 OUT sakila	address	address2	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.140961+00:00 OUT sakila	address	district	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.147338+00:00 OUT sakila	address	phone	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.151766+00:00 OUT sakila	address	postal_code	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.158284+00:00 OUT sakila	category	name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.162232+00:00 OUT sakila	city	city	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.170224+00:00 OUT sakila	country	country	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.176287+00:00 OUT sakila	customer	email	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.181372+00:00 OUT sakila	customer	first_name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.187298+00:00 OUT sakila	customer	last_name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.190396+00:00 OUT sakila	customer_list	address	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.195886+00:00 OUT sakila	customer_list	city	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.200586+00:00 OUT sakila	customer_list	country	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.207452+00:00 OUT sakila	customer_list	name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.212744+00:00 OUT sakila	customer_list	notes	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.218038+00:00 OUT sakila	customer_list	phone	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.222308+00:00 OUT sakila	customer_list	zip code	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.230909+00:00 OUT sakila	film	description	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.237861+00:00 OUT sakila	film	rating	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.244865+00:00 OUT sakila	film	special_features	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.250126+00:00 OUT sakila	film	title	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.256804+00:00 OUT sakila	film_list	actors	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.262446+00:00 OUT sakila	film_list	category	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.266558+00:00 OUT sakila	film_list	description	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.272343+00:00 OUT sakila	film_list	rating	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.277138+00:00 OUT sakila	film_list	title	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.281706+00:00 OUT sakila	film_text	description	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.289780+00:00 OUT sakila	film_text	title	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.295420+00:00 OUT sakila	language	name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.300080+00:00 OUT sakila	nicer_but_slower_film_list	actors	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.306569+00:00 OUT sakila	nicer_but_slower_film_list	category	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.311777+00:00 OUT sakila	nicer_but_slower_film_list	description	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.317480+00:00 OUT sakila	nicer_but_slower_film_list	rating	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.323719+00:00 OUT sakila	nicer_but_slower_film_list	title	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.328464+00:00 OUT sakila	sales_by_film_category	category	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.334630+00:00 OUT sakila	sales_by_store	manager	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.339241+00:00 OUT sakila	sales_by_store	store	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.346606+00:00 OUT sakila	staff	email	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.351512+00:00 OUT sakila	staff	first_name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.355833+00:00 OUT sakila	staff	last_name	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.362846+00:00 OUT sakila	staff	username	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.367859+00:00 OUT sakila	staff_list	address	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.372914+00:00 OUT sakila	staff_list	city	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.377301+00:00 OUT sakila	staff_list	country	utf8mb4_0900_ai_ci
+2026-03-04T17:25:48.384235+00:00 OUT ... (truncated; full output in /mnt/macshare/artifacts/precheck/mysql8_column_collations.tsv)
+2026-03-04T17:25:48.389129+00:00 OUT 
+2026-03-04T17:25:48.395743+00:00 OUT ---- sql_mode ----
+2026-03-04T17:25:48.618941+00:00 OUT ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+2026-03-04T17:25:48.659385+00:00 OUT 
+2026-03-04T17:25:48.694484+00:00 OUT ---- definers_inventory ----
+2026-03-04T17:25:49.017883+00:00 OUT TRIGGER	root@localhost	6
+2026-03-04T17:25:49.024876+00:00 OUT VIEW	root@localhost	7
+2026-03-04T17:25:49.060293+00:00 OUT 
+2026-03-04T17:25:49.104680+00:00 OUT ---- partitioned_tables ----
+2026-03-04T17:25:49.416183+00:00 OUT (no rows)
+2026-03-04T17:25:49.439252+00:00 OUT 
+2026-03-04T17:25:49.472384+00:00 OUT ---- active_plugins ----
+2026-03-04T17:25:49.776240+00:00 OUT ARCHIVE	ACTIVE
+2026-03-04T17:25:49.783326+00:00 OUT auth_socket	ACTIVE
+2026-03-04T17:25:49.789474+00:00 OUT binlog	ACTIVE
+2026-03-04T17:25:49.794960+00:00 OUT BLACKHOLE	ACTIVE
+2026-03-04T17:25:49.799382+00:00 OUT caching_sha2_password	ACTIVE
+2026-03-04T17:25:49.806193+00:00 OUT CSV	ACTIVE
+2026-03-04T17:25:49.812999+00:00 OUT daemon_keyring_proxy_plugin	ACTIVE
+2026-03-04T17:25:49.817373+00:00 OUT InnoDB	ACTIVE
+2026-03-04T17:25:49.821841+00:00 OUT INNODB_BUFFER_PAGE	ACTIVE
+2026-03-04T17:25:49.826146+00:00 OUT INNODB_BUFFER_PAGE_LRU	ACTIVE
+2026-03-04T17:25:49.830504+00:00 OUT INNODB_BUFFER_POOL_STATS	ACTIVE
+2026-03-04T17:25:49.835625+00:00 OUT INNODB_CACHED_INDEXES	ACTIVE
+2026-03-04T17:25:49.841525+00:00 OUT INNODB_CMP	ACTIVE
+2026-03-04T17:25:49.848561+00:00 OUT INNODB_CMPMEM	ACTIVE
+2026-03-04T17:25:49.854153+00:00 OUT INNODB_CMPMEM_RESET	ACTIVE
+2026-03-04T17:25:49.861325+00:00 OUT INNODB_CMP_PER_INDEX	ACTIVE
+2026-03-04T17:25:49.866197+00:00 OUT INNODB_CMP_PER_INDEX_RESET	ACTIVE
+2026-03-04T17:25:49.870650+00:00 OUT INNODB_CMP_RESET	ACTIVE
+2026-03-04T17:25:49.875989+00:00 OUT INNODB_COLUMNS	ACTIVE
+2026-03-04T17:25:49.879992+00:00 OUT INNODB_FT_BEING_DELETED	ACTIVE
+2026-03-04T17:25:49.884668+00:00 OUT INNODB_FT_CONFIG	ACTIVE
+2026-03-04T17:25:49.889830+00:00 OUT INNODB_FT_DEFAULT_STOPWORD	ACTIVE
+2026-03-04T17:25:49.892923+00:00 OUT INNODB_FT_DELETED	ACTIVE
+2026-03-04T17:25:49.898433+00:00 OUT INNODB_FT_INDEX_CACHE	ACTIVE
+2026-03-04T17:25:49.903911+00:00 OUT INNODB_FT_INDEX_TABLE	ACTIVE
+2026-03-04T17:25:49.906957+00:00 OUT INNODB_INDEXES	ACTIVE
+2026-03-04T17:25:49.911619+00:00 OUT INNODB_METRICS	ACTIVE
+2026-03-04T17:25:49.917551+00:00 OUT INNODB_SESSION_TEMP_TABLESPACES	ACTIVE
+2026-03-04T17:25:49.921914+00:00 OUT INNODB_TABLES	ACTIVE
+2026-03-04T17:25:49.927246+00:00 OUT INNODB_TABLESPACES	ACTIVE
+2026-03-04T17:25:49.932748+00:00 OUT INNODB_TABLESTATS	ACTIVE
+2026-03-04T17:25:49.937464+00:00 OUT INNODB_TEMP_TABLE_INFO	ACTIVE
+2026-03-04T17:25:49.941760+00:00 OUT INNODB_TRX	ACTIVE
+2026-03-04T17:25:49.946150+00:00 OUT INNODB_VIRTUAL	ACTIVE
+2026-03-04T17:25:49.950479+00:00 OUT MEMORY	ACTIVE
+2026-03-04T17:25:49.954983+00:00 OUT MRG_MYISAM	ACTIVE
+2026-03-04T17:25:49.959680+00:00 OUT MyISAM	ACTIVE
+2026-03-04T17:25:49.965146+00:00 OUT mysqlx	ACTIVE
+2026-03-04T17:25:49.969510+00:00 OUT mysqlx_cache_cleaner	ACTIVE
+2026-03-04T17:25:49.974910+00:00 OUT mysql_native_password	ACTIVE
+2026-03-04T17:25:49.980270+00:00 OUT ngram	ACTIVE
+2026-03-04T17:25:49.984469+00:00 OUT PERFORMANCE_SCHEMA	ACTIVE
+2026-03-04T17:25:49.990084+00:00 OUT sha256_password	ACTIVE
+2026-03-04T17:25:49.998000+00:00 OUT sha2_cache_cleaner	ACTIVE
+2026-03-04T17:25:50.002498+00:00 OUT TempTable	ACTIVE
+2026-03-04T17:25:50.006686+00:00 OUT 
+2026-03-04T17:25:50.010849+00:00 OUT ---- functional_indexes ----
+2026-03-04T17:25:50.223082+00:00 OUT (no rows)
+2026-03-04T17:25:50.251308+00:00 OUT 
+2026-03-04T17:25:50.286278+00:00 OUT ---- functional_defaults ----
+2026-03-04T17:25:50.576984+00:00 OUT (no rows)
+2026-03-04T17:25:50.600306+00:00 OUT 
+2026-03-04T17:25:50.634728+00:00 OUT ---- invisible_columns ----
+2026-03-04T17:25:50.918526+00:00 OUT (no rows)
+2026-03-04T17:25:50.940083+00:00 OUT 
+2026-03-04T17:25:50.975334+00:00 OUT ---- check_constraints ----
+2026-03-04T17:25:51.271545+00:00 OUT (no rows)
+2026-03-04T17:25:51.292896+00:00 OUT 
+2026-03-04T17:25:51.324735+00:00 OUT ---- partial_revokes ----
+2026-03-04T17:25:51.609767+00:00 OUT (no rows)
+2026-03-04T17:25:51.632640+00:00 OUT 
+2026-03-04T17:25:51.667068+00:00 OUT ---- gis_srid_usage ----
+2026-03-04T17:25:51.961339+00:00 OUT sakila	address	location	0
+2026-03-04T17:25:51.998735+00:00 OUT 
+2026-03-04T17:25:52.029866+00:00 OUT ---- resource_groups ----
+2026-03-04T17:25:52.319010+00:00 OUT USR_default	USER	1	0-9	0
+2026-03-04T17:25:52.329017+00:00 OUT SYS_default	SYSTEM	1	0-9	0
+2026-03-04T17:25:52.361825+00:00 OUT 
+2026-03-04T17:25:52.394646+00:00 OUT ---- xplugin_status ----
+2026-03-04T17:25:52.697814+00:00 OUT mysqlx	ACTIVE
+2026-03-04T17:25:52.733921+00:00 OUT 
+2026-03-04T17:25:52.767159+00:00 OUT ---- fk_name_lengths ----
+2026-03-04T17:25:53.054517+00:00 OUT (no rows)
+2026-03-04T17:25:53.075032+00:00 OUT 
+2026-03-04T17:25:53.107665+00:00 OUT ---- trigger_order ----
+2026-03-04T17:25:53.391552+00:00 OUT (no rows)
+2026-03-04T17:25:53.412939+00:00 OUT 
+2026-03-04T17:25:53.480358+00:00 OUT Precheck complete.
+2026-03-04T17:25:53.509802+00:00 OUT TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv
+2026-03-04T17:25:53.538656+00:00 RUN  one_step_dump_restore (One-step dump/restore (mariadb-dump | mariadb)) -> scripts/10_one_step_migration.sh
+2026-03-04T17:25:53.544668+00:00 CMD /mnt/macshare/scripts/10_one_step_migration.sh
+2026-03-04T17:25:53.569937+00:00 OUT ==> One-step migration (mariadb-dump | mariadb)
+2026-03-04T17:25:53.578678+00:00 OUT Source: 192.168.64.7:3306  DB: sakila
+2026-03-04T17:25:53.588081+00:00 OUT Target: 192.168.64.3:3306
+2026-03-04T17:25:53.596407+00:00 OUT pv not found; running without progress meter.
+2026-03-04T17:25:55.278566+00:00 OUT One-step migration completed.
+2026-03-04T17:25:55.304120+00:00 RUN  validate (Validate after upgrade) -> scripts/07_validate.sh
+2026-03-04T17:25:55.310092+00:00 CMD /mnt/macshare/scripts/07_validate.sh
+2026-03-04T17:25:55.335088+00:00 OUT MariaDB version (TCP validation):
+2026-03-04T17:25:55.630138+00:00 OUT 11.8.5-2-MariaDB-enterprise
+2026-03-04T17:25:55.637540+00:00 OUT 
+2026-03-04T17:25:55.641785+00:00 OUT User authentication plugins:
+2026-03-04T17:25:55.947599+00:00 OUT admin	%	mysql_native_password
+2026-03-04T17:25:55.957275+00:00 OUT admin	192.168.64.11	mysql_native_password
+2026-03-04T17:25:55.962067+00:00 OUT admin	192.168.64.3	mysql_native_password
+2026-03-04T17:25:55.966756+00:00 OUT admin	192.168.64.7	mysql_native_password
+2026-03-04T17:25:55.972079+00:00 OUT admin	localhost	mysql_native_password
+2026-03-04T17:25:55.978602+00:00 OUT mariadb.sys	localhost	mysql_native_password
+2026-03-04T17:25:55.983680+00:00 OUT migrate	%	mysql_native_password
+2026-03-04T17:25:55.987533+00:00 OUT mysql	localhost	mysql_native_password
+2026-03-04T17:25:55.991635+00:00 OUT repl	%	mysql_native_password
+2026-03-04T17:25:55.997184+00:00 OUT root	localhost	mysql_native_password
+2026-03-04T17:25:56.001677+00:00 OUT 
+2026-03-04T17:25:56.004843+00:00 OUT Storage engines:
+2026-03-04T17:25:56.296233+00:00 OUT SPIDER	YES	Spider storage engine	YES	YES	NO
+2026-03-04T17:25:56.307503+00:00 OUT CSV	YES	Stores tables as CSV files	NO	NO	NO
+2026-03-04T17:25:56.310830+00:00 OUT MRG_MyISAM	YES	Collection of identical MyISAM tables	NO	NO	NO
+2026-03-04T17:25:56.313840+00:00 OUT Aria	YES	Crash-safe tables with MyISAM heritage. Used for internal temporary tables and privilege tables	NO	NO	NO
+2026-03-04T17:25:56.317861+00:00 OUT MyISAM	YES	Non-transactional engine with good performance and small data footprint	NO	NO	NO
+2026-03-04T17:25:56.320967+00:00 OUT MEMORY	YES	Hash based, stored in memory, useful for temporary tables	NO	NO	NO
+2026-03-04T17:25:56.324115+00:00 OUT InnoDB	DEFAULT	Supports transactions, row-level locking, foreign keys and encryption for tables	YES	YES	YES
+2026-03-04T17:25:56.326732+00:00 OUT SEQUENCE	YES	Generated tables filled with sequential values	YES	NO	YES
+2026-03-04T17:25:56.329433+00:00 OUT PERFORMANCE_SCHEMA	YES	Performance Schema	NO	NO	NO
+2026-03-04T17:25:56.332810+00:00 OUT ROCKSDB	YES	RocksDB storage engine	YES	YES	YES
+2026-03-04T17:25:56.337089+00:00 OUT 
+2026-03-04T17:25:56.341206+00:00 OUT Validation complete (socket-first).
+2026-03-04T17:25:56.364407+00:00 FINISH success=True message=Run completed successfully.
