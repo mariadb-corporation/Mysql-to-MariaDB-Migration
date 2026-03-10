@@ -211,12 +211,24 @@ run_target_sql "$SQL_TGT"
 
 if [[ "$MIGRATE_APP_USERS" == "1" ]]; then
   echo "Migrating application users to target (default password)"
-  user_rows=$(run_source_admin_sql "SELECT user, host FROM mysql.user WHERE user <> '' AND user NOT IN ('root','${SRC_USER}','mysql.infoschema','mysql.session','mysql.sys');")
-  while IFS=$'\t' read -r u h; do
+  app_pwd_esc="$(sql_escape "$APP_USER_DEFAULT_PASSWORD")"
+  user_rows=$(run_source_admin_sql "SELECT user, host, plugin, IFNULL(authentication_string,'') FROM mysql.user WHERE user <> '' AND user NOT IN ('root','${SRC_USER}','mysql.infoschema','mysql.session','mysql.sys');")
+  while IFS=$'\t' read -r u h p auth_str; do
     [[ -z "$u" ]] && continue
     u_esc="$(sql_escape "$u")"
     h_esc="$(sql_escape "$h")"
-    run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${APP_USER_DEFAULT_PASSWORD}';"
+    p="${p:-}"
+    auth_str="${auth_str:-}"
+
+    if [[ "$p" == "mysql_native_password" && -n "$auth_str" ]]; then
+      auth_esc="$(sql_escape "$auth_str")"
+      run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY PASSWORD '${auth_esc}';"
+      run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY PASSWORD '${auth_esc}';"
+    else
+      run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}';"
+      run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}';"
+    fi
+
     grants=$(run_source_admin_sql "SHOW GRANTS FOR '${u_esc}'@'${h_esc}';")
     while IFS= read -r g; do
       [[ -z "$g" ]] && continue
