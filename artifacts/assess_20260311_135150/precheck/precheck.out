@@ -1,7 +1,7 @@
 == Precheck runner ==
 Host: 192.168.64.7  Port: 3306  User: admin
 Checks dir: /mnt/macshare/sql/checks
-Outdir: /mnt/macshare/artifacts/precheck
+Outdir: artifacts/assess_20260311_135150/precheck
 
 NOTE: mariadb-migrate-config-file not found; skipping config check.
 ---- mysql_version ----
@@ -121,7 +121,7 @@ sakila	staff	username	utf8mb4_0900_ai_ci
 sakila	staff_list	address	utf8mb4_0900_ai_ci
 sakila	staff_list	city	utf8mb4_0900_ai_ci
 sakila	staff_list	country	utf8mb4_0900_ai_ci
-... (truncated; full output in /mnt/macshare/artifacts/precheck/mysql8_column_collations.tsv)
+... (truncated; full output in artifacts/assess_20260311_135150/precheck/mysql8_column_collations.tsv)
 
 ---- sql_mode ----
 ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
@@ -212,4 +212,4 @@ mysqlx	ACTIVE
 (no rows)
 
 Precheck complete.
-TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv
+TSV outputs: artifacts/assess_20260311_135150/precheck/*.tsv

@@ -45,6 +45,14 @@ prompt_secret() {
   printf "%s" "$var"
 }
 
+confirm_proceed() {
+  local label="$1"
+  local ans
+  ans="$(prompt "$label (y/n)" "y")"
+  ans="$(printf "%s" "$ans" | tr '[:upper:]' '[:lower:]')"
+  [[ "$ans" == "y" ]]
+}
+
 source_version_check_inplace() {
   local mysql_bin="${MYSQL_BIN:-mysql}"
   if ! command -v "$mysql_bin" >/dev/null 2>&1; then
@@ -554,8 +562,18 @@ else
     echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
   fi
 
+  if ! confirm_proceed "Proceed to plan phase now?"; then
+    echo "Stopped after assess by user choice."
+    exit 0
+  fi
+
   echo "==> Planning: $MODE (out: $PLAN_DIR)"
   python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
+
+  if ! confirm_proceed "Proceed to run phase now?"; then
+    echo "Stopped after plan by user choice."
+    exit 0
+  fi
 
   RUN_DIR="artifacts/run_${MODE}_${TS}"
   echo "$RUN_DIR" > "$RUN_DIR_FILE"

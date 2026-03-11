@@ -1,4 +1,4 @@
-mode: "replace_slave"
+mode: "one_step"
 
 env:
   # Playbook envs (one_step / two_step)
@@ -26,8 +26,9 @@ env:
   REPL_PASS: "Repl123!"
   INPLACE_BACKUP_DIR: "artifacts/inplace_backup"
   INPLACE_EXECUTE: "0"
+  INPLACE_TARGET_OS: "ubuntu"
+  INPLACE_MARIADB_VERSION: "11.8"
   INPLACE_STOP_CMD: "sudo systemctl stop mysql || sudo systemctl stop mysqld"
-  INPLACE_INSTALL_CMD: ""
   INPLACE_START_CMD: "sudo systemctl start mariadb || sudo systemctl start mysql"
   INPLACE_UPGRADE_CMD: "mariadb-upgrade"
   REPLACE_BACKUP_CMD: "sudo tar -czf /tmp/mysql_slave_backup_$(date +%Y%m%d_%H%M%S).tgz /var/lib/mysql /etc/mysql /etc/my.cnf 2>/dev/null || true"

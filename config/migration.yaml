@@ -1,4 +1,4 @@
-mode: "replace_slave"
+mode: "one_step"
 
 env:
   # Playbook envs (one_step / two_step)
