@@ -66,7 +66,7 @@ if ! MYSQL_PWD="$SRC_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_USER
   --connect-timeout=5 --batch --skip-column-names -e "SELECT 1;" >/dev/null 2>&1; then
   echo "ERROR: Source migration user login failed: ${SRC_USER}@${SRC_HOST}:${SRC_PORT}"
   echo "two_step mode does not auto-create migration users."
-  echo "Create migration users first or use one_step to bootstrap users."
+  echo "Ensure source admin credentials are correct and have required privileges."
   exit 7
 fi
 
@@ -76,7 +76,7 @@ if [[ -n "$TGT_SSH_HOST" ]]; then
     "MYSQL_PWD='${TGT_PASS}' mariadb -h'${TGT_HOST}' -P'${TGT_PORT}' -u'${TGT_USER}' --connect-timeout=5 -e 'SELECT 1;' >/dev/null 2>&1"; then
     echo "ERROR: Target migration user login failed: ${TGT_USER}@${TGT_HOST}:${TGT_PORT}"
     echo "two_step mode does not auto-create migration users."
-    echo "Create migration users first or run one_step bootstrap."
+    echo "Ensure target admin credentials are correct and have required privileges."
     exit 8
   fi
 else
@@ -84,7 +84,7 @@ else
     --connect-timeout=5 -e "SELECT 1;" >/dev/null 2>&1; then
     echo "ERROR: Target migration user login failed: ${TGT_USER}@${TGT_HOST}:${TGT_PORT}"
     echo "two_step mode does not auto-create migration users."
-    echo "Create migration users first or run one_step bootstrap."
+    echo "Ensure target admin credentials are correct and have required privileges."
     exit 8
   fi
 fi

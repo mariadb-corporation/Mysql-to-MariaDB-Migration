@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${MIGRATION_USERS_DISABLED:-1}" == "1" ]]; then
-  echo "==> Skipping migration user creation (admin-only mode)."
+MIGRATE_APP_USERS="${MIGRATE_APP_USERS:-0}"
+if [[ "$MIGRATE_APP_USERS" != "1" ]]; then
+  echo "==> Skipping application user migration (MIGRATE_APP_USERS!=1)."
   exit 0
 fi
 
-echo "==> Create migration user on source and target"
+echo "==> Migrate application users from source to target"
 
 MYSQL_BIN="${MYSQL_BIN:-mysql}"
 MARIADB_BIN="${MARIADB_BIN:-mariadb}"
@@ -20,8 +21,6 @@ trim_ws() {
 
 SRC_HOST="$(trim_ws "${SRC_HOST:-}")"
 SRC_PORT="${SRC_PORT:-3306}"
-SRC_USER="$(trim_ws "${SRC_USER:-}")"
-SRC_PASS="$(trim_ws "${SRC_PASS:-}")"
 SRC_DB="$(trim_ws "${SRC_DB:-}")"
 SRC_DBS="$(trim_ws "${SRC_DBS:-}")"
 SRC_ADMIN_USER="$(trim_ws "${SRC_ADMIN_USER:-}")"
@@ -29,30 +28,27 @@ SRC_ADMIN_PASS="$(trim_ws "${SRC_ADMIN_PASS:-}")"
 
 TGT_HOST="$(trim_ws "${TGT_HOST:-}")"
 TGT_PORT="${TGT_PORT:-3306}"
-TGT_USER="$(trim_ws "${TGT_USER:-}")"
-TGT_PASS="$(trim_ws "${TGT_PASS:-}")"
 TGT_ADMIN_USER="$(trim_ws "${TGT_ADMIN_USER:-}")"
 TGT_ADMIN_PASS="$(trim_ws "${TGT_ADMIN_PASS:-}")"
 TGT_SSH_HOST="$(trim_ws "${TGT_SSH_HOST:-}")"
 TGT_ADMIN_SSH_USER="${TGT_ADMIN_SSH_USER:-${TGT_SSH_USER:-root}}"
 TGT_ADMIN_SSH_OPTS="${TGT_ADMIN_SSH_OPTS:-${TGT_SSH_OPTS:-}}"
 ALLOW_ROOT_USERS="${ALLOW_ROOT_USERS:-0}"
-MIGRATE_APP_USERS="$(trim_ws "${MIGRATE_APP_USERS:-1}")"
 APP_USER_DEFAULT_PASSWORD="$(trim_ws "${APP_USER_DEFAULT_PASSWORD:-Str0ngChangeMe!2026}")"
 
-if [[ -z "$SRC_HOST" || -z "$SRC_USER" || -z "$SRC_PASS" || ( -z "$SRC_DB" && -z "$SRC_DBS" ) ]]; then
-  echo "ERROR: Missing source envs. Set SRC_HOST, SRC_USER, SRC_PASS, and SRC_DB or SRC_DBS."
+if [[ -z "$SRC_HOST" || -z "$SRC_ADMIN_USER" || -z "$SRC_ADMIN_PASS" ]]; then
+  echo "ERROR: Missing source envs. Set SRC_HOST, SRC_ADMIN_USER, SRC_ADMIN_PASS."
   exit 1
 fi
 
-if [[ -z "$TGT_HOST" || -z "$TGT_USER" || -z "$TGT_PASS" ]]; then
-  echo "ERROR: Missing target envs. Set TGT_HOST, TGT_USER, TGT_PASS."
+if [[ -z "$TGT_HOST" || -z "$TGT_ADMIN_USER" || -z "$TGT_ADMIN_PASS" ]]; then
+  echo "ERROR: Missing target envs. Set TGT_HOST, TGT_ADMIN_USER, TGT_ADMIN_PASS."
   exit 1
 fi
 
 if [[ "${ALLOW_ROOT_USERS}" != "1" ]]; then
-  if [[ "$SRC_USER" == "root" || "$TGT_USER" == "root" || "$SRC_ADMIN_USER" == "root" || "$TGT_ADMIN_USER" == "root" ]]; then
-    echo "ERROR: SRC/TGT admin and migration users must not be root. Set ALLOW_ROOT_USERS=1 to override."
+  if [[ "$SRC_ADMIN_USER" == "root" || "$TGT_ADMIN_USER" == "root" ]]; then
+    echo "ERROR: SRC/TGT admin users must not be root. Set ALLOW_ROOT_USERS=1 to override."
     exit 1
   fi
 fi
@@ -150,91 +146,33 @@ run_target_sql() {
   fi
 }
 
-SRC_USER_ESC="$(sql_escape "$SRC_USER")"
-SRC_PASS_ESC="$(sql_escape "$SRC_PASS")"
-SRC_DB_ESC="$(sql_escape "$SRC_DB")"
-TGT_USER_ESC="$(sql_escape "$TGT_USER")"
-TGT_PASS_ESC="$(sql_escape "$TGT_PASS")"
-SRC_ADMIN_USER_ESC="$(sql_escape "$SRC_ADMIN_USER")"
-TGT_ADMIN_USER_ESC="$(sql_escape "$TGT_ADMIN_USER")"
+echo "Migrating application users to target (default password for non-mysql_native_password)"
+app_pwd_esc="$(sql_escape "$APP_USER_DEFAULT_PASSWORD")"
+admin_user_esc="$(sql_escape "$SRC_ADMIN_USER")"
+user_rows=$(run_source_admin_sql "SELECT user, host, plugin, IFNULL(authentication_string,'') FROM mysql.user WHERE user <> '' AND user NOT IN ('root','${admin_user_esc}','debian-sys-maint','mysql.infoschema','mysql.session','mysql.sys','mysqlxsys');")
+while IFS=$'\t' read -r u h p auth_str; do
+  [[ -z "$u" ]] && continue
+  u_esc="$(sql_escape "$u")"
+  h_esc="$(sql_escape "$h")"
+  p="${p:-}"
+  auth_str="${auth_str:-}"
 
-build_db_grants() {
-  local dbs="$1"
-  local user_esc="$2"
-  local grants=""
-  if [[ -n "$dbs" ]]; then
-    IFS=',' read -r -a _db_list <<< "$dbs"
-    for _db in "${_db_list[@]}"; do
-      _db="${_db// /}"
-      if [[ -n "$_db" ]]; then
-        _db_esc="$(sql_escape "$_db")"
-        grants+="GRANT SHOW VIEW, TRIGGER, EVENT ON \`${_db_esc}\`.* TO '${user_esc}'@'%';"$'\n'
-      fi
-    done
-  elif [[ -n "$SRC_DB_ESC" ]]; then
-    grants+="GRANT SHOW VIEW, TRIGGER, EVENT ON \`${SRC_DB_ESC}\`.* TO '${user_esc}'@'%';"$'\n'
+  if [[ "$p" == "mysql_native_password" && -n "$auth_str" ]]; then
+    auth_esc="$(sql_escape "$auth_str")"
+    run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY PASSWORD '${auth_esc}';"
+    run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY PASSWORD '${auth_esc}';"
+  else
+    run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}';"
+    run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}';"
   fi
-  printf "%s" "$grants"
-}
 
-build_target_privs() {
-  local dbs="$1"
-  local user_esc="$2"
-  local grants=""
-  if [[ -n "$dbs" ]]; then
-    IFS=',' read -r -a _db_list <<< "$dbs"
-    for _db in "${_db_list[@]}"; do
-      _db="${_db// /}"
-      if [[ -n "$_db" ]]; then
-        _db_esc="$(sql_escape "$_db")"
-        grants+="GRANT ALL PRIVILEGES ON \`${_db_esc}\`.* TO '${user_esc}'@'%';"$'\n'
-      fi
-    done
-  elif [[ -n "$SRC_DB_ESC" ]]; then
-    grants+="GRANT ALL PRIVILEGES ON \`${SRC_DB_ESC}\`.* TO '${user_esc}'@'%';"$'\n'
-  fi
-  printf "%s" "$grants"
-}
-
-echo "Creating migration user on source: $SRC_HOST:$SRC_PORT"
-SRC_DB_GRANTS="$(build_db_grants "$SRC_DBS" "$SRC_USER_ESC")"
-run_source_admin_sql "CREATE USER IF NOT EXISTS '${SRC_USER_ESC}'@'%' IDENTIFIED BY '${SRC_PASS_ESC}';
-GRANT SELECT ON *.* TO '${SRC_USER_ESC}'@'%';
-${SRC_DB_GRANTS}FLUSH PRIVILEGES;"
-
-echo "Creating migration user on target: $TGT_HOST:$TGT_PORT"
-TGT_DB_GRANTS="$(build_target_privs "$SRC_DBS" "$TGT_USER_ESC")"
-SQL_TGT="CREATE USER IF NOT EXISTS '${TGT_USER_ESC}'@'%' IDENTIFIED BY '${TGT_PASS_ESC}';
-${TGT_DB_GRANTS}GRANT SELECT ON mysql.user TO '${TGT_USER_ESC}'@'%';
-FLUSH PRIVILEGES;"
-run_target_sql "$SQL_TGT"
-
-if [[ "$MIGRATE_APP_USERS" == "1" ]]; then
-  echo "Migrating application users to target (default password)"
-  app_pwd_esc="$(sql_escape "$APP_USER_DEFAULT_PASSWORD")"
-  user_rows=$(run_source_admin_sql "SELECT user, host, plugin, IFNULL(authentication_string,'') FROM mysql.user WHERE user <> '' AND user NOT IN ('root','${SRC_USER}','mysql.infoschema','mysql.session','mysql.sys');")
-  while IFS=$'\t' read -r u h p auth_str; do
-    [[ -z "$u" ]] && continue
-    u_esc="$(sql_escape "$u")"
-    h_esc="$(sql_escape "$h")"
-    p="${p:-}"
-    auth_str="${auth_str:-}"
-
-    if [[ "$p" == "mysql_native_password" && -n "$auth_str" ]]; then
-      auth_esc="$(sql_escape "$auth_str")"
-      run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY PASSWORD '${auth_esc}';"
-      run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY PASSWORD '${auth_esc}';"
-    else
-      run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}';"
-      run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}';"
+  grants=$(run_source_admin_sql "SHOW GRANTS FOR '${u_esc}'@'${h_esc}';")
+  while IFS= read -r g; do
+    [[ -z "$g" ]] && continue
+    if ! run_target_sql "$g"; then
+      echo "WARN: Skipping incompatible grant for '${u}'@'${h}'."
     fi
+  done <<< "$grants"
+done <<< "$user_rows"
 
-    grants=$(run_source_admin_sql "SHOW GRANTS FOR '${u_esc}'@'${h_esc}';")
-    while IFS= read -r g; do
-      [[ -z "$g" ]] && continue
-      run_target_sql "$g"
-    done <<< "$grants"
-  done <<< "$user_rows"
-fi
-
-echo "Migration user setup completed."
+echo "Application user migration completed."

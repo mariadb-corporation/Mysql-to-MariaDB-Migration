@@ -63,9 +63,9 @@ phases:
       script: scripts/00_preflight_one_step.sh
       args: []
 
-    - id: create_migration_user
-      name: Create migration user on source and target
-      script: scripts/09_create_migration_user.sh
+    - id: migrate_app_users
+      name: Migrate application users to target (optional)
+      script: scripts/09_migrate_app_users.sh
       args: []
 
   two_step_prepare:
