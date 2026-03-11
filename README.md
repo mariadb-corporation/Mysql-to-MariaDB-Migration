@@ -21,6 +21,9 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 ## Prerequisites (required)
 - For `one_step`, `two_step`, and `binlog`: MariaDB must be pre-installed on the target and configured per customer requirements.
 - For `replace_slave` and `inplace`: the tool can install MariaDB using OS + version inputs.
+- Python 3 is required on the orchestrator host to run the migration orchestrator/CLI workflow.
+- For `two_step`, SQLines Data (`sqldata`/`sqlinesdata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
+- SQLines Data may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
 - Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB.
 - The orchestrator can run on a third host; SSH access to the target is required for validation.
 - The tool prompts for required inputs if not provided in config/env.
@@ -216,3 +219,4 @@ SRC_DBS: "sakila,world"
 - Use a fresh `--out` directory per run to avoid step skips.
 - Orchestrator mode: `python -m orchestrator.migrationctl plan/run --config config/migration.yaml --mode <one_step|two_step|binlog|replace_slave> --out artifacts/<dir>`
 - Safety default: migration fails if target DB already exists. Set `ALLOW_TARGET_DB_OVERWRITE=1` only when overwrite is intentional.
+- Platform coverage note: this tool has been tested primarily on Ubuntu and Rocky Linux. Support hooks are included for additional Linux flavors, but validate in your target environment before production use.
