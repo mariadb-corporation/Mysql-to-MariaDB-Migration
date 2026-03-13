@@ -4,6 +4,7 @@ set -euo pipefail
 echo "==> Two-step migration: parallel data transfer (SQLines Data)"
 
 SQLINESDATA_BIN="${SQLINESDATA_BIN:-}"
+SQLINES_OUT_DIR="${SQLINES_OUT_DIR:-artifacts/sqldata}"
 SRC_DBS="${SRC_DBS:-}"
 SRC_DB="${SRC_DB:-}"
 
@@ -50,13 +51,19 @@ else
   DB_LIST=("$SRC_DB")
 fi
 
+mkdir -p "$SQLINES_OUT_DIR"
+
 for db in "${DB_LIST[@]}"; do
   db="${db// /}"
   [[ -z "$db" ]] && continue
+  db_out_dir="$SQLINES_OUT_DIR/$db"
+  mkdir -p "$db_out_dir"
   "$SQLINESDATA_BIN" \
     "-sd=mysql,${SRC_USER}/${SRC_PASS}@${SRC_HOST}:${SRC_PORT}/${db}" \
     "-td=mariadb,${TGT_USER}/${TGT_PASS}@${TGT_HOST}:${TGT_PORT}/${db}" \
     "-smap=${db}:${db}" \
+    "-out=$db_out_dir" \
+    "-log=$db_out_dir/sqldata.log" \
     -ss=6 \
     "-t=${db}.*" \
     -constraints=no \

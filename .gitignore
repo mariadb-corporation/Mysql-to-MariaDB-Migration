@@ -1,2 +1,11 @@
 __pycache__/
 *.pyc
+*.swp
+*.bak
+artifacts/
+.migration_last_*
+config/migration.yaml
+sqldata.log
+sqldata_ddl.sql
+sqldata_failed.sql
+sqldata_failed_tables.txt

@@ -15,8 +15,12 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - Validation & rollback planning
 
 ## Supported Versions
-- MySQL: 8.0
+- MySQL: 5.7 and 8.0 (mode-dependent)
 - MariaDB: 11.x (LTS)
+
+Mode-specific note:
+- `inplace` currently supports only MySQL versions **below 8.0**.
+- MySQL 8.0 migrations should use `one_step`, `two_step`, `binlog`, or `replace_slave`.
 
 ## Prerequisites (required)
 - For `one_step`, `two_step`, and `binlog`: MariaDB must be pre-installed on the target and configured per customer requirements.

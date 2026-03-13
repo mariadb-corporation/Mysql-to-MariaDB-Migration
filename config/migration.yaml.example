@@ -1,29 +1,37 @@
 mode: "one_step"
 
 env:
-  # Playbook envs (one_step / two_step)
-  SRC_HOST: "192.168.64.7"
+  # Source
+  SRC_HOST: "source-db-host"
   SRC_PORT: "3306"
   SRC_USER: "admin"
-  SRC_PASS: "Admin123!"
-  #SRC_DB: testdb
-  SRC_DBS: ""
-  SRC_SSL_MODE: "DISABLED"  # e.g., DISABLED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
+  SRC_PASS: ""
+  # SRC_DB: "sakila"
+  SRC_DBS: "sakila"
+  SRC_SSL_MODE: "DISABLED"  # DISABLED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
   SRC_ADMIN_USER: "admin"
-  SRC_ADMIN_PASS: "Admin123!"
-  TGT_HOST: "192.168.64.13"
+  SRC_ADMIN_PASS: ""
+
+  # Target
+  TGT_HOST: "target-db-host"
   TGT_PORT: "3306"
   TGT_USER: "admin"
-  TGT_PASS: "MariaDB123!"
+  TGT_PASS: ""
   TGT_ADMIN_USER: "admin"
-  TGT_ADMIN_PASS: "MariaDB123!"
-  TGT_SSH_HOST: "192.168.64.13"
+  TGT_ADMIN_PASS: ""
+  TGT_SSH_HOST: "target-ssh-host"
   TGT_SSH_USER: "root"
   TGT_SSH_OPTS: "-o StrictHostKeyChecking=no"
-  MIGRATE_APP_USERS: "1"
-  APP_USER_DEFAULT_PASSWORD: " dafjdlaE#$32"
+
+  # User migration
+  MIGRATE_APP_USERS: "0"
+  APP_USER_DEFAULT_PASSWORD: ""
+
+  # Replication (binlog / replace_slave)
   REPL_USER: "repl"
-  REPL_PASS: "Repl123!"
+  REPL_PASS: ""
+
+  # In-place
   INPLACE_BACKUP_DIR: "artifacts/inplace_backup"
   INPLACE_EXECUTE: "0"
   INPLACE_TARGET_OS: "ubuntu"
@@ -31,6 +39,8 @@ env:
   INPLACE_STOP_CMD: "sudo systemctl stop mysql || sudo systemctl stop mysqld"
   INPLACE_START_CMD: "sudo systemctl start mariadb || sudo systemctl start mysql"
   INPLACE_UPGRADE_CMD: "mariadb-upgrade"
+
+  # Replace-slave
   REPLACE_BACKUP_CMD: "sudo tar -czf /tmp/mysql_slave_backup_$(date +%Y%m%d_%H%M%S).tgz /var/lib/mysql /etc/mysql /etc/my.cnf 2>/dev/null || true"
   REPLACE_STOP_MYSQL_CMD: "sudo systemctl stop mysql || sudo systemctl stop mysqld"
   REPLACE_UNINSTALL_MYSQL_CMD: ""
