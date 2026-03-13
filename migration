@@ -71,7 +71,7 @@ source_version_check_inplace() {
   local major minor
   major="$(printf "%s" "$mm" | cut -d. -f1)"
   minor="$(printf "%s" "$mm" | cut -d. -f2)"
-  if [[ "$major" -gt 8 || ( "$major" -eq 8 && "$minor" -ge 0 ) ]]; then
+  if [[ "$major" -ge 8 ]]; then
     echo "ERROR: In-place mode is not supported for MySQL 8.0+ in this tool."
     echo "Detected source version: $src_version"
     echo "Use one_step, two_step, or binlog mode."
@@ -526,6 +526,7 @@ ASSESS_DIR="artifacts/assess_${TS}"
 PLAN_DIR="artifacts/plan_${TS}"
 RUN_DIR_FILE=".migration_last_run"
 RUN_SIG_FILE=".migration_last_signature"
+STATUS=0
 
 RUN_DIR=""
 if [[ -f "$RUN_DIR_FILE" ]]; then
