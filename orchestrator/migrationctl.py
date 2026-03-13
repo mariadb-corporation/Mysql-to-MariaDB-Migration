@@ -256,12 +256,6 @@ def plan(
                 raise typer.BadParameter(
                     "SRC admin user must not be root. Set ALLOW_ROOT_USERS=1 to override."
                 )
-    if mode_value == "near_zero":
-        _require_env(
-            env,
-            ["NEAR_ZERO_REPLICATION_CMD", "NEAR_ZERO_CDC_CMD", "NEAR_ZERO_CUTOVER_CMD"],
-            mode_value,
-        )
 
     report.set_plan({"mode": mode_value, "phases": phases, "steps": steps})
     report.finish_run(success=True, message="Plan generated (no execution).")
@@ -360,12 +354,6 @@ def run(
                 raise typer.BadParameter(
                     "SRC admin user must not be root. Set ALLOW_ROOT_USERS=1 to override."
                 )
-    if mode_value == "near_zero":
-        _require_env(
-            env,
-            ["NEAR_ZERO_REPLICATION_CMD", "NEAR_ZERO_CDC_CMD", "NEAR_ZERO_CUTOVER_CMD"],
-            mode_value,
-        )
 
     failures = []
     failure_meta: Optional[Dict[str, Any]] = None
