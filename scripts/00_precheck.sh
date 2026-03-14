@@ -88,6 +88,10 @@ SQL_FILES=(
   "$CHECKS_DIR/xplugin_status.sql"
   "$CHECKS_DIR/fk_name_lengths.sql"
   "$CHECKS_DIR/trigger_order.sql"
+  "$CHECKS_DIR/mysql_roles.sql"
+  "$CHECKS_DIR/generated_columns.sql"
+  "$CHECKS_DIR/server_defaults.sql"
+  "$CHECKS_DIR/view_routine_bodies.sql"
 )
 
 for f in "${SQL_FILES[@]}"; do
