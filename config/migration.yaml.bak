@@ -21,7 +21,7 @@ env:
   TGT_SSH_USER: "root"
   TGT_SSH_OPTS: "-o StrictHostKeyChecking=no"
   MIGRATE_APP_USERS: "1"
-  APP_USER_DEFAULT_PASSWORD: " Target123$#"
+  APP_USER_DEFAULT_PASSWORD: " dafjdlaE#$32"
   REPL_USER: "repl"
   REPL_PASS: "Repl123!"
   INPLACE_BACKUP_DIR: "artifacts/inplace_backup"

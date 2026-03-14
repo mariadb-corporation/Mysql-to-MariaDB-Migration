@@ -211,5 +211,17 @@ mysqlx	ACTIVE
 ---- trigger_order ----
 (no rows)
 
+---- mysql_roles ----
+(no rows)
+
+---- generated_columns ----
+(no rows)
+
+---- server_defaults ----
+utf8mb4	utf8mb4_0900_ai_ci	0	1	ON	dynamic
+
+---- view_routine_bodies ----
+(no rows)
+
 Precheck complete.
 TSV outputs: /mnt/macshare/artifacts/precheck/*.tsv

@@ -16,3 +16,8 @@ SOURCE sql/checks/sql_mode.sql;
 SOURCE sql/checks/definers_inventory.sql;
 SOURCE sql/checks/partitioned_tables.sql;
 SOURCE sql/checks/active_plugins.sql;
+
+SOURCE sql/checks/mysql_roles.sql;
+SOURCE sql/checks/generated_columns.sql;
+SOURCE sql/checks/server_defaults.sql;
+SOURCE sql/checks/view_routine_bodies.sql;
