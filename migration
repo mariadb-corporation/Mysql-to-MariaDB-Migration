@@ -53,6 +53,42 @@ confirm_proceed() {
   [[ "$ans" == "y" ]]
 }
 
+usage() {
+  cat <<'USAGE'
+Usage:
+  ./migration
+  ./migration --assess
+  ./migration --plan
+  ./migration --run
+
+Default behavior (no flag): assess -> plan -> run
+USAGE
+}
+
+PHASE_MODE="all"
+if [[ $# -gt 0 ]]; then
+  case "${1:-}" in
+    --assess) PHASE_MODE="assess" ;;
+    --plan) PHASE_MODE="plan" ;;
+    --run) PHASE_MODE="run" ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "ERROR: Unknown option: $1"
+      usage
+      exit 1
+      ;;
+  esac
+  shift
+fi
+if [[ $# -gt 0 ]]; then
+  echo "ERROR: Unexpected arguments: $*"
+  usage
+  exit 1
+fi
+
 source_version_check_inplace() {
   local mysql_bin="${MYSQL_BIN:-mysql}"
   if ! command -v "$mysql_bin" >/dev/null 2>&1; then
@@ -539,49 +575,89 @@ if [[ -f "$RUN_SIG_FILE" ]]; then
   LAST_SIG="$(cat "$RUN_SIG_FILE")"
 fi
 
-if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
-  echo "==> Resuming: $MODE (out: $RUN_DIR)"
-  python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
-  STATUS=$?
-elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" ]]; then
-  echo "==> Resuming: $MODE (out: $RUN_DIR)"
-  python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
-  STATUS=$?
-else
-  if [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" ]]; then
-    echo "==> Previous run found, but inputs changed. Starting a new run directory."
-  fi
-  # Drop stale resume pointers before a fresh assess/plan/run attempt.
-  rm -f "$RUN_DIR_FILE" "$RUN_SIG_FILE"
+if [[ "$PHASE_MODE" == "assess" ]]; then
   if [[ -f "config/source.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
     python3 -m orchestrator.migrationctl assess --config config/source.yaml --out "$ASSESS_DIR"
+    STATUS=$?
   elif [[ -f "config/migration.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
     python3 -m orchestrator.migrationctl assess --config config/migration.yaml --out "$ASSESS_DIR"
+    STATUS=$?
   else
     echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
+    STATUS=0
   fi
-
-  if ! confirm_proceed "Proceed to plan phase now?"; then
-    echo "Stopped after assess by user choice."
-    exit 0
-  fi
-
+elif [[ "$PHASE_MODE" == "plan" ]]; then
   echo "==> Planning: $MODE (out: $PLAN_DIR)"
   python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
-
-  if ! confirm_proceed "Proceed to run phase now?"; then
-    echo "Stopped after plan by user choice."
-    exit 0
-  fi
-
-  RUN_DIR="artifacts/run_${MODE}_${TS}"
-  echo "$RUN_DIR" > "$RUN_DIR_FILE"
-  printf "%s" "$CURRENT_SIG" > "$RUN_SIG_FILE"
-  echo "==> Running: $MODE (out: $RUN_DIR)"
-  python3 -m orchestrator.migrationctl run --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
   STATUS=$?
+elif [[ "$PHASE_MODE" == "run" ]]; then
+  if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
+    echo "==> Resuming: $MODE (out: $RUN_DIR)"
+    python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    STATUS=$?
+  elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" ]]; then
+    echo "==> Resuming: $MODE (out: $RUN_DIR)"
+    python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    STATUS=$?
+  else
+    if [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" ]]; then
+      echo "==> Previous run found, but inputs changed. Starting a new run directory."
+    fi
+    rm -f "$RUN_DIR_FILE" "$RUN_SIG_FILE"
+    RUN_DIR="artifacts/run_${MODE}_${TS}"
+    echo "$RUN_DIR" > "$RUN_DIR_FILE"
+    printf "%s" "$CURRENT_SIG" > "$RUN_SIG_FILE"
+    echo "==> Running: $MODE (out: $RUN_DIR)"
+    python3 -m orchestrator.migrationctl run --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    STATUS=$?
+  fi
+else
+  if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
+    echo "==> Resuming: $MODE (out: $RUN_DIR)"
+    python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    STATUS=$?
+  elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" ]]; then
+    echo "==> Resuming: $MODE (out: $RUN_DIR)"
+    python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    STATUS=$?
+  else
+    if [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" ]]; then
+      echo "==> Previous run found, but inputs changed. Starting a new run directory."
+    fi
+    # Drop stale resume pointers before a fresh assess/plan/run attempt.
+    rm -f "$RUN_DIR_FILE" "$RUN_SIG_FILE"
+    if [[ -f "config/source.yaml" ]]; then
+      echo "==> Assessing (out: $ASSESS_DIR)"
+      python3 -m orchestrator.migrationctl assess --config config/source.yaml --out "$ASSESS_DIR"
+    elif [[ -f "config/migration.yaml" ]]; then
+      echo "==> Assessing (out: $ASSESS_DIR)"
+      python3 -m orchestrator.migrationctl assess --config config/migration.yaml --out "$ASSESS_DIR"
+    else
+      echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
+    fi
+
+    if ! confirm_proceed "Proceed to plan phase now?"; then
+      echo "Stopped after assess by user choice."
+      exit 0
+    fi
+
+    echo "==> Planning: $MODE (out: $PLAN_DIR)"
+    python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
+
+    if ! confirm_proceed "Proceed to run phase now?"; then
+      echo "Stopped after plan by user choice."
+      exit 0
+    fi
+
+    RUN_DIR="artifacts/run_${MODE}_${TS}"
+    echo "$RUN_DIR" > "$RUN_DIR_FILE"
+    printf "%s" "$CURRENT_SIG" > "$RUN_SIG_FILE"
+    echo "==> Running: $MODE (out: $RUN_DIR)"
+    python3 -m orchestrator.migrationctl run --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    STATUS=$?
+  fi
 fi
 
 if [[ $STATUS -eq 0 ]]; then
