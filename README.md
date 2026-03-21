@@ -23,8 +23,8 @@ Mode-specific note:
 - MySQL 8.0 migrations should use `one_step`, `two_step`, `binlog`, or `replace_slave`.
 
 ## Prerequisites (required)
-- For `one_step`, `two_step`, and `binlog`: MariaDB must be pre-installed on the target and configured per customer requirements.
-- For `replace_slave` and `inplace`: the tool can install MariaDB using OS + version inputs.
+- For `binlog`: MariaDB must be pre-installed on the target and configured per customer requirements.
+- For `one_step`, `two_step`, `replace_slave`, and `inplace`: the tool can install MariaDB using OS + version inputs when enabled.
 - Python 3 is required on the orchestrator host to run the migration orchestrator/CLI workflow.
 - For `two_step`, SQLines Data (`sqldata`/`sqlinesdata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
 - SQLines Data may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
@@ -151,6 +151,9 @@ Source:
 Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
 - `TGT_SSH_HOST`, `TGT_SSH_USER`, `TGT_SSH_OPTS` (required when running from a third host)
+- `INSTALL_TARGET_MARIADB` (`0` or `1`, default `1`)
+- `TARGET_INSTALL_OS` (required when install flag is `1`)
+- `TARGET_MARIADB_VERSION` (required when install flag is `1`)
 
 ## Two-step required envs (config/migration.yaml)
 Source:
@@ -160,6 +163,9 @@ Source:
 Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
 - `TGT_SSH_HOST`, `TGT_SSH_USER`, `TGT_SSH_OPTS` (if running from a third host)
+- `INSTALL_TARGET_MARIADB` (`0` or `1`, default `1`)
+- `TARGET_INSTALL_OS` (required when install flag is `1`)
+- `TARGET_MARIADB_VERSION` (required when install flag is `1`)
 
 Optional:
 - `SQLINESDATA_BIN` (auto-detected: `sqldata` then `sqlinesdata`)

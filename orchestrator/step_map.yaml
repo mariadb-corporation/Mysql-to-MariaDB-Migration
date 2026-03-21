@@ -7,12 +7,14 @@
 
 modes:
   one_step:
+    - target_install
     - one_step_prepare
     - precheck_only
     - one_step
     - validate
 
   two_step:
+    - target_install
     - two_step_prepare
     - precheck_only
     - two_step_schema
@@ -55,6 +57,12 @@ phases:
     - id: validate
       name: Validate after upgrade
       script: scripts/07_validate.sh
+      args: []
+
+  target_install:
+    - id: install_target_mariadb
+      name: Install MariaDB on target host
+      script: scripts/23_install_mariadb.sh
       args: []
 
   one_step_prepare:
