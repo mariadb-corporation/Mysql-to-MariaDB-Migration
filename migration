@@ -14,6 +14,9 @@ run_signature() {
     "TGT_SSH_HOST=$TGT_SSH_HOST" \
     "TGT_SSH_USER=$TGT_SSH_USER" \
     "MIGRATE_APP_USERS=$MIGRATE_APP_USERS" \
+    "INSTALL_TARGET_MARIADB=$INSTALL_TARGET_MARIADB" \
+    "TARGET_INSTALL_OS=$TARGET_INSTALL_OS" \
+    "TARGET_MARIADB_VERSION=$TARGET_MARIADB_VERSION" \
     "REPL_USER=$REPL_USER" \
     "INPLACE_BACKUP_DIR=$INPLACE_BACKUP_DIR" \
     "INPLACE_EXECUTE=$INPLACE_EXECUTE" \
@@ -117,6 +120,9 @@ source_version_check_inplace() {
 
 CFG_REPL_USER=""
 CFG_REPL_PASS=""
+CFG_INSTALL_TARGET_MARIADB=""
+CFG_TARGET_INSTALL_OS=""
+CFG_TARGET_MARIADB_VERSION=""
 CFG_INPLACE_BACKUP_DIR=""
 CFG_INPLACE_EXECUTE=""
 CFG_INPLACE_STOP_CMD=""
@@ -138,6 +144,9 @@ if [[ -f "config/migration.yaml" ]]; then
     case "$cfg_key" in
       REPL_USER) CFG_REPL_USER="$cfg_val" ;;
       REPL_PASS) CFG_REPL_PASS="$cfg_val" ;;
+      INSTALL_TARGET_MARIADB) CFG_INSTALL_TARGET_MARIADB="$cfg_val" ;;
+      TARGET_INSTALL_OS) CFG_TARGET_INSTALL_OS="$cfg_val" ;;
+      TARGET_MARIADB_VERSION) CFG_TARGET_MARIADB_VERSION="$cfg_val" ;;
       INPLACE_BACKUP_DIR) CFG_INPLACE_BACKUP_DIR="$cfg_val" ;;
       INPLACE_EXECUTE) CFG_INPLACE_EXECUTE="$cfg_val" ;;
       INPLACE_STOP_CMD) CFG_INPLACE_STOP_CMD="$cfg_val" ;;
@@ -231,6 +240,35 @@ if [[ "$MODE" != "inplace" ]]; then
     MIGRATE_APP_USERS="0"
     APP_USER_DEFAULT_PASSWORD=""
   fi
+fi
+
+INSTALL_TARGET_MARIADB="$CFG_INSTALL_TARGET_MARIADB"
+TARGET_INSTALL_OS="$CFG_TARGET_INSTALL_OS"
+TARGET_MARIADB_VERSION="$CFG_TARGET_MARIADB_VERSION"
+if [[ "$MODE" == "one_step" || "$MODE" == "two_step" ]]; then
+  if [[ -z "$INSTALL_TARGET_MARIADB" ]]; then INSTALL_TARGET_MARIADB="1"; fi
+  install_target_answer="$(prompt "Install MariaDB on target host before migration? (y/n)" "$( [[ "$INSTALL_TARGET_MARIADB" == "1" ]] && echo y || echo n )")"
+  if [[ "$(printf "%s" "$install_target_answer" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+    INSTALL_TARGET_MARIADB="1"
+    if [[ -z "$TARGET_INSTALL_OS" ]]; then TARGET_INSTALL_OS="ubuntu"; fi
+    if [[ -z "$TARGET_MARIADB_VERSION" ]]; then TARGET_MARIADB_VERSION="11.8"; fi
+    TARGET_INSTALL_OS="$(prompt "Target OS for MariaDB install (ubuntu|debian|rocky|rhel|centos7|sles)" "$TARGET_INSTALL_OS")"
+    TARGET_INSTALL_OS="$(printf "%s" "$TARGET_INSTALL_OS" | tr '[:upper:]' '[:lower:]' | xargs)"
+    TARGET_MARIADB_VERSION="$(prompt "MariaDB version to install (for example 11.8)" "$TARGET_MARIADB_VERSION")"
+    TARGET_MARIADB_VERSION="$(printf "%s" "$TARGET_MARIADB_VERSION" | xargs)"
+    case "$TARGET_INSTALL_OS" in
+      ubuntu|debian|rocky|rhel|centos7|sles)
+        ;;
+      *)
+        echo "ERROR: Unsupported target install OS '$TARGET_INSTALL_OS'. Use ubuntu|debian|rocky|rhel|centos7|sles."
+        exit 1
+        ;;
+    esac
+  else
+    INSTALL_TARGET_MARIADB="0"
+  fi
+else
+  if [[ -z "$INSTALL_TARGET_MARIADB" ]]; then INSTALL_TARGET_MARIADB="0"; fi
 fi
 
 INPLACE_BACKUP_DIR="$CFG_INPLACE_BACKUP_DIR"
@@ -355,6 +393,16 @@ if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && ( -z "$REPL_USER"
   echo "ERROR: Replication user and password are required for binlog/replace_slave mode."
   exit 1
 fi
+if [[ ( "$MODE" == "one_step" || "$MODE" == "two_step" ) && "$INSTALL_TARGET_MARIADB" == "1" ]]; then
+  if [[ -z "$TGT_SSH_HOST" ]]; then
+    echo "ERROR: Target SSH host is required when INSTALL_TARGET_MARIADB=1."
+    exit 1
+  fi
+  if [[ -z "$TARGET_INSTALL_OS" || -z "$TARGET_MARIADB_VERSION" ]]; then
+    echo "ERROR: TARGET_INSTALL_OS and TARGET_MARIADB_VERSION are required when INSTALL_TARGET_MARIADB=1."
+    exit 1
+  fi
+fi
 if [[ "$MODE" == "replace_slave" && -z "$REPLACE_MARIADB_VERSION" ]]; then
   echo "ERROR: MariaDB version is required for replace_slave mode."
   exit 1
@@ -438,6 +486,9 @@ save_config() {
       -v tgt_ssh_user="$(yaml_quote "$TGT_SSH_USER")" \
       -v tgt_ssh_opts="$(yaml_quote "$TGT_SSH_OPTS")" \
       -v mig_app_users="$(yaml_quote "$MIGRATE_APP_USERS")" \
+      -v install_target_mariadb="$(yaml_quote "$INSTALL_TARGET_MARIADB")" \
+      -v target_install_os="$(yaml_quote "$TARGET_INSTALL_OS")" \
+      -v target_mariadb_version="$(yaml_quote "$TARGET_MARIADB_VERSION")" \
       -v app_user_pass="$(yaml_quote "$app_user_pass_save")" \
       -v repl_user="$(yaml_quote "$REPL_USER")" \
       -v repl_pass="$(yaml_quote "$repl_pass_save")" \
@@ -481,6 +532,9 @@ BEGIN { in_env=0 }
     if ($0 ~ /^  TGT_SSH_USER:/) { print "  TGT_SSH_USER: " tgt_ssh_user; next }
     if ($0 ~ /^  TGT_SSH_OPTS:/) { print "  TGT_SSH_OPTS: " tgt_ssh_opts; next }
     if ($0 ~ /^  MIGRATE_APP_USERS:/) { print "  MIGRATE_APP_USERS: " mig_app_users; next }
+    if ($0 ~ /^  INSTALL_TARGET_MARIADB:/) { print "  INSTALL_TARGET_MARIADB: " install_target_mariadb; next }
+    if ($0 ~ /^  TARGET_INSTALL_OS:/) { print "  TARGET_INSTALL_OS: " target_install_os; next }
+    if ($0 ~ /^  TARGET_MARIADB_VERSION:/) { print "  TARGET_MARIADB_VERSION: " target_mariadb_version; next }
     if ($0 ~ /^  APP_USER_DEFAULT_PASSWORD:/) { print "  APP_USER_DEFAULT_PASSWORD: " app_user_pass; next }
     if ($0 ~ /^  REPL_USER:/) { print "  REPL_USER: " repl_user; next }
     if ($0 ~ /^  REPL_PASS:/) { print "  REPL_PASS: " repl_pass; next }
@@ -517,6 +571,7 @@ BEGIN { in_env=0 }
 export SRC_HOST SRC_PORT SRC_USER SRC_PASS SRC_ADMIN_USER SRC_ADMIN_PASS
 export TGT_HOST TGT_PORT TGT_USER TGT_PASS TGT_ADMIN_USER TGT_ADMIN_PASS
 export MIGRATE_APP_USERS APP_USER_DEFAULT_PASSWORD
+export INSTALL_TARGET_MARIADB TARGET_INSTALL_OS TARGET_MARIADB_VERSION
 if [[ -n "${REPL_USER:-}" ]]; then export REPL_USER; fi
 if [[ -n "${REPL_PASS:-}" ]]; then export REPL_PASS; fi
 if [[ -n "${INPLACE_BACKUP_DIR:-}" ]]; then export INPLACE_BACKUP_DIR; fi

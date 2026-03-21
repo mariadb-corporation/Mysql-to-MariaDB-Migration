@@ -225,6 +225,9 @@ def plan(
             ["SRC_ADMIN_USER", "SRC_ADMIN_PASS", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"],
             mode_value,
         )
+        install_target = str(env.get("INSTALL_TARGET_MARIADB", "1")).strip().lower() in ("1", "true", "yes", "y")
+        if mode_value in ("one_step", "two_step") and install_target:
+            _require_env(env, ["TGT_SSH_HOST"], mode_value)
         if not (env.get("SRC_DB") or env.get("SRC_DBS")):
             raise typer.BadParameter("Missing SRC_DB or SRC_DBS for one_step/two_step/binlog.")
         if mode_value in ("binlog", "replace_slave"):
@@ -323,6 +326,9 @@ def run(
             ["SRC_ADMIN_USER", "SRC_ADMIN_PASS", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"],
             mode_value,
         )
+        install_target = str(env.get("INSTALL_TARGET_MARIADB", "1")).strip().lower() in ("1", "true", "yes", "y")
+        if mode_value in ("one_step", "two_step") and install_target:
+            _require_env(env, ["TGT_SSH_HOST"], mode_value)
         if not (env.get("SRC_DB") or env.get("SRC_DBS")):
             raise typer.BadParameter("Missing SRC_DB or SRC_DBS for one_step/two_step/binlog.")
         if mode_value in ("binlog", "replace_slave"):

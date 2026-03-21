@@ -25,6 +25,9 @@ env:
 
   # User migration
   MIGRATE_APP_USERS: "0"
+  INSTALL_TARGET_MARIADB: "1"
+  TARGET_INSTALL_OS: "ubuntu"
+  TARGET_MARIADB_VERSION: "11.8"
   APP_USER_DEFAULT_PASSWORD: ""
 
   # Replication (binlog / replace_slave)
