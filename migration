@@ -184,7 +184,7 @@ if [[ -f "config/migration.yaml" ]]; then
 fi
 
 echo "==> MySQL to MariaDB Migration"
-MODE="$(prompt "Mode (one_step|two_step|binlog|inplace|replace_slave)" "one_step")"
+MODE="$(prompt "Mode (one_step|two_step|binlog|replace_slave)" "one_step")"
 MODE="${MODE// /}"
 if [[ "$MODE" != "one_step" && "$MODE" != "two_step" && "$MODE" != "binlog" && "$MODE" != "inplace" && "$MODE" != "replace_slave" ]]; then
   echo "ERROR: mode must be one_step, two_step, binlog, inplace or replace_slave"
