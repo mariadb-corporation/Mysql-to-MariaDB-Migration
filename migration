@@ -92,6 +92,11 @@ if [[ $# -gt 0 ]]; then
   exit 1
 fi
 
+cat <<'DISCLAIMER'
+*Disclaimer*
+This software is distributed free of charge and is provided "as is", without any express or implied warranties of any kind, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.
+DISCLAIMER
+
 source_version_check_inplace() {
   local mysql_bin="${MYSQL_BIN:-mysql}"
   if ! command -v "$mysql_bin" >/dev/null 2>&1; then
