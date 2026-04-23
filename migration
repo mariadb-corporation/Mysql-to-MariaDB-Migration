@@ -93,9 +93,27 @@ if [[ $# -gt 0 ]]; then
 fi
 
 cat <<'DISCLAIMER'
-*Disclaimer*
-This software is distributed free of charge and is provided "as is", without any express or implied warranties of any kind, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.
+--------------------------------------------------------------------------------
+DISCLAIMER: MYSQL TO MARIADB MIGRATION SCRIPT
+--------------------------------------------------------------------------------
+This script provides an automated means for migrating from MySQL to MariaDB.
+It has undergone LIMITED TESTING and is provided "AS IS."
+
+This tool is not guaranteed to be complete, accurate, or error-free. It is
+intended for informational and experimental use and is NOT a substitute for
+a manual, verified migration process. Users are strongly advised to perform
+full backups and verify data integrity before and after use. You assume
+sole responsibility for any data loss or system downtime resulting from
+the use of this script.
+
+This software is distributed free of charge without any express or implied
+warranties of any kind, including but not limited to warranties of
+merchantability, fitness for a particular purpose, or non-infringement.
+
+Full Legal Terms: https://mariadb.com/legal/
+--------------------------------------------------------------------------------
 DISCLAIMER
+
 
 source_version_check_inplace() {
   local mysql_bin="${MYSQL_BIN:-mysql}"
