@@ -1,5 +1,69 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bash 
 set -euo pipefail
+
+# Define tool versioning
+MIG_TOOL_VERSION="1.0.0-GA"
+MIG_TOOL_BUILD="20260424"
+
+# Display professional welcome header
+cat << EOF
+
+---------------------------------------------------------------------
+ Welcome to the MariaDB Migration Orchestrator
+ Tool Version: $MIG_TOOL_VERSION (Build $MIG_TOOL_BUILD)
+ Supported Sources: MySQL 5.7, 8.0, 8.4
+
+ Copyright (c) 2026, MariaDB Corp. All rights reserved.
+ This software is distributed free of charge and is provided "as is".
+
+ Type '--help' for usage instructions.
+
+ Full Legal Terms: https://mariadb.com/legal/
+---------------------------------------------------------------------
+
+EOF
+
+usage() {
+  cat << EOF
+
+Usage:
+  ./migration
+  ./migration --assess
+  ./migration --plan
+  ./migration --run
+
+Default behavior (no flag): assess -> plan -> run
+
+Options:
+  -h, --help    Show this help message and exit
+  --assess      Run the assessment phase only
+  --plan        Run the planning phase only
+  --run         Run the migration execution phase only
+
+EOF
+}
+
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage 
+    exit 0
+fi
+
+# Define the path to the dependency check script
+DEP_CHECK_SCRIPT="scripts/00_check_python_deps.sh"
+
+# Check if the dependency script exists and is executable
+if [[ -x "$DEP_CHECK_SCRIPT" ]]; then
+    # Execute the dependency check
+    if ! "$DEP_CHECK_SCRIPT"; then
+        echo "ERROR: Dependency check failed. Please resolve the issues above."
+        exit 1
+    fi
+else
+    echo "WARNING: Dependency check script ($DEP_CHECK_SCRIPT) not found or not executable. Skipping."
+fi
+
+
 
 run_signature() {
   printf "%s\n" \
@@ -56,17 +120,6 @@ confirm_proceed() {
   [[ "$ans" == "y" ]]
 }
 
-usage() {
-  cat <<'USAGE'
-Usage:
-  ./migration
-  ./migration --assess
-  ./migration --plan
-  ./migration --run
-
-Default behavior (no flag): assess -> plan -> run
-USAGE
-}
 
 PHASE_MODE="all"
 if [[ $# -gt 0 ]]; then
@@ -92,35 +145,25 @@ if [[ $# -gt 0 ]]; then
   exit 1
 fi
 
-cat <<'DISCLAIMER'
---------------------------------------------------------------------------------
-DISCLAIMER: MYSQL TO MARIADB MIGRATION SCRIPT
---------------------------------------------------------------------------------
-This script provides an automated means for migrating from MySQL to MariaDB.
-It has undergone LIMITED TESTING and is provided "AS IS."
-
-This tool is not guaranteed to be complete, accurate, or error-free. It is
-intended for informational and experimental use and is NOT a substitute for
-a manual, verified migration process. Users are strongly advised to perform
-full backups and verify data integrity before and after use. You assume
-sole responsibility for any data loss or system downtime resulting from
-the use of this script.
-
-This software is distributed free of charge without any express or implied
-warranties of any kind, including but not limited to warranties of
-merchantability, fitness for a particular purpose, or non-infringement.
-
-Full Legal Terms: https://mariadb.com/legal/
---------------------------------------------------------------------------------
-DISCLAIMER
-
-
 source_version_check_inplace() {
-  local mysql_bin="${MYSQL_BIN:-mysql}"
+
+  local mysql_bin
+  if command -v mariadb >/dev/null 2>&1; then
+    mysql_bin="mariadb"
+  else
+    mysql_bin="${MYSQL_BIN:-mysql}"
+  fi
+
   if ! command -v "$mysql_bin" >/dev/null 2>&1; then
-    echo "ERROR: mysql client not found for inplace version check (MYSQL_BIN=$mysql_bin)."
+    echo "ERROR: Database client not found ($mysql_bin)."
     exit 1
   fi
+
+  #if ! command -v "$mysql_bin" >/dev/null 2>&1; then
+  #  echo "ERROR: mysql client not found for inplace version check (MYSQL_BIN=$mysql_bin)."
+    #exit 1
+  #fi
+
   local src_version
   src_version="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$mysql_bin" --protocol=TCP -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
     --batch --skip-column-names -e "SELECT VERSION();" 2>/dev/null | head -n1)"
@@ -218,6 +261,7 @@ SRC_HOST="$(prompt "Source host" "")"
 SRC_PORT="$(prompt "Source port" "3306")"
 SRC_ADMIN_USER="$(prompt "Source admin user" "")"
 SRC_ADMIN_PASS="$(prompt_secret "Source admin password")"
+echo ""
 SRC_ADMIN_PASS="${SRC_ADMIN_PASS#"${SRC_ADMIN_PASS%%[![:space:]]*}"}"
 SRC_ADMIN_PASS="${SRC_ADMIN_PASS%"${SRC_ADMIN_PASS##*[![:space:]]}"}"
 if [[ "$MODE" == "inplace" ]]; then
@@ -242,6 +286,7 @@ if [[ "$MODE" != "inplace" ]]; then
   TGT_PORT="$(prompt "Target port" "3306")"
   TGT_ADMIN_USER="$(prompt "Target admin user" "")"
   TGT_ADMIN_PASS="$(prompt_secret "Target admin password")"
+  echo ""
   TGT_ADMIN_PASS="${TGT_ADMIN_PASS#"${TGT_ADMIN_PASS%%[![:space:]]*}"}"
   TGT_ADMIN_PASS="${TGT_ADMIN_PASS%"${TGT_ADMIN_PASS##*[![:space:]]}"}"
   TGT_SSH_HOST="$(prompt "Target SSH host (leave blank if not using SSH)" "")"
@@ -622,8 +667,20 @@ elif [[ "$MODE" != "inplace" ]]; then
   export SRC_DB="$SRC_DBS_INPUT"
 fi
 
-confirm_save="$(prompt "Save inputs to config/migration.yaml? (y/n)" "n")"
-if [[ "$(printf "%s" "$confirm_save" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+  confirm_save="$(prompt "Save inputs to config/migration.yaml? (y/n)" "n")"
+  if [[ "$(printf "%s" "$confirm_save" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+    mkdir -p config
+
+    if [[ ! -f "config/migration.yaml" ]]; then
+        if [[ -f "config/migration.yaml.example" ]]; then
+            cp "config/migration.yaml.example" "config/migration.yaml"
+            echo "==> Initialized config/migration.yaml from example."
+        else
+            # Fallback: create an empty file so awk doesn't crash
+            touch "config/migration.yaml"
+        fi
+    fi
+
   save_with_passwords="$(prompt "Include passwords/secrets in saved config? (y/n)" "n")"
   if [[ "$(printf "%s" "$save_with_passwords" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
     save_config 1

@@ -1,48 +1,58 @@
 mode: "one_step"
 
 env:
-  # Playbook envs (one_step / two_step)
-  SRC_HOST: "192.168.64.7"
+  # Source
+  SRC_HOST: "dsf"
   SRC_PORT: "3306"
-  SRC_USER: "admin"
-  SRC_PASS: "Admin123!"
-  #SRC_DB: testdb
+  SRC_USER: "sdf"
+  SRC_PASS: "df"
+  # SRC_DB: "sakila"
   SRC_DBS: ""
-  SRC_SSL_MODE: "DISABLED"  # e.g., DISABLED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
-  SRC_ADMIN_USER: "admin"
-  SRC_ADMIN_PASS: "Admin123!"
-  TGT_HOST: "192.168.64.15"
+  SRC_SSL_MODE: "DISABLED"  # DISABLED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
+  SRC_ADMIN_USER: "sdf"
+  SRC_ADMIN_PASS: "df"
+
+  # Target
+  TGT_HOST: "dsf"
   TGT_PORT: "3306"
-  TGT_USER: "admin"
-  TGT_PASS: "MariaDB123!"
-  TGT_ADMIN_USER: "admin"
-  TGT_ADMIN_PASS: "MariaDB123!"
-  TGT_SSH_HOST: "192.168.64.15"
+  TGT_USER: "dsf"
+  TGT_PASS: "df"
+  TGT_ADMIN_USER: "dsf"
+  TGT_ADMIN_PASS: "df"
+  TGT_SSH_HOST: ""
   TGT_SSH_USER: "root"
   TGT_SSH_OPTS: "-o StrictHostKeyChecking=no"
-  MIGRATE_APP_USERS: "0"
-  INSTALL_TARGET_MARIADB: "1"
-  TARGET_INSTALL_OS: "ubuntu"
-  TARGET_MARIADB_VERSION: "11.8"
-  APP_USER_DEFAULT_PASSWORD: ""
-  REPL_USER: "repl"
-  REPL_PASS: "Repl123!"
-  INPLACE_BACKUP_DIR: "artifacts/inplace_backup"
+
+  # User migration
+  MIGRATE_APP_USERS: "1"
+  INSTALL_TARGET_MARIADB: "0"
+  TARGET_INSTALL_OS: ""
+  TARGET_MARIADB_VERSION: ""
+  APP_USER_DEFAULT_PASSWORD: " sdf"
+
+  # Replication (binlog / replace_slave)
+  REPL_USER: ""
+  REPL_PASS: ""
+
+  # In-place
+  INPLACE_BACKUP_DIR: ""
   INPLACE_EXECUTE: "0"
-  INPLACE_TARGET_OS: "ubuntu"
-  INPLACE_MARIADB_VERSION: "11.8"
-  INPLACE_STOP_CMD: "sudo systemctl stop mysql || sudo systemctl stop mysqld"
-  INPLACE_START_CMD: "sudo systemctl start mariadb || sudo systemctl start mysql"
-  INPLACE_UPGRADE_CMD: "mariadb-upgrade"
-  REPLACE_BACKUP_CMD: "sudo tar -czf /tmp/mysql_slave_backup_$(date +%Y%m%d_%H%M%S).tgz /var/lib/mysql /etc/mysql /etc/my.cnf 2>/dev/null || true"
-  REPLACE_STOP_MYSQL_CMD: "sudo systemctl stop mysql || sudo systemctl stop mysqld"
+  INPLACE_TARGET_OS: ""
+  INPLACE_MARIADB_VERSION: ""
+  INPLACE_STOP_CMD: ""
+  INPLACE_START_CMD: ""
+  INPLACE_UPGRADE_CMD: ""
+
+  # Replace-slave
+  REPLACE_BACKUP_CMD: ""
+  REPLACE_STOP_MYSQL_CMD: ""
   REPLACE_UNINSTALL_MYSQL_CMD: ""
-  REPLACE_TARGET_OS: "ubuntu"
-  REPLACE_MARIADB_VERSION: "11.8"
-  REPLACE_START_MARIADB_CMD: "sudo systemctl start mariadb || sudo systemctl start mysql"
+  REPLACE_TARGET_OS: ""
+  REPLACE_MARIADB_VERSION: ""
+  REPLACE_START_MARIADB_CMD: ""
   REPLACE_CONFIGURE_BIND_ADDRESS: "1"
   REPLACE_MARIADB_BIND_ADDRESS: "0.0.0.0"
   REPLACE_AUTO_GRANT_TARGET_ADMIN: "1"
   REPLACE_TARGET_ADMIN_HOST_PATTERN: "%"
-  REPLACE_DELETE_OLD_MYSQL_DATA: "0"
+  REPLACE_DELETE_OLD_MYSQL_DATA: ""
   REPLACE_CLEANUP_CMD: ""
