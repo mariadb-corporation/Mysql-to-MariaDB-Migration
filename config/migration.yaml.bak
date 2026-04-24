@@ -2,33 +2,33 @@ mode: "one_step"
 
 env:
   # Source
-  SRC_HOST: "dsf"
+  SRC_HOST: "mdb-o"
   SRC_PORT: "3306"
-  SRC_USER: "sdf"
-  SRC_PASS: "df"
+  SRC_USER: "mig_demo"
+  SRC_PASS: ""
   # SRC_DB: "sakila"
   SRC_DBS: ""
   SRC_SSL_MODE: "DISABLED"  # DISABLED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
-  SRC_ADMIN_USER: "sdf"
-  SRC_ADMIN_PASS: "df"
+  SRC_ADMIN_USER: "mig_demo"
+  SRC_ADMIN_PASS: ""
 
   # Target
-  TGT_HOST: "dsf"
+  TGT_HOST: "mdbvm1"
   TGT_PORT: "3306"
-  TGT_USER: "dsf"
-  TGT_PASS: "df"
-  TGT_ADMIN_USER: "dsf"
-  TGT_ADMIN_PASS: "df"
+  TGT_USER: "mig_demo"
+  TGT_PASS: ""
+  TGT_ADMIN_USER: "mig_demo"
+  TGT_ADMIN_PASS: ""
   TGT_SSH_HOST: ""
   TGT_SSH_USER: "root"
   TGT_SSH_OPTS: "-o StrictHostKeyChecking=no"
 
   # User migration
-  MIGRATE_APP_USERS: "1"
+  MIGRATE_APP_USERS: "0"
   INSTALL_TARGET_MARIADB: "0"
   TARGET_INSTALL_OS: ""
   TARGET_MARIADB_VERSION: ""
-  APP_USER_DEFAULT_PASSWORD: " sdf"
+  APP_USER_DEFAULT_PASSWORD: ""
 
   # Replication (binlog / replace_slave)
   REPL_USER: ""
