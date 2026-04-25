@@ -1,24 +1,24 @@
-mode: "one_step"
+mode: "binlog"
 
 env:
   # Source
   SRC_HOST: "mdb-o"
   SRC_PORT: "3306"
   SRC_USER: "mig_demo"
-  SRC_PASS: ""
+  SRC_PASS: "G0kulam911!"
   # SRC_DB: "sakila"
   SRC_DBS: ""
   SRC_SSL_MODE: "DISABLED"  # DISABLED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
   SRC_ADMIN_USER: "mig_demo"
-  SRC_ADMIN_PASS: ""
+  SRC_ADMIN_PASS: "G0kulam911!"
 
   # Target
   TGT_HOST: "mdbvm1"
   TGT_PORT: "3306"
   TGT_USER: "mig_demo"
-  TGT_PASS: ""
+  TGT_PASS: "G0kulam911!"
   TGT_ADMIN_USER: "mig_demo"
-  TGT_ADMIN_PASS: ""
+  TGT_ADMIN_PASS: "G0kulam911!"
   TGT_SSH_HOST: ""
   TGT_SSH_USER: "root"
   TGT_SSH_OPTS: "-o StrictHostKeyChecking=no"
@@ -31,8 +31,8 @@ env:
   APP_USER_DEFAULT_PASSWORD: ""
 
   # Replication (binlog / replace_slave)
-  REPL_USER: ""
-  REPL_PASS: ""
+  REPL_USER: "repl"
+  REPL_PASS: "G0kulam911!"
 
   # In-place
   INPLACE_BACKUP_DIR: ""

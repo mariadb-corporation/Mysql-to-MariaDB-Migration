@@ -18,13 +18,6 @@ if [[ -z "$TGT_HOST" || -z "$TGT_ADMIN_USER" || -z "$TGT_ADMIN_PASS" ]]; then
   exit 1
 fi
 
-# Connection args — drop --protocol=TCP, add --ssl-verify-server-cert=OFF for
-# the mariadb client (matches the rest of the binlog scripts).
-tgt_args=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_ADMIN_USER" )
-if [[ "$MARIADB_BIN" == *mariadb* ]]; then
-  tgt_args+=( --ssl-verify-server-cert=OFF )
-fi
-
 status_out=""
 status_line=""
 deadline=$(( $(date +%s) + BINLOG_VERIFY_TIMEOUT_SECS ))
@@ -33,16 +26,14 @@ last_sql_error=""
 while :; do
   status_line=""
   for q in "SHOW REPLICA STATUS\\G" "SHOW SLAVE STATUS\\G"; do
-    status_out="$(MYSQL_PWD="$TGT_ADMIN_PASS" "$MARIADB_BIN" "${tgt_args[@]}" -e "$q" 2>&1 || true)"
-    # Parse status. We accept both the MySQL 8.4+ "Replica_*" / "Source"
-    # naming and the legacy "Slave_*" / "Master" naming.
+    status_out="$(MYSQL_PWD="$TGT_ADMIN_PASS" "$MARIADB_BIN" --protocol=TCP -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_ADMIN_USER" -e "$q" 2>&1 || true)"
     status_line="$(printf "%s\n" "$status_out" | awk -F': ' '
       {
         gsub(/^[[:space:]]+/, "", $1)
       }
       $1 ~ /^(Replica_IO_Running|Slave_IO_Running)$/ {io=$2}
       $1 ~ /^(Replica_SQL_Running|Slave_SQL_Running)$/ {sql=$2}
-      $1 ~ /^(Seconds_Behind_Master|Seconds_Behind_Source)$/ {lag=$2}
+      $1 == "Seconds_Behind_Master" {lag=$2}
       $1 == "Last_IO_Error" {lio=$2}
       $1 == "Last_SQL_Error" {lsql=$2}
       END {
@@ -91,7 +82,7 @@ last_sql_error="$(printf "%s" "$status_line" | awk -F'\t' '{print $5}')"
 
 echo "IO running: ${io_state:-unknown}"
 echo "SQL running: ${sql_state:-unknown}"
-echo "Seconds behind master/source: ${lag_secs:-unknown}"
+echo "Seconds behind master: ${lag_secs:-unknown}"
 
 if [[ "${io_state:-No}" != "Yes" || "${sql_state:-No}" != "Yes" ]]; then
   echo "ERROR: Replication threads are not healthy."
