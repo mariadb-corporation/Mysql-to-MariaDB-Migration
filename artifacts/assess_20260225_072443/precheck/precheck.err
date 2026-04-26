@@ -1,5 +1,0 @@
---------------
-SELECT user, host, plugin FROM mysql.user WHERE user NOT IN ('mysql.infoschema','mysql.session','mysql.sys') AND (plugin LIKE '%sha%' OR plugin LIKE '%caching_sha2%') ORDER BY user, host, plugin
---------------
-
-ERROR 1142 (42000) at line 1: SELECT command denied to user 'admin'@'192.168.64.11' for table 'user'
