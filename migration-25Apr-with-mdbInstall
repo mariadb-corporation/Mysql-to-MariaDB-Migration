@@ -23,31 +23,6 @@ cat << EOF
 
 EOF
 
-print_modes_briefing() {
-  cat <<'EOF'
-Migration modes:
-
-  one_step  [OFFLINE]
-      Tooling : mariadb-dump (schema + data, single pass)
-      Caveat  : Writes to the source during migration may be lost. Stop
-                application traffic to the source for a consistent cutover.
-
-  two_step  [OFFLINE]
-      Tooling : Step 1 (schema) - mariadb-dump
-                Step 2 (data)   - MariaDB Data migration tool (sqldata)
-      Caveat  : Writes to the source during migration may be lost. Stop
-                application traffic to the source for a consistent cutover.
-
-  binlog    [ONLINE]
-      Tooling : mariadb-dump for initial snapshot, then MySQL binary log
-                replication into MariaDB to catch up ongoing changes.
-      Caveat  : The source's binary logging must be enabled (log_bin = ON,
-                binlog_format = ROW or MIXED) and a replication user must
-                be available on the source.
-
-EOF
-}
-
 usage() {
   cat << EOF
 
@@ -66,7 +41,6 @@ Options:
   --run         Run the migration execution phase only
 
 EOF
-  print_modes_briefing
 }
 
 
@@ -360,6 +334,7 @@ EOF
     return 1
   fi
 
+  # Reject if the server identifies itself as MariaDB — source must be MySQL.
   if printf "%s" "$version" | grep -iq 'mariadb'; then
     cat <<EOF
 
@@ -754,27 +729,6 @@ if [[ -f "config/migration.yaml" ]]; then
 fi
 
 echo "==> MySQL to MariaDB Migration"
-cat <<'EOF'
-
-Prerequisites:
-  - This script can run on the target host or on a separate tools host with
-    network access to both source and target.
-  - MariaDB is already installed and running on the target host. The script
-    verifies the target version but does not install MariaDB for you.
-  - The 'mariadb' (or 'mysql') client is on PATH from the host running this
-    script — used for the connectivity, version, and database checks.
-  - For my.cnf conversion: copy the source server's my.cnf to this host
-    first, then provide its path when prompted.
-
-EOF
-
-# Detect the DB client up-front. Every supported mode talks to a DB server,
-# so this is harmless — and it lets the user fail fast (with install hints)
-# before they bother typing any credentials.
-ensure_db_client
-
-print_modes_briefing
-
 MODE="$(prompt "Mode (one_step|two_step|binlog|replace_slave)" "one_step")"
 MODE="${MODE// /}"
 if [[ "$MODE" != "one_step" && "$MODE" != "two_step" && "$MODE" != "binlog" && "$MODE" != "inplace" && "$MODE" != "replace_slave" ]]; then
@@ -782,23 +736,9 @@ if [[ "$MODE" != "one_step" && "$MODE" != "two_step" && "$MODE" != "binlog" && "
   exit 1
 fi
 
-if [[ "$MODE" == "two_step" ]]; then
-  sqldata_bin="${SQLINESDATA_BIN:-$(command -v sqldata 2>/dev/null || true)}"
-  if [[ -z "$sqldata_bin" || ! -x "$sqldata_bin" ]]; then
-    cat <<'EOF'
-
-ERROR: MariaDB Data migration tool (sqldata) not found.
-
-  two_step needs the 'sqldata' binary. Install it, then either put it on
-  PATH or export SQLINESDATA_BIN=/path/to/sqldata before re-running:
-
-      export SQLINESDATA_BIN=/opt/sqldata/sqldata
-      sqldata -? | head -1     # verify
-EOF
-    exit 1
-  fi
-  echo "==> MariaDB Data migration tool (sqldata) detected: $sqldata_bin"
-  export SQLINESDATA_BIN="$sqldata_bin"
+# DB client needed for the connectivity checks below.
+if needs_endpoint_preflight; then
+  ensure_db_client
 fi
 
 SRC_HOST="$(prompt "Source host" "")"
@@ -879,13 +819,9 @@ if [[ "$MODE" != "inplace" ]]; then
     done
   fi
 
-  # SSH is only used by replace_slave (in-place swap of MySQL → MariaDB on the
-  # same machine). Other modes don't shell into the target.
-  if [[ "$MODE" == "replace_slave" ]]; then
-    TGT_SSH_HOST="$(prompt "Target SSH host" "")"
-    TGT_SSH_USER="$(prompt "Target SSH user" "root")"
-    TGT_SSH_OPTS="$(prompt "Target SSH options" "-o StrictHostKeyChecking=no")"
-  fi
+  TGT_SSH_HOST="$(prompt "Target SSH host (leave blank if not using SSH)" "")"
+  TGT_SSH_USER="$(prompt "Target SSH user" "root")"
+  TGT_SSH_OPTS="$(prompt "Target SSH options" "-o StrictHostKeyChecking=no")"
 fi
 
 TGT_USER="$TGT_ADMIN_USER"
@@ -923,14 +859,37 @@ if [[ "$MODE" != "inplace" ]]; then
   fi
 fi
 
-# MariaDB on the target is a prerequisite (verified above by the connectivity
-# + version check). These variables remain only so the orchestrator/yaml
-# schema continues to receive the same fields; they are always disabled.
-INSTALL_TARGET_MARIADB="0"
-TARGET_INSTALL_OS=""
-TARGET_MARIADB_VERSION=""
+INSTALL_TARGET_MARIADB="$CFG_INSTALL_TARGET_MARIADB"
+TARGET_INSTALL_OS="$CFG_TARGET_INSTALL_OS"
+TARGET_MARIADB_VERSION="$CFG_TARGET_MARIADB_VERSION"
+if [[ "$MODE" == "one_step" || "$MODE" == "two_step" ]]; then
+  if [[ -z "$INSTALL_TARGET_MARIADB" ]]; then INSTALL_TARGET_MARIADB="1"; fi
+  install_target_answer="$(prompt "Install MariaDB on target host before migration? (y/n)" "$( [[ "$INSTALL_TARGET_MARIADB" == "1" ]] && echo y || echo n )")"
+  if [[ "$(printf "%s" "$install_target_answer" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+    INSTALL_TARGET_MARIADB="1"
+    if [[ -z "$TARGET_INSTALL_OS" ]]; then TARGET_INSTALL_OS="ubuntu"; fi
+    if [[ -z "$TARGET_MARIADB_VERSION" ]]; then TARGET_MARIADB_VERSION="11.8"; fi
+    TARGET_INSTALL_OS="$(prompt "Target OS for MariaDB install (ubuntu|debian|rocky|rhel|centos7|sles)" "$TARGET_INSTALL_OS")"
+    TARGET_INSTALL_OS="$(printf "%s" "$TARGET_INSTALL_OS" | tr '[:upper:]' '[:lower:]' | xargs)"
+    TARGET_MARIADB_VERSION="$(prompt "MariaDB version to install (for example 11.8)" "$TARGET_MARIADB_VERSION")"
+    TARGET_MARIADB_VERSION="$(printf "%s" "$TARGET_MARIADB_VERSION" | xargs)"
+    case "$TARGET_INSTALL_OS" in
+      ubuntu|debian|rocky|rhel|centos7|sles)
+        ;;
+      *)
+        echo "ERROR: Unsupported target install OS '$TARGET_INSTALL_OS'. Use ubuntu|debian|rocky|rhel|centos7|sles."
+        exit 1
+        ;;
+    esac
+  else
+    INSTALL_TARGET_MARIADB="0"
+  fi
+else
+  if [[ -z "$INSTALL_TARGET_MARIADB" ]]; then INSTALL_TARGET_MARIADB="0"; fi
+fi
 
-if needs_endpoint_preflight; then
+# Optional my.cnf conversion for one_step.
+if [[ "$MODE" == "one_step" ]]; then
   migrate_mysql_config_file
 fi
 
@@ -980,7 +939,6 @@ REPL_PASS="$CFG_REPL_PASS"
 if [[ "$MODE" == "binlog" || "$MODE" == "replace_slave" ]]; then
   REPL_USER="$(prompt "Replication user" "${REPL_USER:-repl}")"
   REPL_PASS="$(prompt_secret "Replication password")"
-  echo ""
   REPL_PASS="${REPL_PASS#"${REPL_PASS%%[![:space:]]*}"}"
   REPL_PASS="${REPL_PASS%"${REPL_PASS##*[![:space:]]}"}"
 fi
@@ -1056,6 +1014,16 @@ fi
 if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && ( -z "$REPL_USER" || -z "$REPL_PASS" ) ]]; then
   echo "ERROR: Replication user and password are required for binlog/replace_slave mode."
   exit 1
+fi
+if [[ ( "$MODE" == "one_step" || "$MODE" == "two_step" ) && "$INSTALL_TARGET_MARIADB" == "1" ]]; then
+  if [[ -z "$TGT_SSH_HOST" ]]; then
+    echo "ERROR: Target SSH host is required when INSTALL_TARGET_MARIADB=1."
+    exit 1
+  fi
+  if [[ -z "$TARGET_INSTALL_OS" || -z "$TARGET_MARIADB_VERSION" ]]; then
+    echo "ERROR: TARGET_INSTALL_OS and TARGET_MARIADB_VERSION are required when INSTALL_TARGET_MARIADB=1."
+    exit 1
+  fi
 fi
 if [[ "$MODE" == "replace_slave" && -z "$REPLACE_MARIADB_VERSION" ]]; then
   echo "ERROR: MariaDB version is required for replace_slave mode."
@@ -1419,6 +1387,7 @@ print_success_summary() {
 ================================================================
   MIGRATION SUCCESSFUL
 ================================================================
+
   Mode       : $MODE
   Source     : $src_desc
   Target     : $tgt_desc
@@ -1426,9 +1395,13 @@ print_success_summary() {
   Run dir    : ${RUN_DIR:-n/a}
 
 Next steps — validate the migrated data on the target:
+
   1. Connect to the target MariaDB:
+
          $tgt_connect
+
   2. Confirm the database is present and inspect its tables:
+
          SHOW DATABASES;
 EOF
 
@@ -1449,23 +1422,25 @@ EOF
   fi
 
   cat <<EOF
+
   3. Row-count parity check (run on source and target, compare):
+
          SELECT table_schema, table_name, table_rows
          FROM information_schema.tables
          WHERE table_schema NOT IN ('mysql','information_schema','performance_schema','sys');
+
   4. Spot-check a few rows from each key table:
+
          SELECT * FROM <db>.<table> LIMIT 10;
+
 EOF
 
   if [[ -n "${MARIADB_MIGRATED_CNF:-}" ]]; then
     cat <<EOF
-  5. (Suggested) Apply the converted MariaDB config and restart MariaDB:
-         less $MARIADB_MIGRATED_CNF        # review the converted file first
-     Then copy it onto the target host into MariaDB's config directory
-     (typically /etc/my.cnf.d/server.cnf or /etc/mysql/mariadb.conf.d/50-server.cnf,
-     depending on the OS) and restart the service so the migrated settings
-     take effect:
-         sudo systemctl restart mariadb
+  5. Review the converted MariaDB config before restarting the service:
+
+         $MARIADB_MIGRATED_CNF
+
 EOF
   fi
 

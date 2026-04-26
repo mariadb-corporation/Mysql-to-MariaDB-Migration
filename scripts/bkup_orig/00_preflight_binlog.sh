@@ -64,49 +64,17 @@ sql_escape() {
   printf "%s" "$s"
 }
 
-# Build per-client argument arrays for SOURCE (MySQL) and TARGET (MariaDB).
-# We deliberately do NOT pass --protocol=TCP, because newer mariadb clients
-# enforce strict TLS when it is set, which rejects the default self-signed
-# certs MySQL/MariaDB ship with. The client picks TCP automatically from -h.
-src_args=( -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" --connect-timeout=10 --batch --skip-column-names )
-tgt_args=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_ADMIN_USER" --connect-timeout=10 --batch --skip-column-names )
-if [[ "$MARIADB_BIN" == *mariadb* ]]; then
-  tgt_args+=( --ssl-verify-server-cert=OFF )
-fi
-# The mysql client doesn't have --ssl-verify-server-cert; it uses
-# --ssl-mode=DISABLED if the user wants to bypass server cert verification.
-# We leave SRC alone unless the connection actually fails on TLS — most
-# MySQL deployments don't require it for plain auth.
-
 echo "Checking source admin connectivity..."
-MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "SELECT 1;" >/dev/null
+MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" --protocol=TCP -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+  --connect-timeout=5 --batch --skip-column-names -e "SELECT 1;" >/dev/null
 
 echo "Checking target admin connectivity..."
-MYSQL_PWD="$TGT_ADMIN_PASS" "$MARIADB_BIN" "${tgt_args[@]}" -e "SELECT 1;" >/dev/null
-
-# Detect source MySQL version so we can pick the correct SQL surface.
-src_version_full="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "SELECT VERSION();" | head -1)"
-# Strip suffix like "-log" or "-MariaDB-..." then extract major.minor
-src_version_num="$(printf "%s" "$src_version_full" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')"
-src_major="${src_version_num%%.*}"
-src_minor="${src_version_num#*.}"
-src_minor="${src_minor%%.*}"
-
-# Pick the binlog-status statement based on source MySQL version.
-#   < 8.4:    SHOW MASTER STATUS
-#   >= 8.4:   SHOW BINARY LOG STATUS
-SHOW_BINLOG_STATUS_SQL="SHOW MASTER STATUS;"
-if [[ "$src_major" -gt 8 ]] || { [[ "$src_major" -eq 8 ]] && [[ "$src_minor" -ge 4 ]]; }; then
-  SHOW_BINLOG_STATUS_SQL="SHOW BINARY LOG STATUS;"
-fi
-echo "Source MySQL: $src_version_full (using: $SHOW_BINLOG_STATUS_SQL)"
-export SHOW_BINLOG_STATUS_SQL
-# Note: the dump-tool flag (--master-data vs --source-data) is decided by
-# 14_binlog_seed.sh based on the *dump binary*, not the server version.
+MYSQL_PWD="$TGT_ADMIN_PASS" "$MARIADB_BIN" --protocol=TCP -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_ADMIN_USER" \
+  --connect-timeout=5 --batch --skip-column-names -e "SELECT 1;" >/dev/null
 
 echo "Checking source binary logging..."
-log_bin_val="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-  -e "SHOW VARIABLES LIKE 'log_bin';" | awk 'NR==1 {print $2}')"
+log_bin_val="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" --protocol=TCP -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+  --batch --skip-column-names -e "SHOW VARIABLES LIKE 'log_bin';" | awk 'NR==1 {print $2}')"
 if [[ "$log_bin_val" != "ON" && "$log_bin_val" != "1" ]]; then
   echo "ERROR: Source binary log is not enabled (log_bin=$log_bin_val)."
   exit 5
@@ -114,25 +82,25 @@ fi
 
 echo "Checking source binlog format..."
 required_fmt="MIXED"
-current_fmt="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-  -e "SHOW VARIABLES LIKE 'binlog_format';" | awk 'NR==1 {print toupper($2)}')"
+current_fmt="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" --protocol=TCP -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+  --batch --skip-column-names -e "SHOW VARIABLES LIKE 'binlog_format';" | awk 'NR==1 {print toupper($2)}')"
 if [[ "$current_fmt" != "$required_fmt" ]]; then
   echo "Current source binlog_format is $current_fmt. Setting it to $required_fmt..."
-  MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-    -e "SET GLOBAL binlog_format='${required_fmt}';"
-  current_fmt="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-    -e "SHOW VARIABLES LIKE 'binlog_format';" | awk 'NR==1 {print toupper($2)}')"
+  MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" --protocol=TCP -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+    --batch --skip-column-names -e "SET GLOBAL binlog_format='${required_fmt}';"
+  current_fmt="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" --protocol=TCP -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+    --batch --skip-column-names -e "SHOW VARIABLES LIKE 'binlog_format';" | awk 'NR==1 {print toupper($2)}')"
 fi
 if [[ "$current_fmt" != "$required_fmt" ]]; then
   echo "ERROR: source binlog_format is $current_fmt, expected $required_fmt."
   exit 9
 fi
 
-echo "Checking source master/binary-log status visibility..."
-if ! MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-  -e "$SHOW_BINLOG_STATUS_SQL" | head -n1 | grep -q .; then
-  echo "ERROR: $SHOW_BINLOG_STATUS_SQL returned no rows."
-  echo "Ensure source is primary and admin user has REPLICATION CLIENT (or BINLOG_ADMIN on 8.4+) privilege."
+echo "Checking source master status visibility..."
+if ! MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" --protocol=TCP -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+  --batch --skip-column-names -e "SHOW MASTER STATUS;" | head -n1 | grep -q .; then
+  echo "ERROR: SHOW MASTER STATUS returned no rows."
+  echo "Ensure source is primary and admin user has REPLICATION CLIENT privilege."
   exit 6
 fi
 
@@ -148,7 +116,8 @@ for db in "${DB_LIST[@]}"; do
   [[ -z "$db" ]] && continue
   db_esc="$(sql_escape "$db")"
   q="SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='${db_esc}';"
-  out="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "$q")"
+  out="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" --protocol=TCP -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+    --batch --skip-column-names -e "$q")"
   if [[ "${out:-0}" -eq 0 ]]; then
     missing_src+=("$db")
   fi
@@ -165,7 +134,8 @@ if [[ "$ALLOW_TARGET_DB_OVERWRITE" != "1" ]]; then
     [[ -z "$db" ]] && continue
     db_esc="$(sql_escape "$db")"
     q="SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='${db_esc}';"
-    out="$(MYSQL_PWD="$TGT_ADMIN_PASS" "$MARIADB_BIN" "${tgt_args[@]}" -e "$q")"
+    out="$(MYSQL_PWD="$TGT_ADMIN_PASS" "$MARIADB_BIN" --protocol=TCP -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_ADMIN_USER" \
+      --batch --skip-column-names -e "$q")"
     if [[ "${out:-0}" -gt 0 ]]; then
       existing+=("$db")
     fi

@@ -23,31 +23,6 @@ cat << EOF
 
 EOF
 
-print_modes_briefing() {
-  cat <<'EOF'
-Migration modes:
-
-  one_step  [OFFLINE]
-      Tooling : mariadb-dump (schema + data, single pass)
-      Caveat  : Writes to the source during migration may be lost. Stop
-                application traffic to the source for a consistent cutover.
-
-  two_step  [OFFLINE]
-      Tooling : Step 1 (schema) - mariadb-dump
-                Step 2 (data)   - MariaDB Data migration tool (sqldata)
-      Caveat  : Writes to the source during migration may be lost. Stop
-                application traffic to the source for a consistent cutover.
-
-  binlog    [ONLINE]
-      Tooling : mariadb-dump for initial snapshot, then MySQL binary log
-                replication into MariaDB to catch up ongoing changes.
-      Caveat  : The source's binary logging must be enabled (log_bin = ON,
-                binlog_format = ROW or MIXED) and a replication user must
-                be available on the source.
-
-EOF
-}
-
 usage() {
   cat << EOF
 
@@ -66,7 +41,6 @@ Options:
   --run         Run the migration execution phase only
 
 EOF
-  print_modes_briefing
 }
 
 
@@ -146,419 +120,6 @@ confirm_proceed() {
   [[ "$ans" == "y" ]]
 }
 
-# Convert MySQL my.cnf to MariaDB format via mariadb-migrate-config-file. Non-fatal.
-migrate_mysql_config_file() {
-  local mig_bin="${MARIADB_MIGRATE_CONFIG_FILE_BIN:-mariadb-migrate-config-file}"
-  local src_cnf out_cnf resolved_bin
-
-  echo ""
-  echo "==> Optional: convert an existing MySQL my.cnf to MariaDB format"
-  echo "    (uses ${mig_bin} with --fix-all --print)"
-
-  if ! confirm_proceed "Convert a MySQL my.cnf to MariaDB format now?"; then
-    echo "==> Skipping config file conversion."
-    return 0
-  fi
-
-  # Resolve binary: name on PATH or full path. Expand leading ~.
-  mig_bin="$(prompt "Path to mariadb-migrate-config-file (name on PATH or full path)" "$mig_bin")"
-  mig_bin="${mig_bin/#\~/$HOME}"
-
-  if [[ "$mig_bin" == */* ]]; then
-    if [[ ! -x "$mig_bin" ]]; then
-      echo "WARNING: '$mig_bin' is not executable or does not exist. Skipping config file conversion."
-      return 0
-    fi
-    resolved_bin="$mig_bin"
-  else
-    if ! command -v "$mig_bin" >/dev/null 2>&1; then
-      echo "WARNING: '$mig_bin' not found on PATH. Skipping config file conversion."
-      return 0
-    fi
-    resolved_bin="$mig_bin"
-  fi
-
-  src_cnf="$(prompt "Path to existing MySQL my.cnf" "$HOME/my.cnf")"
-  src_cnf="${src_cnf/#\~/$HOME}"
-  if [[ ! -f "$src_cnf" ]]; then
-    echo "WARNING: MySQL config file not found at '$src_cnf'. Skipping config file conversion."
-    return 0
-  fi
-
-  out_cnf="$(prompt "Output path for the converted MariaDB config" "$HOME/mariadb-migrated.cnf")"
-  out_cnf="${out_cnf/#\~/$HOME}"
-
-  if [[ -e "$out_cnf" ]]; then
-    if ! confirm_proceed "Output file '$out_cnf' already exists. Overwrite?"; then
-      echo "==> Skipping config file conversion (user chose not to overwrite)."
-      return 0
-    fi
-  fi
-
-  echo "==> Running: $resolved_bin --fix-all $src_cnf --print > $out_cnf"
-  local rc=0
-  "$resolved_bin" --fix-all "$src_cnf" --print > "$out_cnf" || rc=$?
-
-  if [[ $rc -ne 0 ]]; then
-    echo "WARNING: $resolved_bin exited with status $rc. The output file may be incomplete."
-    echo "         Review '$out_cnf' and/or re-run the command manually."
-    return 0
-  fi
-
-  if [[ ! -s "$out_cnf" ]]; then
-    echo "WARNING: Converted config file '$out_cnf' is empty. Please inspect the source my.cnf."
-    return 0
-  fi
-
-  echo "==> Converted config written to: $out_cnf"
-  ls -l "$out_cnf" || true
-  echo "==> Please review this file before using it to start the new MariaDB instance."
-  export MARIADB_MIGRATED_CNF="$out_cnf"
-  export MARIADB_MIGRATE_CONFIG_FILE_BIN="$resolved_bin"
-}
-
-# Endpoint preflight (one_step / two_step / binlog): client + connectivity + flavor.
-DB_CLIENT=""
-
-ensure_db_client() {
-  if command -v mariadb >/dev/null 2>&1; then
-    DB_CLIENT="mariadb"
-  elif command -v mysql >/dev/null 2>&1; then
-    DB_CLIENT="mysql"
-  else
-    cat <<'EOF'
-
-ERROR: No database client binary found on PATH.
-
-This script needs the 'mariadb' client to test connectivity to your source
-and target databases before the migration begins. Please install it, then
-re-run this script.
-
-Install instructions:
-
-  RHEL / CentOS / Rocky / Alma:
-      sudo dnf install -y mariadb
-      # (or, older: sudo yum install -y mariadb)
-
-  Debian / Ubuntu:
-      sudo apt-get update
-      sudo apt-get install -y mariadb-client
-
-  SLES / openSUSE:
-      sudo zypper install -y mariadb-client
-
-  macOS (Homebrew):
-      brew install mariadb
-
-  Official MariaDB repositories:
-      https://mariadb.com/downloads/
-
-Verify after install:
-      mariadb --version
-
-EOF
-    exit 1
-  fi
-
-  local version_line
-  version_line="$("$DB_CLIENT" --version 2>/dev/null | head -1)"
-  echo "==> DB client detected: $DB_CLIENT  ($version_line)"
-  export DB_CLIENT
-}
-
-# Run SQL via $DB_CLIENT. Sets DB_QUERY_STDOUT/STDERR/RC.
-DB_QUERY_STDOUT=""
-DB_QUERY_STDERR=""
-DB_QUERY_RC=0
-db_run_query() {
-  local host="$1" port="$2" user="$3" pass="$4" sql="$5"
-  local stderr_file
-  local -a args=(
-    -h"$host" -P"$port" -u"$user"
-    --connect-timeout=10
-    --batch --skip-column-names
-  )
-  if [[ "$DB_CLIENT" == "mariadb" ]]; then
-    args+=(--ssl-verify-server-cert=OFF)
-  fi
-  stderr_file="$(mktemp)"
-  DB_QUERY_STDOUT="$(MYSQL_PWD="$pass" "$DB_CLIENT" "${args[@]}" \
-    -e "$sql" 2>"$stderr_file")" && DB_QUERY_RC=0 || DB_QUERY_RC=$?
-  DB_QUERY_STDERR="$(cat "$stderr_file" 2>/dev/null || true)"
-  rm -f "$stderr_file"
-  return $DB_QUERY_RC
-}
-
-test_source_endpoint() {
-  local version short_version repro
-  echo "==> Testing source connectivity ($SRC_HOST:$SRC_PORT as '$SRC_ADMIN_USER')..."
-
-  if [[ "$DB_CLIENT" == "mariadb" ]]; then
-    repro="mariadb -h $SRC_HOST -P $SRC_PORT -u $SRC_ADMIN_USER -p --ssl-verify-server-cert=OFF"
-  else
-    repro="mysql -h $SRC_HOST -P $SRC_PORT -u $SRC_ADMIN_USER -p"
-  fi
-
-  # Connectivity check via SELECT 1.
-  if ! db_run_query "$SRC_HOST" "$SRC_PORT" "$SRC_ADMIN_USER" "$SRC_ADMIN_PASS" "SELECT 1;"; then
-    local diag="${DB_QUERY_STDERR:-$DB_QUERY_STDOUT}"
-    cat <<EOF
-
-ERROR: Could not connect to source database at $SRC_HOST:$SRC_PORT as '$SRC_ADMIN_USER'.
-
-Client output:
-$(printf '    %s\n' "$diag")
-
-Please verify connectivity independently before retrying. From this host, run:
-
-    $repro
-
-Once that command connects and prints a server prompt, return here to retry.
-
-Common causes:
-  - Wrong host, port, username, or password.
-  - TLS / self-signed certificate rejected. With a recent mariadb client, try:
-        mariadb -h $SRC_HOST -u $SRC_ADMIN_USER -p --ssl-verify-server-cert=OFF
-    or with the mysql client:
-        mysql  -h $SRC_HOST -u $SRC_ADMIN_USER -p
-  - MySQL bind-address is 127.0.0.1 — server is not listening on the network.
-      On source:  grep bind-address /etc/my.cnf /etc/mysql/my.cnf 2>/dev/null
-  - Firewall is blocking port $SRC_PORT between this host and $SRC_HOST.
-      Try:  nc -vz $SRC_HOST $SRC_PORT
-  - User '$SRC_ADMIN_USER' is not granted access from this host.
-      On source:  SELECT user, host FROM mysql.user WHERE user='$SRC_ADMIN_USER';
-EOF
-    return 1
-  fi
-
-  # Version check in a separate query for clean parsing.
-  if ! db_run_query "$SRC_HOST" "$SRC_PORT" "$SRC_ADMIN_USER" "$SRC_ADMIN_PASS" "SELECT VERSION();"; then
-    cat <<EOF
-
-ERROR: Connected to source at $SRC_HOST:$SRC_PORT but could not retrieve version.
-
-Client output:
-$(printf '    %s\n' "${DB_QUERY_STDERR:-$DB_QUERY_STDOUT}")
-EOF
-    return 1
-  fi
-
-  version="$(printf "%s\n" "$DB_QUERY_STDOUT" | tr -d '\r' | grep -E '^[0-9]+\.[0-9]+' | head -1)"
-  if [[ -z "$version" ]]; then
-    version="$(printf "%s\n" "$DB_QUERY_STDOUT" | tr -d '\r' | grep -Ev '^(WARNING|NOTE):' | head -1)"
-  fi
-  if [[ -z "$version" ]]; then
-    cat <<EOF
-
-ERROR: Source at $SRC_HOST:$SRC_PORT returned no parseable version.
-
-Raw client stdout:
-$(printf '    %s\n' "${DB_QUERY_STDOUT:-<empty>}")
-Raw client stderr:
-$(printf '    %s\n' "${DB_QUERY_STDERR:-<empty>}")
-EOF
-    return 1
-  fi
-
-  if printf "%s" "$version" | grep -iq 'mariadb'; then
-    cat <<EOF
-
-ERROR: Source at $SRC_HOST:$SRC_PORT reports it is MariaDB ($version).
-       This script migrates FROM MySQL TO MariaDB. The source must be MySQL.
-       Please verify you entered the correct source host.
-EOF
-    return 1
-  fi
-
-  short_version="$(printf "%s" "$version" | sed -E 's/^([0-9]+(\.[0-9]+){1,2}).*/\1/')"
-  SRC_VERSION_DETECTED="$version"
-  SRC_VERSION_SHORT="$short_version"
-  export SRC_VERSION_DETECTED SRC_VERSION_SHORT
-
-  # Brief ack only; full "Source ready" banner is printed after DB existence check.
-  echo "==> Source connection OK (detected MySQL $short_version)."
-  return 0
-}
-
-test_target_endpoint() {
-  local version short_version repro
-  echo "==> Testing target connectivity ($TGT_HOST:$TGT_PORT as '$TGT_ADMIN_USER')..."
-
-  if [[ "$DB_CLIENT" == "mariadb" ]]; then
-    repro="mariadb -h $TGT_HOST -P $TGT_PORT -u $TGT_ADMIN_USER -p --ssl-verify-server-cert=OFF"
-  else
-    repro="mysql -h $TGT_HOST -P $TGT_PORT -u $TGT_ADMIN_USER -p"
-  fi
-
-  # Step 1: connectivity.
-  if ! db_run_query "$TGT_HOST" "$TGT_PORT" "$TGT_ADMIN_USER" "$TGT_ADMIN_PASS" "SELECT 1;"; then
-    local diag="${DB_QUERY_STDERR:-$DB_QUERY_STDOUT}"
-    cat <<EOF
-
-ERROR: Could not connect to target database at $TGT_HOST:$TGT_PORT as '$TGT_ADMIN_USER'.
-
-Client output:
-$(printf '    %s\n' "$diag")
-
-Please verify connectivity independently before retrying. From this host, run:
-
-    $repro
-
-Once that command connects and prints a MariaDB prompt, return here to retry.
-
-Common causes:
-  - TLS / self-signed certificate rejected. With a recent mariadb client, use:
-        mariadb -h $TGT_HOST -u $TGT_ADMIN_USER -p --ssl-verify-server-cert=OFF
-  - MariaDB service is not running on $TGT_HOST.
-      On target:  systemctl status mariadb
-  - Wrong host, port, username, or password.
-  - MariaDB bind-address is 127.0.0.1 — server is not listening on the network.
-      On target:  grep bind-address /etc/my.cnf.d/*.cnf /etc/mysql/mariadb.conf.d/*.cnf 2>/dev/null
-  - Firewall is blocking port $TGT_PORT between this host and $TGT_HOST.
-      Try:  nc -vz $TGT_HOST $TGT_PORT
-  - User '$TGT_ADMIN_USER' is not granted access from this host.
-      On target:  SELECT user, host FROM mysql.user WHERE user='$TGT_ADMIN_USER';
-EOF
-    return 1
-  fi
-
-  # Step 2: version in a separate query.
-  if ! db_run_query "$TGT_HOST" "$TGT_PORT" "$TGT_ADMIN_USER" "$TGT_ADMIN_PASS" "SELECT VERSION();"; then
-    cat <<EOF
-
-ERROR: Connected to target at $TGT_HOST:$TGT_PORT but could not retrieve version.
-
-Client output:
-$(printf '    %s\n' "${DB_QUERY_STDERR:-$DB_QUERY_STDOUT}")
-EOF
-    return 1
-  fi
-
-  version="$(printf "%s\n" "$DB_QUERY_STDOUT" | tr -d '\r' | grep -E '^[0-9]+\.[0-9]+' | head -1)"
-  if [[ -z "$version" ]]; then
-    version="$(printf "%s\n" "$DB_QUERY_STDOUT" | tr -d '\r' | grep -Ev '^(WARNING|NOTE):' | head -1)"
-  fi
-  if [[ -z "$version" ]]; then
-    cat <<EOF
-
-ERROR: Target at $TGT_HOST:$TGT_PORT returned no parseable version.
-
-Raw client stdout:
-$(printf '    %s\n' "${DB_QUERY_STDOUT:-<empty>}")
-Raw client stderr:
-$(printf '    %s\n' "${DB_QUERY_STDERR:-<empty>}")
-EOF
-    return 1
-  fi
-
-  # Reject if the server does not identify as MariaDB.
-  if ! printf "%s" "$version" | grep -iq 'mariadb'; then
-    cat <<EOF
-
-ERROR: Target at $TGT_HOST:$TGT_PORT reports: $version
-       This does not appear to be MariaDB. The target MUST be MariaDB for
-       this migration. Please verify you entered the correct target host.
-EOF
-    return 1
-  fi
-
-  short_version="$(printf "%s" "$version" | sed -E 's/^([0-9]+(\.[0-9]+){1,2}).*/\1/')"
-  TGT_VERSION_DETECTED="$version"
-  TGT_VERSION_SHORT="$short_version"
-  export TGT_VERSION_DETECTED TGT_VERSION_SHORT
-
-  echo "==> Target connection OK (detected MariaDB $short_version)."
-  return 0
-}
-
-# Returns 0 if the current MODE requires the full endpoint preflight
-# (source connectivity + MySQL check, target connectivity + MariaDB check).
-needs_endpoint_preflight() {
-  [[ "$MODE" == "one_step" || "$MODE" == "two_step" || "$MODE" == "binlog" ]]
-}
-
-# Verify SRC_DBS_INPUT databases exist on source. Returns 1 on missing (caller re-prompts).
-source_dbs_exist_check() {
-  if [[ -z "${SRC_DBS_INPUT:-}" ]]; then
-    return 0
-  fi
-
-  echo "==> Verifying requested database(s) exist on source ($SRC_HOST:$SRC_PORT)..."
-
-  if ! db_run_query "$SRC_HOST" "$SRC_PORT" "$SRC_ADMIN_USER" "$SRC_ADMIN_PASS" "SHOW DATABASES;"; then
-    echo "WARNING: Could not list databases on source. Skipping existence check."
-    echo "         (The main migration will fail clearly if the databases are missing.)"
-    return 0
-  fi
-
-  # Parse SRC_DBS_INPUT (comma-separated) and trim each name.
-  local -a requested=()
-  local raw_name
-  local IFS_saved="$IFS"
-  IFS=','
-  local -a raw_list=( $SRC_DBS_INPUT )
-  IFS="$IFS_saved"
-  for raw_name in "${raw_list[@]}"; do
-    raw_name="$(printf "%s" "$raw_name" | xargs)"
-    [[ -n "$raw_name" ]] && requested+=("$raw_name")
-  done
-
-  local -a missing=()
-  local db
-  for db in "${requested[@]}"; do
-    # Exact match against the database list to avoid e.g. 'app' matching 'myapp'.
-    if ! printf "%s\n" "$DB_QUERY_STDOUT" | tr -d '\r' | grep -Fxq -- "$db"; then
-      missing+=("$db")
-    fi
-  done
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    local list_cmd
-    if [[ "$DB_CLIENT" == "mariadb" ]]; then
-      list_cmd="mariadb -h $SRC_HOST -P $SRC_PORT -u $SRC_ADMIN_USER -p --ssl-verify-server-cert=OFF -e 'SHOW DATABASES;'"
-    else
-      list_cmd="mysql -h $SRC_HOST -P $SRC_PORT -u $SRC_ADMIN_USER -p -e 'SHOW DATABASES;'"
-    fi
-    echo ""
-    echo "ERROR: The following database(s) do NOT exist on the source ($SRC_HOST:$SRC_PORT):"
-    local m
-    for m in "${missing[@]}"; do
-      echo "       - $m"
-    done
-    echo ""
-    echo "       Check the spelling and re-enter. To list available databases on source:"
-    echo ""
-    echo "           $list_cmd"
-    return 1
-  fi
-
-  echo "==> OK: all requested database(s) found on source."
-  return 0
-}
-
-# Full "Source ready" banner. Printed once, after connectivity + DB existence pass.
-print_source_ready_banner() {
-  echo ""
-  echo "==> Source ready."
-  echo "    Host       : $SRC_HOST:$SRC_PORT"
-  echo "    Flavor     : MySQL"
-  echo "    Version    : ${SRC_VERSION_SHORT:-?}  (server reports: ${SRC_VERSION_DETECTED:-?})"
-  if [[ -n "${SRC_DBS_INPUT:-}" ]]; then
-    echo "    Database(s): $SRC_DBS_INPUT"
-  fi
-  echo ""
-}
-
-# Full "Target ready" banner. Printed once, after connectivity + pre-existence pass.
-print_target_ready_banner() {
-  echo ""
-  echo "==> Target ready."
-  echo "    Host    : $TGT_HOST:$TGT_PORT"
-  echo "    Flavor  : MariaDB"
-  echo "    Version : ${TGT_VERSION_SHORT:-?}  (server reports: ${TGT_VERSION_DETECTED:-?})"
-  echo ""
-}
-
 
 PHASE_MODE="all"
 if [[ $# -gt 0 ]]; then
@@ -621,71 +182,6 @@ source_version_check_inplace() {
     echo "Use one_step, two_step, or binlog mode."
     exit 1
   fi
-}
-
-# Verify SRC_DBS_INPUT databases do NOT exist on target. Returns 1 on conflict.
-target_db_preexistence_check() {
-  # $DB_CLIENT is already populated by ensure_db_client; db_run_query uses it.
-  if [[ -z "${DB_CLIENT:-}" ]]; then
-    echo "WARNING: Database client not initialized; skipping target database pre-existence check."
-    return 0
-  fi
-
-  if [[ -z "${SRC_DBS_INPUT:-}" ]]; then
-    # Nothing to check.
-    return 0
-  fi
-
-  if [[ -z "${TGT_HOST:-}" || -z "${TGT_ADMIN_USER:-}" || -z "${TGT_ADMIN_PASS:-}" ]]; then
-    echo "WARNING: Target credentials incomplete; skipping target database pre-existence check."
-    return 0
-  fi
-
-  echo "==> Checking that requested databases do not already exist on target ($TGT_HOST:$TGT_PORT)..."
-
-  if ! db_run_query "$TGT_HOST" "$TGT_PORT" "$TGT_ADMIN_USER" "$TGT_ADMIN_PASS" "SHOW DATABASES;"; then
-    echo "WARNING: Could not read database list from target ($TGT_HOST:$TGT_PORT)."
-    echo "         This may indicate wrong credentials, firewall issues, or the target"
-    echo "         is not yet reachable. The main migration will fail clearly if so."
-    echo "         Skipping pre-existence check."
-    return 0
-  fi
-  local existing_list="$DB_QUERY_STDOUT"
-
-  # Parse SRC_DBS_INPUT (comma-separated) and trim each name.
-  local -a requested=()
-  local raw_name
-  local IFS_saved="$IFS"
-  IFS=','
-  local -a raw_list=( $SRC_DBS_INPUT )
-  IFS="$IFS_saved"
-  for raw_name in "${raw_list[@]}"; do
-    raw_name="$(printf "%s" "$raw_name" | xargs)"
-    [[ -n "$raw_name" ]] && requested+=("$raw_name")
-  done
-
-  local -a conflicts=()
-  local db
-  for db in "${requested[@]}"; do
-    if printf "%s\n" "$existing_list" | tr -d '\r' | grep -Fxq -- "$db"; then
-      conflicts+=("$db")
-    fi
-  done
-
-  if [[ ${#conflicts[@]} -gt 0 ]]; then
-    echo ""
-    echo "ERROR: The following database(s) already exist on the target ($TGT_HOST:$TGT_PORT):"
-    local c
-    for c in "${conflicts[@]}"; do
-      echo "       - $c"
-    done
-    echo ""
-    echo "       The $MODE migration requires these database(s) to NOT pre-exist on the target."
-    echo "       Please drop them on the target (or choose different source databases), then re-run."
-    return 1
-  fi
-
-  echo "==> OK: no conflicting databases on target."
 }
 
 CFG_REPL_USER=""
@@ -754,51 +250,11 @@ if [[ -f "config/migration.yaml" ]]; then
 fi
 
 echo "==> MySQL to MariaDB Migration"
-cat <<'EOF'
-
-Prerequisites:
-  - This script can run on the target host or on a separate tools host with
-    network access to both source and target.
-  - MariaDB is already installed and running on the target host. The script
-    verifies the target version but does not install MariaDB for you.
-  - The 'mariadb' (or 'mysql') client is on PATH from the host running this
-    script — used for the connectivity, version, and database checks.
-  - For my.cnf conversion: copy the source server's my.cnf to this host
-    first, then provide its path when prompted.
-
-EOF
-
-# Detect the DB client up-front. Every supported mode talks to a DB server,
-# so this is harmless — and it lets the user fail fast (with install hints)
-# before they bother typing any credentials.
-ensure_db_client
-
-print_modes_briefing
-
 MODE="$(prompt "Mode (one_step|two_step|binlog|replace_slave)" "one_step")"
 MODE="${MODE// /}"
 if [[ "$MODE" != "one_step" && "$MODE" != "two_step" && "$MODE" != "binlog" && "$MODE" != "inplace" && "$MODE" != "replace_slave" ]]; then
   echo "ERROR: mode must be one_step, two_step, binlog, inplace or replace_slave"
   exit 1
-fi
-
-if [[ "$MODE" == "two_step" ]]; then
-  sqldata_bin="${SQLINESDATA_BIN:-$(command -v sqldata 2>/dev/null || true)}"
-  if [[ -z "$sqldata_bin" || ! -x "$sqldata_bin" ]]; then
-    cat <<'EOF'
-
-ERROR: MariaDB Data migration tool (sqldata) not found.
-
-  two_step needs the 'sqldata' binary. Install it, then either put it on
-  PATH or export SQLINESDATA_BIN=/path/to/sqldata before re-running:
-
-      export SQLINESDATA_BIN=/opt/sqldata/sqldata
-      sqldata -? | head -1     # verify
-EOF
-    exit 1
-  fi
-  echo "==> MariaDB Data migration tool (sqldata) detected: $sqldata_bin"
-  export SQLINESDATA_BIN="$sqldata_bin"
 fi
 
 SRC_HOST="$(prompt "Source host" "")"
@@ -808,22 +264,6 @@ SRC_ADMIN_PASS="$(prompt_secret "Source admin password")"
 echo ""
 SRC_ADMIN_PASS="${SRC_ADMIN_PASS#"${SRC_ADMIN_PASS%%[![:space:]]*}"}"
 SRC_ADMIN_PASS="${SRC_ADMIN_PASS%"${SRC_ADMIN_PASS##*[![:space:]]}"}"
-
-# Source connectivity check with retry-on-fail (re-prompts creds with previous values as defaults).
-if needs_endpoint_preflight; then
-  while ! test_source_endpoint; do
-    echo ""
-    echo "Re-enter source connection details (press Enter to keep the current value,"
-    echo "or Ctrl-C to abort)."
-    SRC_HOST="$(prompt "Source host" "$SRC_HOST")"
-    SRC_PORT="$(prompt "Source port" "$SRC_PORT")"
-    SRC_ADMIN_USER="$(prompt "Source admin user" "$SRC_ADMIN_USER")"
-    SRC_ADMIN_PASS="$(prompt_secret "Source admin password")"
-    echo ""
-    SRC_ADMIN_PASS="${SRC_ADMIN_PASS#"${SRC_ADMIN_PASS%%[![:space:]]*}"}"
-    SRC_ADMIN_PASS="${SRC_ADMIN_PASS%"${SRC_ADMIN_PASS##*[![:space:]]}"}"
-  done
-fi
 if [[ "$MODE" == "inplace" ]]; then
   source_version_check_inplace
 fi
@@ -832,20 +272,6 @@ SRC_PASS="$SRC_ADMIN_PASS"
 SRC_DBS_INPUT=""
 if [[ "$MODE" != "inplace" ]]; then
   SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "")"
-
-  # Verify DBs exist on source; loop on missing. Then print the full Source ready banner.
-  if needs_endpoint_preflight; then
-    while ! source_dbs_exist_check; do
-      echo ""
-      echo "Re-enter the database name(s) (or Ctrl-C to abort)."
-      SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
-      if [[ -z "$SRC_DBS_INPUT" ]]; then
-        echo "ERROR: Database name is required for $MODE mode."
-        exit 1
-      fi
-    done
-    print_source_ready_banner
-  fi
 fi
 
 TGT_HOST=""
@@ -863,51 +289,13 @@ if [[ "$MODE" != "inplace" ]]; then
   echo ""
   TGT_ADMIN_PASS="${TGT_ADMIN_PASS#"${TGT_ADMIN_PASS%%[![:space:]]*}"}"
   TGT_ADMIN_PASS="${TGT_ADMIN_PASS%"${TGT_ADMIN_PASS##*[![:space:]]}"}"
-
-  if needs_endpoint_preflight; then
-    while ! test_target_endpoint; do
-      echo ""
-      echo "Re-enter target connection details (press Enter to keep the current value,"
-      echo "or Ctrl-C to abort)."
-      TGT_HOST="$(prompt "Target host" "$TGT_HOST")"
-      TGT_PORT="$(prompt "Target port" "$TGT_PORT")"
-      TGT_ADMIN_USER="$(prompt "Target admin user" "$TGT_ADMIN_USER")"
-      TGT_ADMIN_PASS="$(prompt_secret "Target admin password")"
-      echo ""
-      TGT_ADMIN_PASS="${TGT_ADMIN_PASS#"${TGT_ADMIN_PASS%%[![:space:]]*}"}"
-      TGT_ADMIN_PASS="${TGT_ADMIN_PASS%"${TGT_ADMIN_PASS##*[![:space:]]}"}"
-    done
-  fi
-
-  # SSH is only used by replace_slave (in-place swap of MySQL → MariaDB on the
-  # same machine). Other modes don't shell into the target.
-  if [[ "$MODE" == "replace_slave" ]]; then
-    TGT_SSH_HOST="$(prompt "Target SSH host" "")"
-    TGT_SSH_USER="$(prompt "Target SSH user" "root")"
-    TGT_SSH_OPTS="$(prompt "Target SSH options" "-o StrictHostKeyChecking=no")"
-  fi
+  TGT_SSH_HOST="$(prompt "Target SSH host (leave blank if not using SSH)" "")"
+  TGT_SSH_USER="$(prompt "Target SSH user" "root")"
+  TGT_SSH_OPTS="$(prompt "Target SSH options" "-o StrictHostKeyChecking=no")"
 fi
 
 TGT_USER="$TGT_ADMIN_USER"
 TGT_PASS="$TGT_ADMIN_PASS"
-
-# Target DB pre-existence check with retry-on-conflict (re-prompts DB names).
-if [[ "$MODE" == "one_step" || "$MODE" == "two_step" ]]; then
-  while ! target_db_preexistence_check; do
-    echo ""
-    echo "You can drop the conflicting database(s) on the target in another"
-    echo "terminal and retry, or enter a different database name below."
-    echo "Press Ctrl-C to abort."
-    SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
-    if [[ -z "$SRC_DBS_INPUT" ]]; then
-      echo "ERROR: Database name is required for $MODE mode."
-      exit 1
-    fi
-  done
-  if needs_endpoint_preflight; then
-    print_target_ready_banner
-  fi
-fi
 
 MIGRATE_APP_USERS="0"
 APP_USER_DEFAULT_PASSWORD=""
@@ -916,22 +304,39 @@ if [[ "$MODE" != "inplace" ]]; then
   if [[ "$(printf "%s" "$MIGRATE_APP_USERS" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
     MIGRATE_APP_USERS="1"
     APP_USER_DEFAULT_PASSWORD="$(prompt_secret "Default password for app users")"
-    echo ""
   else
     MIGRATE_APP_USERS="0"
     APP_USER_DEFAULT_PASSWORD=""
   fi
 fi
 
-# MariaDB on the target is a prerequisite (verified above by the connectivity
-# + version check). These variables remain only so the orchestrator/yaml
-# schema continues to receive the same fields; they are always disabled.
-INSTALL_TARGET_MARIADB="0"
-TARGET_INSTALL_OS=""
-TARGET_MARIADB_VERSION=""
-
-if needs_endpoint_preflight; then
-  migrate_mysql_config_file
+INSTALL_TARGET_MARIADB="$CFG_INSTALL_TARGET_MARIADB"
+TARGET_INSTALL_OS="$CFG_TARGET_INSTALL_OS"
+TARGET_MARIADB_VERSION="$CFG_TARGET_MARIADB_VERSION"
+if [[ "$MODE" == "one_step" || "$MODE" == "two_step" ]]; then
+  if [[ -z "$INSTALL_TARGET_MARIADB" ]]; then INSTALL_TARGET_MARIADB="1"; fi
+  install_target_answer="$(prompt "Install MariaDB on target host before migration? (y/n)" "$( [[ "$INSTALL_TARGET_MARIADB" == "1" ]] && echo y || echo n )")"
+  if [[ "$(printf "%s" "$install_target_answer" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+    INSTALL_TARGET_MARIADB="1"
+    if [[ -z "$TARGET_INSTALL_OS" ]]; then TARGET_INSTALL_OS="ubuntu"; fi
+    if [[ -z "$TARGET_MARIADB_VERSION" ]]; then TARGET_MARIADB_VERSION="11.8"; fi
+    TARGET_INSTALL_OS="$(prompt "Target OS for MariaDB install (ubuntu|debian|rocky|rhel|centos7|sles)" "$TARGET_INSTALL_OS")"
+    TARGET_INSTALL_OS="$(printf "%s" "$TARGET_INSTALL_OS" | tr '[:upper:]' '[:lower:]' | xargs)"
+    TARGET_MARIADB_VERSION="$(prompt "MariaDB version to install (for example 11.8)" "$TARGET_MARIADB_VERSION")"
+    TARGET_MARIADB_VERSION="$(printf "%s" "$TARGET_MARIADB_VERSION" | xargs)"
+    case "$TARGET_INSTALL_OS" in
+      ubuntu|debian|rocky|rhel|centos7|sles)
+        ;;
+      *)
+        echo "ERROR: Unsupported target install OS '$TARGET_INSTALL_OS'. Use ubuntu|debian|rocky|rhel|centos7|sles."
+        exit 1
+        ;;
+    esac
+  else
+    INSTALL_TARGET_MARIADB="0"
+  fi
+else
+  if [[ -z "$INSTALL_TARGET_MARIADB" ]]; then INSTALL_TARGET_MARIADB="0"; fi
 fi
 
 INPLACE_BACKUP_DIR="$CFG_INPLACE_BACKUP_DIR"
@@ -980,7 +385,6 @@ REPL_PASS="$CFG_REPL_PASS"
 if [[ "$MODE" == "binlog" || "$MODE" == "replace_slave" ]]; then
   REPL_USER="$(prompt "Replication user" "${REPL_USER:-repl}")"
   REPL_PASS="$(prompt_secret "Replication password")"
-  echo ""
   REPL_PASS="${REPL_PASS#"${REPL_PASS%%[![:space:]]*}"}"
   REPL_PASS="${REPL_PASS%"${REPL_PASS##*[![:space:]]}"}"
 fi
@@ -1056,6 +460,16 @@ fi
 if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && ( -z "$REPL_USER" || -z "$REPL_PASS" ) ]]; then
   echo "ERROR: Replication user and password are required for binlog/replace_slave mode."
   exit 1
+fi
+if [[ ( "$MODE" == "one_step" || "$MODE" == "two_step" ) && "$INSTALL_TARGET_MARIADB" == "1" ]]; then
+  if [[ -z "$TGT_SSH_HOST" ]]; then
+    echo "ERROR: Target SSH host is required when INSTALL_TARGET_MARIADB=1."
+    exit 1
+  fi
+  if [[ -z "$TARGET_INSTALL_OS" || -z "$TARGET_MARIADB_VERSION" ]]; then
+    echo "ERROR: TARGET_INSTALL_OS and TARGET_MARIADB_VERSION are required when INSTALL_TARGET_MARIADB=1."
+    exit 1
+  fi
 fi
 if [[ "$MODE" == "replace_slave" && -z "$REPLACE_MARIADB_VERSION" ]]; then
   echo "ERROR: MariaDB version is required for replace_slave mode."
@@ -1385,141 +799,4 @@ if [[ $STATUS -eq 0 ]]; then
   rm -f "$RUN_DIR_FILE"
   rm -f "$RUN_SIG_FILE"
 fi
-
-# Final success/failure summary with next-step guidance.
-print_success_summary() {
-  local src_desc="n/a" tgt_desc="n/a" dbs_desc="${SRC_DBS_INPUT:-n/a}"
-  local client_bin="${DB_CLIENT:-mariadb}"
-
-  if [[ -n "${SRC_VERSION_SHORT:-}" ]]; then
-    src_desc="MySQL $SRC_VERSION_SHORT at $SRC_HOST:$SRC_PORT"
-  elif [[ -n "${SRC_VERSION_DETECTED:-}" ]]; then
-    src_desc="MySQL $SRC_VERSION_DETECTED at $SRC_HOST:$SRC_PORT"
-  elif [[ -n "${SRC_HOST:-}" ]]; then
-    src_desc="$SRC_HOST:$SRC_PORT"
-  fi
-  if [[ -n "${TGT_VERSION_SHORT:-}" ]]; then
-    tgt_desc="MariaDB $TGT_VERSION_SHORT at $TGT_HOST:$TGT_PORT"
-  elif [[ -n "${TGT_VERSION_DETECTED:-}" ]]; then
-    tgt_desc="$TGT_VERSION_DETECTED at $TGT_HOST:$TGT_PORT"
-  elif [[ -n "${TGT_HOST:-}" ]]; then
-    tgt_desc="$TGT_HOST:$TGT_PORT"
-  fi
-
-  # Build the connect command to match what works in the user's environment.
-  local tgt_connect
-  if [[ "$client_bin" == "mariadb" ]]; then
-    tgt_connect="$client_bin -h $TGT_HOST -P $TGT_PORT -u $TGT_ADMIN_USER -p --ssl-verify-server-cert=OFF"
-  else
-    tgt_connect="$client_bin -h $TGT_HOST -P $TGT_PORT -u $TGT_ADMIN_USER -p"
-  fi
-
-  cat <<EOF
-
-================================================================
-  MIGRATION SUCCESSFUL
-================================================================
-  Mode       : $MODE
-  Source     : $src_desc
-  Target     : $tgt_desc
-  Database(s): $dbs_desc
-  Run dir    : ${RUN_DIR:-n/a}
-
-Next steps — validate the migrated data on the target:
-  1. Connect to the target MariaDB:
-         $tgt_connect
-  2. Confirm the database is present and inspect its tables:
-         SHOW DATABASES;
-EOF
-
-  # Render per-db hints when we have the input
-  if [[ -n "${SRC_DBS_INPUT:-}" ]]; then
-    local IFS_saved="$IFS"
-    IFS=','
-    local -a db_list=( $SRC_DBS_INPUT )
-    IFS="$IFS_saved"
-    local db
-    for db in "${db_list[@]}"; do
-      db="$(printf "%s" "$db" | xargs)"
-      [[ -z "$db" ]] && continue
-      cat <<EOF
-         USE \`$db\`; SHOW TABLES; SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$db';
-EOF
-    done
-  fi
-
-  cat <<EOF
-  3. Row-count parity check (run on source and target, compare):
-         SELECT table_schema, table_name, table_rows
-         FROM information_schema.tables
-         WHERE table_schema NOT IN ('mysql','information_schema','performance_schema','sys');
-  4. Spot-check a few rows from each key table:
-         SELECT * FROM <db>.<table> LIMIT 10;
-EOF
-
-  if [[ -n "${MARIADB_MIGRATED_CNF:-}" ]]; then
-    cat <<EOF
-  5. (Suggested) Apply the converted MariaDB config and restart MariaDB:
-         less $MARIADB_MIGRATED_CNF        # review the converted file first
-     Then copy it onto the target host into MariaDB's config directory
-     (typically /etc/my.cnf.d/server.cnf or /etc/mysql/mariadb.conf.d/50-server.cnf,
-     depending on the OS) and restart the service so the migrated settings
-     take effect:
-         sudo systemctl restart mariadb
-EOF
-  fi
-
-  cat <<EOF
-  Logs and artifacts for this run: ${RUN_DIR:-artifacts/}
-EOF
-}
-
-print_failure_summary() {
-  local run_log="${RUN_DIR:-artifacts}/run.log"
-  local client_bin="${DB_CLIENT:-mariadb}"
-  local src_connect tgt_connect
-  if [[ "$client_bin" == "mariadb" ]]; then
-    src_connect="$client_bin -h $SRC_HOST -P $SRC_PORT -u $SRC_ADMIN_USER -p --ssl-verify-server-cert=OFF"
-    tgt_connect="$client_bin -h ${TGT_HOST:-<target>} -P ${TGT_PORT:-3306} -u ${TGT_ADMIN_USER:-<user>} -p --ssl-verify-server-cert=OFF"
-  else
-    src_connect="$client_bin -h $SRC_HOST -P $SRC_PORT -u $SRC_ADMIN_USER -p"
-    tgt_connect="$client_bin -h ${TGT_HOST:-<target>} -P ${TGT_PORT:-3306} -u ${TGT_ADMIN_USER:-<user>} -p"
-  fi
-  cat <<EOF
-
-================================================================
-  MIGRATION FAILED
-================================================================
-
-  Mode       : $MODE
-  Run dir    : ${RUN_DIR:-n/a}
-  Exit status: $STATUS
-
-What to do next:
-
-  1. Inspect the run log for the failing step:
-
-         less $run_log
-
-  2. Re-check source/target connectivity independently:
-
-         $src_connect
-         $tgt_connect
-
-  3. For transient failures (network blip, target restart, etc.) you can
-     re-run this script — it will resume from the point of failure where
-     the orchestrator supports it (binlog, replace_slave), or start a new
-     run for one_step/two_step after fixing the underlying issue.
-
-  4. If a pre-existing database on the target caused the failure, drop it
-     on the target and re-run.
-EOF
-}
-
-if [[ $STATUS -eq 0 ]] && needs_endpoint_preflight; then
-  print_success_summary
-elif [[ $STATUS -ne 0 ]] && needs_endpoint_preflight; then
-  print_failure_summary
-fi
-
 exit $STATUS

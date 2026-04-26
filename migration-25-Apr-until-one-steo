@@ -23,31 +23,6 @@ cat << EOF
 
 EOF
 
-print_modes_briefing() {
-  cat <<'EOF'
-Migration modes:
-
-  one_step  [OFFLINE]
-      Tooling : mariadb-dump (schema + data, single pass)
-      Caveat  : Writes to the source during migration may be lost. Stop
-                application traffic to the source for a consistent cutover.
-
-  two_step  [OFFLINE]
-      Tooling : Step 1 (schema) - mariadb-dump
-                Step 2 (data)   - MariaDB Data migration tool (sqldata)
-      Caveat  : Writes to the source during migration may be lost. Stop
-                application traffic to the source for a consistent cutover.
-
-  binlog    [ONLINE]
-      Tooling : mariadb-dump for initial snapshot, then MySQL binary log
-                replication into MariaDB to catch up ongoing changes.
-      Caveat  : The source's binary logging must be enabled (log_bin = ON,
-                binlog_format = ROW or MIXED) and a replication user must
-                be available on the source.
-
-EOF
-}
-
 usage() {
   cat << EOF
 
@@ -66,7 +41,6 @@ Options:
   --run         Run the migration execution phase only
 
 EOF
-  print_modes_briefing
 }
 
 
@@ -773,32 +747,11 @@ EOF
 # before they bother typing any credentials.
 ensure_db_client
 
-print_modes_briefing
-
 MODE="$(prompt "Mode (one_step|two_step|binlog|replace_slave)" "one_step")"
 MODE="${MODE// /}"
 if [[ "$MODE" != "one_step" && "$MODE" != "two_step" && "$MODE" != "binlog" && "$MODE" != "inplace" && "$MODE" != "replace_slave" ]]; then
   echo "ERROR: mode must be one_step, two_step, binlog, inplace or replace_slave"
   exit 1
-fi
-
-if [[ "$MODE" == "two_step" ]]; then
-  sqldata_bin="${SQLINESDATA_BIN:-$(command -v sqldata 2>/dev/null || true)}"
-  if [[ -z "$sqldata_bin" || ! -x "$sqldata_bin" ]]; then
-    cat <<'EOF'
-
-ERROR: MariaDB Data migration tool (sqldata) not found.
-
-  two_step needs the 'sqldata' binary. Install it, then either put it on
-  PATH or export SQLINESDATA_BIN=/path/to/sqldata before re-running:
-
-      export SQLINESDATA_BIN=/opt/sqldata/sqldata
-      sqldata -? | head -1     # verify
-EOF
-    exit 1
-  fi
-  echo "==> MariaDB Data migration tool (sqldata) detected: $sqldata_bin"
-  export SQLINESDATA_BIN="$sqldata_bin"
 fi
 
 SRC_HOST="$(prompt "Source host" "")"
@@ -930,7 +883,8 @@ INSTALL_TARGET_MARIADB="0"
 TARGET_INSTALL_OS=""
 TARGET_MARIADB_VERSION=""
 
-if needs_endpoint_preflight; then
+# Optional my.cnf conversion for one_step.
+if [[ "$MODE" == "one_step" ]]; then
   migrate_mysql_config_file
 fi
 
@@ -980,7 +934,6 @@ REPL_PASS="$CFG_REPL_PASS"
 if [[ "$MODE" == "binlog" || "$MODE" == "replace_slave" ]]; then
   REPL_USER="$(prompt "Replication user" "${REPL_USER:-repl}")"
   REPL_PASS="$(prompt_secret "Replication password")"
-  echo ""
   REPL_PASS="${REPL_PASS#"${REPL_PASS%%[![:space:]]*}"}"
   REPL_PASS="${REPL_PASS%"${REPL_PASS##*[![:space:]]}"}"
 fi
