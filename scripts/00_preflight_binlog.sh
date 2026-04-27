@@ -64,19 +64,12 @@ sql_escape() {
   printf "%s" "$s"
 }
 
-# Build per-client argument arrays for SOURCE (MySQL) and TARGET (MariaDB).
-# We deliberately do NOT pass --protocol=TCP, because newer mariadb clients
-# enforce strict TLS when it is set, which rejects the default self-signed
-# certs MySQL/MariaDB ship with. The client picks TCP automatically from -h.
+# Connection args (no --protocol=TCP; --ssl-verify-server-cert=OFF for mariadb client).
 src_args=( -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" --connect-timeout=10 --batch --skip-column-names )
 tgt_args=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_ADMIN_USER" --connect-timeout=10 --batch --skip-column-names )
 if [[ "$MARIADB_BIN" == *mariadb* ]]; then
   tgt_args+=( --ssl-verify-server-cert=OFF )
 fi
-# The mysql client doesn't have --ssl-verify-server-cert; it uses
-# --ssl-mode=DISABLED if the user wants to bypass server cert verification.
-# We leave SRC alone unless the connection actually fails on TLS — most
-# MySQL deployments don't require it for plain auth.
 
 echo "Checking source admin connectivity..."
 MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "SELECT 1;" >/dev/null
@@ -84,25 +77,20 @@ MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "SELECT 1;" >/dev/n
 echo "Checking target admin connectivity..."
 MYSQL_PWD="$TGT_ADMIN_PASS" "$MARIADB_BIN" "${tgt_args[@]}" -e "SELECT 1;" >/dev/null
 
-# Detect source MySQL version so we can pick the correct SQL surface.
+# Detect source MySQL version.
 src_version_full="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "SELECT VERSION();" | head -1)"
-# Strip suffix like "-log" or "-MariaDB-..." then extract major.minor
 src_version_num="$(printf "%s" "$src_version_full" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')"
 src_major="${src_version_num%%.*}"
 src_minor="${src_version_num#*.}"
 src_minor="${src_minor%%.*}"
 
-# Pick the binlog-status statement based on source MySQL version.
-#   < 8.4:    SHOW MASTER STATUS
-#   >= 8.4:   SHOW BINARY LOG STATUS
+# Pick binlog-status SQL: SHOW MASTER STATUS for < 8.4, SHOW BINARY LOG STATUS for >= 8.4.
 SHOW_BINLOG_STATUS_SQL="SHOW MASTER STATUS;"
 if [[ "$src_major" -gt 8 ]] || { [[ "$src_major" -eq 8 ]] && [[ "$src_minor" -ge 4 ]]; }; then
   SHOW_BINLOG_STATUS_SQL="SHOW BINARY LOG STATUS;"
 fi
 echo "Source MySQL: $src_version_full (using: $SHOW_BINLOG_STATUS_SQL)"
 export SHOW_BINLOG_STATUS_SQL
-# Note: the dump-tool flag (--master-data vs --source-data) is decided by
-# 14_binlog_seed.sh based on the *dump binary*, not the server version.
 
 echo "Checking source binary logging..."
 log_bin_val="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \

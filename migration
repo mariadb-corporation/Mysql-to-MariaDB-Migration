@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.0.0-GA"
-MIG_TOOL_BUILD="20260424"
+MIG_TOOL_VERSION="1.0.0-beta"
+MIG_TOOL_BUILD="20260427"
 
 # Display professional welcome header
 cat << EOF
@@ -16,14 +16,34 @@ cat << EOF
  Copyright (c) 2026, MariaDB Corp. All rights reserved.
  This software is distributed free of charge and is provided "as is".
 
- Type '--help' for usage instructions.
-
  Full Legal Terms: https://mariadb.com/legal/
 ---------------------------------------------------------------------
 
+Type '--help' for usage instructions.
 EOF
 
 print_modes_briefing() {
+  # Short form shown at runtime invocation: just online/offline + tooling.
+  # Full caveats/disk requirements live in --help (print_modes_detailed).
+  cat <<'EOF'
+Migration modes:
+
+  one_step  [OFFLINE]
+      Tooling : mariadb-dump (schema + data, single pass)
+
+  two_step  [OFFLINE]
+      Tooling : Step 1 (schema) - mariadb-dump
+                Step 2 (data)   - MariaDB Data migration tool (sqldata)
+
+  binlog    [ONLINE]
+      Tooling : mariadb-dump for initial snapshot, then MySQL binary log
+                replication into MariaDB to catch up ongoing changes.
+
+EOF
+}
+
+print_modes_detailed() {
+  # Long form shown in --help: includes caveats and disk requirements.
   cat <<'EOF'
 Migration modes:
 
@@ -44,6 +64,67 @@ Migration modes:
       Caveat  : The source's binary logging must be enabled (log_bin = ON,
                 binlog_format = ROW or MIXED) and a replication user must
                 be available on the source.
+      Disk    : Snapshot written to ./artifacts/; needs free space >= source DB size.
+      Source version notes:
+                MySQL 5.7 / 8.0:
+                  - Snapshot uses mariadb-dump.
+                  - Binlog coordinates are captured via SHOW MASTER STATUS;
+                    source admin needs REPLICATION CLIENT.
+                MySQL 8.4:
+                  - mariadb-dump cannot read 8.4 server metadata. The
+                    snapshot step requires upstream mysqldump 8.4+
+                    (see MARIADB_DUMP_BIN under Environment variables).
+                  - SHOW MASTER STATUS was renamed to SHOW BINARY LOG
+                    STATUS in 8.4; the orchestrator detects the source
+                    version and picks the correct statement automatically.
+                  - Source admin needs BINLOG_ADMIN (or REPLICATION
+                    CLIENT) to read binlog status.
+
+EOF
+}
+
+print_prerequisites() {
+  cat <<'EOF'
+Prerequisites:
+  - This script can run on the target host or on a separate tools host with
+    network access to both source and target.
+  - MariaDB is already installed and running on the target host. The script
+    verifies the target version but does not install MariaDB for you.
+  - The 'mariadb' (or 'mysql') client is on PATH from the host running this
+    script — used for the connectivity, version, and database checks.
+  - For my.cnf conversion: copy the source server's my.cnf to this host
+    first, then provide its path when prompted.
+  - For MySQL 8.4 sources: the upstream MySQL 8.4 client tools must be
+    installed on this host. mariadb-dump cannot read MySQL 8.4 server
+    metadata, so the dump step uses upstream mysqldump 8.4+ instead.
+    Set MARIADB_DUMP_BIN to its path; see Environment variables below
+    for setup and verification.
+
+EOF
+}
+
+print_environment_help() {
+  cat <<'EOF'
+Environment variables:
+
+  MARIADB_DUMP_BIN    Path to the dump binary used for schema/data export.
+                      REQUIRED when the source is MySQL 8.4 - mariadb-dump
+                      cannot read MySQL 8.4 server metadata and the migration
+                      will fail at the dump step. Point this at the MySQL 8.4
+                      client tools, e.g.:
+
+                          export MARIADB_DUMP_BIN=/opt/mysql-8.4/usr/bin/mysqldump
+
+                      Confirm the binary you set is the right one:
+
+                          "$MARIADB_DUMP_BIN" --version
+
+                      The output must report Ver 8.4.x (or newer) and must
+                      NOT contain the string "MariaDB" - mariadb-dump cannot
+                      dump 8.4 sources regardless of its own version.
+
+                      For MySQL 5.7 / 8.0 sources, leave MARIADB_DUMP_BIN
+                      unset; the tool will use mariadb-dump from $PATH.
 
 EOF
 }
@@ -66,7 +147,9 @@ Options:
   --run         Run the migration execution phase only
 
 EOF
-  print_modes_briefing
+  print_prerequisites
+  print_environment_help
+  print_modes_detailed
 }
 
 
@@ -680,8 +763,8 @@ target_db_preexistence_check() {
       echo "       - $c"
     done
     echo ""
-    echo "       The $MODE migration requires these database(s) to NOT pre-exist on the target."
-    echo "       Please drop them on the target (or choose different source databases), then re-run."
+    echo "       For a clean $MODE migration the target should NOT contain these database(s)."
+    echo "       Drop them on the target (or pick different source database names) and retry."
     return 1
   fi
 
@@ -754,23 +837,7 @@ if [[ -f "config/migration.yaml" ]]; then
 fi
 
 echo "==> MySQL to MariaDB Migration"
-cat <<'EOF'
 
-Prerequisites:
-  - This script can run on the target host or on a separate tools host with
-    network access to both source and target.
-  - MariaDB is already installed and running on the target host. The script
-    verifies the target version but does not install MariaDB for you.
-  - The 'mariadb' (or 'mysql') client is on PATH from the host running this
-    script — used for the connectivity, version, and database checks.
-  - For my.cnf conversion: copy the source server's my.cnf to this host
-    first, then provide its path when prompted.
-
-EOF
-
-# Detect the DB client up-front. Every supported mode talks to a DB server,
-# so this is harmless — and it lets the user fail fast (with install hints)
-# before they bother typing any credentials.
 ensure_db_client
 
 print_modes_briefing
@@ -892,7 +959,7 @@ TGT_USER="$TGT_ADMIN_USER"
 TGT_PASS="$TGT_ADMIN_PASS"
 
 # Target DB pre-existence check with retry-on-conflict (re-prompts DB names).
-if [[ "$MODE" == "one_step" || "$MODE" == "two_step" ]]; then
+if [[ "$MODE" == "one_step" || "$MODE" == "two_step" || "$MODE" == "binlog" ]]; then
   while ! target_db_preexistence_check; do
     echo ""
     echo "You can drop the conflicting database(s) on the target in another"
