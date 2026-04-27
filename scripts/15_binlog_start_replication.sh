@@ -52,17 +52,6 @@ if [[ "$MARIADB_BIN" == *mariadb* ]]; then
   tgt_args+=( --ssl-verify-server-cert=OFF )
 fi
 
-# Detect source MySQL version once. Used for CREATE USER plugin choice.
-src_version_full="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-  -e "SELECT VERSION();" 2>/dev/null | head -1)"
-src_version_num="$(printf "%s" "$src_version_full" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')"
-src_major="${src_version_num%%.*}"
-src_minor="${src_version_num#*.}"; src_minor="${src_minor%%.*}"
-src_is_84_plus=0
-if [[ "${src_major:-0}" -gt 8 ]] || { [[ "${src_major:-0}" -eq 8 ]] && [[ "${src_minor:-0}" -ge 4 ]]; }; then
-  src_is_84_plus=1
-fi
-
 echo "Checking source/target server_id..."
 src_server_id="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
   -e "SHOW VARIABLES LIKE 'server_id';" | awk 'NR==1{print $2}')"
@@ -112,54 +101,50 @@ if [[ "$BINLOG_CREATE_REPL_USER" == "1" ]]; then
   repl_user_esc="${REPL_USER//\'/\'\'}"
   repl_pass_esc="${REPL_PASS//\'/\'\'}"
 
-  # CREATE USER plugin choice:
-  #   - MySQL 5.7 / 8.0:  IDENTIFIED WITH mysql_native_password works.
-  #   - MySQL 8.4:        mysql_native_password is NOT loaded by default.
-  #                       caching_sha2_password is the default and works for
-  #                       replication. Omitting "IDENTIFIED WITH ..." lets the
-  #                       server use whatever default_authentication_plugin is.
-  # Strategy: try mysql_native_password first on < 8.4. On 8.4+, omit the
-  # WITH clause and let the server pick. If the first attempt fails with
-  # "Plugin 'mysql_native_password' is not loaded", retry without the WITH.
-  create_user_sql_native="CREATE USER IF NOT EXISTS '${repl_user_esc}'@'%' IDENTIFIED WITH mysql_native_password BY '${repl_pass_esc}';"
-  alter_user_sql_native="ALTER USER '${repl_user_esc}'@'%' IDENTIFIED WITH mysql_native_password BY '${repl_pass_esc}';"
-  create_user_sql_default="CREATE USER IF NOT EXISTS '${repl_user_esc}'@'%' IDENTIFIED BY '${repl_pass_esc}';"
-  alter_user_sql_default="ALTER USER '${repl_user_esc}'@'%' IDENTIFIED BY '${repl_pass_esc}';"
+  # mysql_native_password required (MariaDB-as-replica can't speak caching_sha2_password).
+  plugin_status="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+    -e "SELECT plugin_status FROM information_schema.plugins WHERE plugin_name='mysql_native_password';" \
+    2>/dev/null | head -1)"
+  if [[ "$plugin_status" != "ACTIVE" ]]; then
+    cat >&2 <<EOF
+ERROR: 'mysql_native_password' plugin is not active on the source ($SRC_HOST:$SRC_PORT).
+       MariaDB replication clients require this plugin (caching_sha2_password
+       does not work for cross-vendor replication).
+
+       On the source, load the plugin and retry:
+
+           INSTALL COMPONENT 'file://component_mysql_native_password';
+
+       Or set in /etc/my.cnf and restart MySQL:
+
+           [mysqld]
+           mysql_native_password=ON
+
+       Verify with:
+           SELECT plugin_name, plugin_status FROM information_schema.plugins
+           WHERE plugin_name='mysql_native_password';
+EOF
+    exit 14
+  fi
+
+  create_user_sql="CREATE USER IF NOT EXISTS '${repl_user_esc}'@'%' IDENTIFIED WITH mysql_native_password BY '${repl_pass_esc}';"
+  alter_user_sql="ALTER USER '${repl_user_esc}'@'%' IDENTIFIED WITH mysql_native_password BY '${repl_pass_esc}';"
   grant_sql="GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO '${repl_user_esc}'@'%';"
 
-  run_create() {
+  run_sql() {
     local sql="$1" out rc
     out="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
       -e "$sql" 2>&1)" && rc=0 || rc=$?
-    if [[ $rc -ne 0 ]]; then
-      printf "%s\n" "$out" >&2
-    fi
+    [[ $rc -ne 0 ]] && printf "%s\n" "$out" >&2
     return $rc
   }
 
-  if [[ "$src_is_84_plus" -eq 1 ]]; then
-    # Use server-default plugin (caching_sha2_password) on 8.4+.
-    run_create "$create_user_sql_default" || true
-    run_create "$alter_user_sql_default"  || true
-  else
-    # Try mysql_native_password first; if the plugin isn't loaded, fall back.
-    if ! run_create "$create_user_sql_native"; then
-      echo "Note: CREATE USER with mysql_native_password failed; retrying with server default."
-      run_create "$create_user_sql_default" || true
-    fi
-    if ! run_create "$alter_user_sql_native"; then
-      run_create "$alter_user_sql_default"  || true
-    fi
-  fi
-
-  run_create "$grant_sql" || true
+  run_sql "$create_user_sql" || true
+  run_sql "$alter_user_sql"  || true
+  run_sql "$grant_sql"       || true
   MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "FLUSH PRIVILEGES;"
 fi
 
-# CHANGE MASTER TO ... runs against the *target* (a MariaDB server). MariaDB
-# accepts CHANGE MASTER syntax across all current versions, so we keep the
-# legacy form here. (If we ever need MariaDB 12+ where CHANGE MASTER might be
-# removed, we'd switch to CHANGE REPLICATION SOURCE TO + SOURCE_HOST=...)
 repl_ssl_sql=", MASTER_SSL=0, MASTER_SSL_VERIFY_SERVER_CERT=0"
 if [[ "$BINLOG_MASTER_SSL" == "1" ]]; then
   repl_ssl_sql=", MASTER_SSL=1, MASTER_SSL_VERIFY_SERVER_CERT=${BINLOG_MASTER_SSL_VERIFY_SERVER_CERT}"

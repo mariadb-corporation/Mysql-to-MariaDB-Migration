@@ -18,8 +18,7 @@ if [[ -z "$TGT_HOST" || -z "$TGT_ADMIN_USER" || -z "$TGT_ADMIN_PASS" ]]; then
   exit 1
 fi
 
-# Connection args — drop --protocol=TCP, add --ssl-verify-server-cert=OFF for
-# the mariadb client (matches the rest of the binlog scripts).
+# Connection args.
 tgt_args=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_ADMIN_USER" )
 if [[ "$MARIADB_BIN" == *mariadb* ]]; then
   tgt_args+=( --ssl-verify-server-cert=OFF )
