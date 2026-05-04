@@ -3,17 +3,17 @@ set -euo pipefail
 
 # Define tool versioning
 MIG_TOOL_VERSION="1.0.0-beta"
-MIG_TOOL_BUILD="20260427"
+MIG_TOOL_BUILD="20260504"
 
 # Display professional welcome header
 cat << EOF
 
 ---------------------------------------------------------------------
- Welcome to the MariaDB Migration Orchestrator
+ Welcome to the MySQL to MariaDB Migration Tool
  Tool Version: $MIG_TOOL_VERSION (Build $MIG_TOOL_BUILD)
- Supported Sources: MySQL 5.7, 8.0, 8.4
+ Supported Sources: MySQL 8.0, 8.4
 
- Copyright (c) 2026, MariaDB Corp. All rights reserved.
+ Copyright (c) 2026, MariaDB Plc. All rights reserved.
  This software is distributed free of charge and is provided "as is".
 
  Full Legal Terms: https://mariadb.com/legal/
@@ -560,6 +560,77 @@ needs_endpoint_preflight() {
   [[ "$MODE" == "one_step" || "$MODE" == "two_step" || "$MODE" == "binlog" ]]
 }
 
+# For MySQL 8.4+ sources in replication-based modes (binlog, replace_slave),
+# verify an upstream mysqldump >= 8.4 is available. mariadb-dump and pre-8.4
+# mysqldump issue SHOW MASTER STATUS to capture binlog coordinates, which 8.4
+# servers reject (only SHOW BINARY LOG STATUS is accepted). The downstream
+# 14_binlog_seed.sh exits with the same hint, but firing here means the user
+# learns about it before being prompted for target creds, replication user,
+# config-file conversion, etc. — and well before any artifact directory is
+# created (which is what causes resume to short-circuit later).
+#
+# Returns 0 if compatible (or check not applicable). Prints a multi-line
+# error and returns 1 if the source is 8.4+ and no upstream mysqldump 8.4+
+# can be found via $MARIADB_DUMP_BIN or PATH.
+verify_dump_binary_for_8_4_source() {
+  [[ "$MODE" == "binlog" || "$MODE" == "replace_slave" ]] || return 0
+
+  local v_short="${SRC_VERSION_SHORT:-}"
+  [[ -z "$v_short" ]] && return 0
+
+  local major minor
+  major="${v_short%%.*}"
+  minor="${v_short#*.}"; minor="${minor%%.*}"
+  if [[ "${major:-0}" -lt 8 ]] || { [[ "${major:-0}" -eq 8 ]] && [[ "${minor:-0}" -lt 4 ]]; }; then
+    return 0
+  fi
+
+  local cand ver_line ver v_major v_minor upstream_path=""
+  for cand in "${MARIADB_DUMP_BIN:-}" "mysqldump"; do
+    [[ -z "$cand" ]] && continue
+    [[ "$(basename "$cand")" == "mariadb-dump" ]] && continue
+    command -v "$cand" >/dev/null 2>&1 || continue
+    ver_line="$("$cand" --version 2>/dev/null || true)"
+    if printf "%s" "$ver_line" | grep -iq 'mariadb'; then
+      continue
+    fi
+    ver="$(printf "%s" "$ver_line" | sed -nE 's/.*Ver +([0-9]+\.[0-9]+).*/\1/p' | head -1)"
+    [[ -z "$ver" ]] && ver="$(printf "%s" "$ver_line" | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+    v_major="${ver%%.*}"
+    v_minor="${ver#*.}"; v_minor="${v_minor%%.*}"
+    if [[ "${v_major:-0}" -gt 8 ]] || { [[ "${v_major:-0}" -eq 8 ]] && [[ "${v_minor:-0}" -ge 4 ]]; }; then
+      upstream_path="$(command -v "$cand")"
+      break
+    fi
+  done
+
+  if [[ -n "$upstream_path" ]]; then
+    echo "==> Dump tool: $upstream_path  (upstream mysqldump, compatible with 8.4 source)"
+    return 0
+  fi
+
+  cat >&2 <<EOF
+
+ERROR: Source is MySQL ${SRC_VERSION_DETECTED:-8.4+} (>= 8.4) and $MODE mode requires
+       an upstream MySQL mysqldump >= 8.4 to capture binlog coordinates.
+       mariadb-dump and pre-8.4 mysqldump both issue SHOW MASTER STATUS,
+       which 8.4 servers no longer accept.
+
+       To fix: download the MySQL 8.4 client tools from
+         https://dev.mysql.com/downloads/mysql/
+       extract, then export the path to its mysqldump:
+         export MARIADB_DUMP_BIN=/path/to/mysql-8.4/bin/mysqldump
+
+       Verify with:
+         "\$MARIADB_DUMP_BIN" --version
+       The output must contain "Ver 8.4" or higher and must NOT contain "MariaDB".
+
+       Re-run this script after exporting MARIADB_DUMP_BIN.
+
+EOF
+  return 1
+}
+
 # Verify SRC_DBS_INPUT databases exist on source. Returns 1 on missing (caller re-prompts).
 source_dbs_exist_check() {
   if [[ -z "${SRC_DBS_INPUT:-}" ]]; then
@@ -890,6 +961,11 @@ if needs_endpoint_preflight; then
     SRC_ADMIN_PASS="${SRC_ADMIN_PASS#"${SRC_ADMIN_PASS%%[![:space:]]*}"}"
     SRC_ADMIN_PASS="${SRC_ADMIN_PASS%"${SRC_ADMIN_PASS##*[![:space:]]}"}"
   done
+  # 8.4-source dump-binary compatibility (binlog / replace_slave only).
+  # Fires here so the user is not asked for target creds, replication user,
+  # etc. before learning they need to set MARIADB_DUMP_BIN. Also runs before
+  # any artifact/run dir is created, so resume-on-restart can't skip it.
+  verify_dump_binary_for_8_4_source || exit 1
 fi
 if [[ "$MODE" == "inplace" ]]; then
   source_version_check_inplace
@@ -1583,10 +1659,17 @@ What to do next:
 EOF
 }
 
-if [[ $STATUS -eq 0 ]] && needs_endpoint_preflight; then
-  print_success_summary
-elif [[ $STATUS -ne 0 ]] && needs_endpoint_preflight; then
-  print_failure_summary
+# The success/failure banner only makes sense for phases that actually executed
+# the migration (run, or the default all-phases flow). For --plan and --assess,
+# the per-phase output (PLAN: generated... / ASSESSMENT: PASS) is the right
+# completion signal; printing "MIGRATION SUCCESSFUL — Next steps: validate the
+# migrated data on the target" after a plan-only invocation misleads the user.
+if [[ "$PHASE_MODE" == "all" || "$PHASE_MODE" == "run" ]]; then
+  if [[ $STATUS -eq 0 ]] && needs_endpoint_preflight; then
+    print_success_summary
+  elif [[ $STATUS -ne 0 ]] && needs_endpoint_preflight; then
+    print_failure_summary
+  fi
 fi
 
 exit $STATUS
