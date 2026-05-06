@@ -64,30 +64,95 @@ target_db_exists() {
   [[ "${out:-0}" -gt 0 ]]
 }
 
-# Probe source MySQL version (informational only — used in the startup banner
-# below). Two-step schema dumps do NOT use --master-data / --source-data, so
-# SHOW BINARY LOG STATUS / SHOW MASTER STATUS is never issued. That means any
-# dump tool (mariadb-dump, or mysqldump of any version) works against any
-# MySQL 5.7 / 8.0 / 8.4+ source for this schema-only path. No version-gating
-# is required here — only the binlog-seed script (14_binlog_seed.sh) needs
-# upstream mysqldump 8.4+ for 8.4 sources, because it passes --master-data.
+# Probe source MySQL version (mariadb-dump is not compatible with MySQL 8.4+).
 src_version_full="$(MYSQL_PWD="$SRC_PASS" "$MYSQL_BIN" "${src_admin_args[@]}" \
   -e "SELECT VERSION();" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+' | head -1)"
+src_version_num="$(printf "%s" "$src_version_full" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')"
+src_major="${src_version_num%%.*}"
+src_minor="${src_version_num#*.}"; src_minor="${src_minor%%.*}"
+src_is_84_plus=0
+if [[ "${src_major:-0}" -gt 8 ]] || { [[ "${src_major:-0}" -eq 8 ]] && [[ "${src_minor:-0}" -ge 4 ]]; }; then
+  src_is_84_plus=1
+fi
 
-# Pick dump binary. Honor a user-set MARIADB_DUMP_BIN if it resolves; otherwise
-# fall back to mariadb-dump (default), then upstream mysqldump as last resort.
-# Mirrors the selection logic in 10_one_step_migration.sh — same constraints,
-# same fix.
-if command -v "$MARIADB_DUMP_BIN" >/dev/null 2>&1; then
-  chosen_dump="$MARIADB_DUMP_BIN"
-elif command -v mariadb-dump >/dev/null 2>&1; then
-  chosen_dump="mariadb-dump"
-elif command -v mysqldump >/dev/null 2>&1; then
-  echo "mariadb-dump not found; using mysqldump."
-  chosen_dump="mysqldump"
+detect_dump_version() {
+  local bin="$1" ver_line ver_num
+  ver_line="$("$bin" --version 2>/dev/null || true)"
+  ver_num="$(printf "%s" "$ver_line" | sed -nE 's/.*Ver +([0-9]+\.[0-9]+).*/\1/p' | head -1)"
+  [[ -z "$ver_num" ]] && ver_num="$(printf "%s" "$ver_line" | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+  printf "%s" "$ver_num"
+}
+
+# Pick dump binary: source >= 8.4 needs upstream mysqldump 8.4+, else mariadb-dump.
+chosen_dump=""
+if [[ "$src_is_84_plus" -eq 1 ]]; then
+  candidates=()
+  if [[ -n "${MARIADB_DUMP_BIN:-}" && "$MARIADB_DUMP_BIN" != "mariadb-dump" && "$MARIADB_DUMP_BIN" != "mysqldump" ]]; then
+    candidates+=("$MARIADB_DUMP_BIN")
+  fi
+  candidates+=("mysqldump")
+
+  for cand in "${candidates[@]}"; do
+    if ! command -v "$cand" >/dev/null 2>&1; then
+      continue
+    fi
+    cand_ver_line="$("$cand" --version 2>/dev/null || true)"
+    if printf "%s" "$cand_ver_line" | grep -iq 'mariadb'; then
+      continue
+    fi
+    cand_ver="$(detect_dump_version "$cand")"
+    cand_major="${cand_ver%%.*}"
+    cand_minor="${cand_ver#*.}"; cand_minor="${cand_minor%%.*}"
+    if [[ "${cand_major:-0}" -gt 8 ]] || { [[ "${cand_major:-0}" -eq 8 ]] && [[ "${cand_minor:-0}" -ge 4 ]]; }; then
+      chosen_dump="$cand"
+      break
+    fi
+  done
+
+  if [[ -z "$chosen_dump" ]]; then
+    echo "ERROR: Source is MySQL 8.4+, needs MySQL mysqldump 8.4+. Download client from https://dev.mysql.com/downloads/mysql/, extract, then: export MARIADB_DUMP_BIN=/path/to/mysqldump" >&2
+    exit 2
+  fi
 else
-  echo "ERROR: neither mariadb-dump nor mysqldump found."
-  exit 2
+  # For a < 8.4 source: prefer mariadb-dump (always compatible). A user-set
+  # MARIADB_DUMP_BIN pointing at mysqldump 8.4+ will break (mysqldump 8.4 issues
+  # SHOW BINARY LOG STATUS, which < 8.4 servers don't understand) — warn and
+  # fall back to mariadb-dump.
+  candidate="$MARIADB_DUMP_BIN"
+  candidate_ok=0
+  if command -v "$candidate" >/dev/null 2>&1; then
+    cand_basename="$(basename "$candidate")"
+    if [[ "$cand_basename" == "mariadb-dump" ]]; then
+      candidate_ok=1
+    elif [[ "$cand_basename" == "mysqldump" ]]; then
+      cand_ver_line="$("$candidate" --version 2>/dev/null || true)"
+      if printf "%s" "$cand_ver_line" | grep -iq 'mariadb'; then
+        candidate_ok=1
+      else
+        cand_ver="$(detect_dump_version "$candidate")"
+        cand_major="${cand_ver%%.*}"
+        cand_minor="${cand_ver#*.}"; cand_minor="${cand_minor%%.*}"
+        if [[ "${cand_major:-0}" -lt 8 ]] ||            { [[ "${cand_major:-0}" -eq 8 ]] && [[ "${cand_minor:-0}" -lt 4 ]]; }; then
+          candidate_ok=1
+        else
+          echo "WARNING: \$MARIADB_DUMP_BIN ($candidate) is mysqldump $cand_ver, which" >&2
+          echo "         issues SHOW BINARY LOG STATUS — incompatible with source ${src_version_full:-(< 8.4)}." >&2
+          echo "         Falling back to mariadb-dump. Unset MARIADB_DUMP_BIN to silence this warning." >&2
+        fi
+      fi
+    fi
+  fi
+  if [[ "$candidate_ok" -eq 1 ]]; then
+    chosen_dump="$candidate"
+  elif command -v mariadb-dump >/dev/null 2>&1; then
+    chosen_dump="mariadb-dump"
+  elif command -v mysqldump >/dev/null 2>&1; then
+    echo "mariadb-dump not found; using mysqldump."
+    chosen_dump="mysqldump"
+  else
+    echo "ERROR: neither mariadb-dump nor mysqldump found."
+    exit 2
+  fi
 fi
 MARIADB_DUMP_BIN="$chosen_dump"
 echo "Source MySQL: ${src_version_full:-unknown}  Dump tool: $MARIADB_DUMP_BIN"

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Define tool versioning
 MIG_TOOL_VERSION="1.0.0-beta"
-MIG_TOOL_BUILD="20260504"
+MIG_TOOL_BUILD="20260506"
 
 # Display professional welcome header
 cat << EOF
@@ -30,10 +30,12 @@ Migration modes:
 
   one_step  [OFFLINE]
       Tooling : mariadb-dump (schema + data, single pass)
+      Pipeline: Piped end-to-end. No disk staging on either host.
 
   two_step  [OFFLINE]
       Tooling : Step 1 (schema) - mariadb-dump
                 Step 2 (data)   - MariaDB Data migration tool (sqldata)
+      Pipeline: Streaming end-to-end. No disk staging on either host.
 
   binlog    [ONLINE]
       Tooling : mariadb-dump for initial snapshot, then MySQL binary log
@@ -49,12 +51,14 @@ Migration modes:
 
   one_step  [OFFLINE]
       Tooling : mariadb-dump (schema + data, single pass)
+      Pipeline: Piped end-to-end. No disk staging on either host.
       Caveat  : Writes to the source during migration may be lost. Stop
                 application traffic to the source for a consistent cutover.
 
   two_step  [OFFLINE]
       Tooling : Step 1 (schema) - mariadb-dump
                 Step 2 (data)   - MariaDB Data migration tool (sqldata)
+      Pipeline: Streaming end-to-end. No disk staging on either host.
       Caveat  : Writes to the source during migration may be lost. Stop
                 application traffic to the source for a consistent cutover.
 
@@ -913,7 +917,8 @@ ensure_db_client
 
 print_modes_briefing
 
-MODE="$(prompt "Mode (one_step|two_step|binlog|replace_slave)" "one_step")"
+#MODE="$(prompt "Mode (one_step|two_step|binlog|replace_slave)" "one_step")"
+MODE="$(prompt "Mode (one_step|two_step|binlog)" "one_step")"
 MODE="${MODE// /}"
 if [[ "$MODE" != "one_step" && "$MODE" != "two_step" && "$MODE" != "binlog" && "$MODE" != "inplace" && "$MODE" != "replace_slave" ]]; then
   echo "ERROR: mode must be one_step, two_step, binlog, inplace or replace_slave"
@@ -1428,7 +1433,7 @@ RUN_DIR_FILE=".migration_last_run"
 RUN_SIG_FILE=".migration_last_signature"
 STATUS=0
 
-RUN_DIR=""
+export RUN_DIR=""
 if [[ -f "$RUN_DIR_FILE" ]]; then
   RUN_DIR="$(cat "$RUN_DIR_FILE" | tr -d '\n')"
 fi

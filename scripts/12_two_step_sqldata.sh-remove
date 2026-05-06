@@ -126,20 +126,9 @@ restore_fk_checks() {
 trap restore_fk_checks EXIT
 
 if [[ "$TWO_STEP_KEEP_FK_CHECKS" != "1" ]]; then
-  echo "==> Attempting to disable target FOREIGN_KEY_CHECKS at GLOBAL scope"
-  # Best-effort: SUPER is reserved on managed targets (RDS, Aurora,
-  # MariaDB Cloud, Cloud SQL, Azure Database), so this will fail with
-  # error 1227 there. That's expected and non-fatal. The actual FK
-  # bypass for the load happens at the SESSION level inside each sqldata
-  # connection via -mysql_set_foreign_key_checks=0 (set in sqldata.cfg),
-  # which requires no special privilege.
-  if target_sql "SET GLOBAL FOREIGN_KEY_CHECKS=0;"; then
-    echo "    GLOBAL disable succeeded; will be restored on exit"
-    fk_was_set=1
-  else
-    echo "    GLOBAL disable failed (typical on managed targets without SUPER)."
-    echo "    Continuing with sqldata's session-level setting from sqldata.cfg."
-  fi
+  echo "==> Disabling target FOREIGN_KEY_CHECKS for sqldata load (will be restored on exit)"
+  target_sql "SET GLOBAL FOREIGN_KEY_CHECKS=0;"
+  fk_was_set=1
 else
   echo "==> TWO_STEP_KEEP_FK_CHECKS=1 set: leaving FK enforcement ON."
   echo "    Expect failures if the source schema has foreign-key relationships."
