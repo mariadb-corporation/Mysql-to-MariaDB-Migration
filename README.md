@@ -11,41 +11,52 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - Schema migration
 - Data migration
 - User & privilege migration
-- Authentication plugin Compatibility
+- Authentication plugin compatibility
 - Validation & rollback planning
 
 ## Supported Versions
-- MySQL: 5.7 and 8.0 (mode-dependent)
+- MySQL: 8.0, 8.4 (mode-dependent)
 - MariaDB: 11.x (LTS)
+- MariaDB Cloud as a target (validated for `staged`,`two_step` and `one_step`)
 
-Mode-specific note:
-- `inplace` currently supports only MySQL versions **below 8.0**.
-- MySQL 8.0 migrations should use `one_step`, `two_step`, `binlog`, or `replace_slave`.
+Mode-specific notes:
+- MySQL 8.0 / 8.4 migrations are supported via `one_step`, `two_step`, `binlog`, or `staged`.
+- Sources behind TLS-required endpoints (e.g. AWS RDS, Aurora) are supported via `SRC_SSL_MODE` for `one_step` and `staged`.
+
+## Migration modes at a glance
+
+| Mode | Type | Best for | Tooling |
+|---|---|---|---|
+| `one_step` | Offline | Smaller databases, standard maintenance windows | `mariadb-dump` piped to target `mariadb` |
+| `two_step` | Offline | Larger datasets needing schema-then-parallel-data | `mariadb-dump` (schema) + SQLines Data (parallel data) |
+| `binlog` | Online | Low-downtime cutover, ongoing replication | `mariadb-dump` snapshot + MySQL binlog replication into MariaDB |
+| `staged` | Offline | Source/target not network-reachable; deferred or two-host load | `mariadb-dump` → on-disk file (per-DB, compressed) → `mariadb` client |
 
 ## Prerequisites (required)
 - For `binlog`: MariaDB must be pre-installed on the target and configured per customer requirements.
-- For `one_step`, `two_step`, `replace_slave`, and `inplace`: the tool can install MariaDB using OS + version inputs when enabled.
+- For `one_step`, `two_step`, and `staged`: the tool can install MariaDB using OS + version inputs when enabled.
 - Python 3 is required on the orchestrator host to run the migration orchestrator/CLI workflow.
 - For `two_step`, SQLines Data (`sqldata`/`sqlinesdata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
 - SQLines Data may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
-- Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB.
+- Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB. (Exception: `staged` mode in `dump_only` or `load_only` phase only needs connectivity to one side.)
 - The orchestrator can run on a third host; SSH access to the target is required for validation.
 - The tool prompts for required inputs if not provided in config/env.
+- `pv` is recommended for live progress visibility but optional. When missing, `staged` falls back to a 60-second file-size probe and `one_step` falls back to a 60-second heartbeat.
 
 ## Prerequisites (user privileges)
 The tool expects valid privileges to already exist for the entered users.
 
 Admin users (`SRC_ADMIN_USER` / `TGT_ADMIN_USER`):
-- Must be able to connect from the orchestrator host.
+- Must be able to connect from the migration tools host.
 - Must be able to check/create/drop target database objects as needed by workflow.
 - Must be able to run dump/restore and configure replication where applicable.
 - In practice, this means admin-level privileges, including grant capability.
 
-Quick verification (run from orchestrator host):
+For TLS-required sources (RDS, Aurora):
 
 ```bash
-MYSQL_PWD='***' mysql --protocol=TCP -h<SRC_HOST> -P<SRC_PORT> -u<SRC_ADMIN_USER> -e "SELECT 1;"
-MYSQL_PWD='***' mysql --protocol=TCP -h<TGT_HOST> -P<TGT_PORT> -u<TGT_ADMIN_USER> -e "SELECT 1;"
+MYSQL_PWD='***' mysql --protocol=TCP -h<SRC_HOST> -P<SRC_PORT> -u<SRC_ADMIN_USER> \
+  --ssl-mode=VERIFY_IDENTITY --ssl-ca=/path/to/ca-bundle.pem -e "SELECT 1;"
 ```
 
 Optional grant inspection:
@@ -74,14 +85,16 @@ Notes:
 - This is a manual DBA pre/post step; the scripts do not toggle these globals automatically.
 
 ## Status
-In progress
+Beta. All six modes have been exercised end-to-end against representative source/target pairs. `staged` mode is the most recent addition and has been validated against AWS RDS sources and MariaDB Cloud targets.
 
 ## Migration playbooks
+
 ### One-step (dump/restore)
 Best for smaller databases and standard maintenance windows.
 - Uses `mariadb-dump` (or `mysqldump`) on source and streams to target `mariadb`.
 - Supports single DB (`SRC_DB`) or multi-DB (`SRC_DBS="db1,db2"`).
 - Strips DEFINER clauses by default to avoid permission errors on target.
+- Live progress: `pv` lines every 10s in `run.log`; falls back to a 60s heartbeat when `pv` is unavailable.
 
 ### Two-step (schema + parallel data)
 Best for larger datasets or tighter windows.
@@ -94,33 +107,38 @@ Best for low-downtime cutover.
 - Seeds target from a consistent dump snapshot with embedded binlog coordinates.
 - Starts MariaDB replication from MySQL binlog using `REPL_USER`/`REPL_PASS`.
 - Verifies replication thread health and lag after start.
+- For MySQL 8.4 sources, an upstream `mysqldump` ≥ 8.4 must be available (8.4 servers reject `SHOW MASTER STATUS`); the tool detects this and fails fast at preflight.
 
-### In-place (same host)
-Best for supported legacy MySQL versions where in-place replacement is allowed.
-- Runs preflight checks and backup.
-- Installs MariaDB on the same host based on `INPLACE_TARGET_OS` and `INPLACE_MARIADB_VERSION`.
-- Stops MySQL, starts MariaDB, and runs `mariadb-upgrade`.
-
-### Replace MySQL slave (same host)
-Best for replacing an existing MySQL slave host with MariaDB.
-- Verifies source primary and current slave status on target host.
-- Backs up current slave host, stops MySQL, installs/starts MariaDB using command hooks.
-- Seeds MariaDB and configures replication from MySQL source.
-- Supports optional cleanup of old MySQL data after successful validation.
+### Staged (offline two-phase via on-disk dump)
+Best when source and target are not directly network-reachable, or when a checkpoint between dump and load is desirable.
+- Phase-driven via `STAGED_PHASE`:
+  - `dump_and_load` (default): dump from source, then load to target on the same host
+  - `dump_only`: dump from source to a file directory, then exit (target untouched)
+  - `load_only`: load existing dumps into target (no source connection needed; DB list comes from the manifest)
+- Per-database compressed dumps (`<db>.sql.gz`) under `${RUN_DIR}/dumps/` by default, or a custom location set via `STAGED_DUMP_DIR`.
+- Manifest (`manifest.txt`) tracks per-DB SHA-256, byte size, and approximate row count.
+- SHA-256 verification at load time (default on, `STAGED_VERIFY_SHA256=1`).
+- Configurable per-DB parallelism (`STAGED_PARALLEL=4` default for dumps; sequential loads).
+- Post-load finalize step compares manifest vs. target `information_schema.tables`; hard-fails on missing/empty databases, soft-warns on row-count drift above `STAGED_FINALIZE_DRIFT_PCT` (default 50%).
+- Live progress: `pv` lines every 10s when available; otherwise a 60s file-size probe with bytes/elapsed/rate/percent.
+- Phase-aware completion banners: "DUMP COMPLETE" / "LOAD COMPLETE" / "MIGRATION SUCCESSFUL".
+- Auto-detects most recent `artifacts/run_staged_*/dumps/` as the `load_only` default — re-runs are one Enter press.
+- **Caveat**: offline mode. Writes to source during dump are not captured. Use `binlog` if downtime is unacceptable.
 
 ## Orchestrator usage
+
 Interactive (recommended):
 ```bash
-./migration
+./mariadb-migrator
 ```
 
-Orchestrator CLI (non-interactive):
+Non-interactive CLI:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r orchestrator/requirements.txt
 python -m orchestrator.migrationctl plan --config config/migration.yaml --mode one_step --out artifacts/plan
-python -m orchestrator.migrationctl run --config config/migration.yaml --mode one_step --out artifacts/run
+python -m orchestrator.migrationctl run  --config config/migration.yaml --mode one_step --out artifacts/run
 ```
 
 Plan:
@@ -138,15 +156,25 @@ Resume:
 python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode one_step --out artifacts/run
 ```
 
+### Watching live progress
+
+The orchestrator captures all script output to `run.log` rather than streaming it to your terminal. Each phase prints a `tail -f` hint you can paste into another shell:
+
+```
+==> Running: staged (out: artifacts/run_staged_20260507_154955)
+    Live progress: tail -f artifacts/run_staged_20260507_154955/run.log
+```
+
 Notes:
-- `./migration` runs assess → plan → run, and resumes automatically if a previous run failed.
-- `./migration` asks for source/target admin credentials at runtime; root is blocked by default unless `ALLOW_ROOT_USERS=1`.
+- `./mariadb-migrator` runs assess → plan → run, and resumes automatically if a previous run failed.
+- `./mariadb-migrator` asks for source/target admin credentials at runtime; root is blocked by default unless `ALLOW_ROOT_USERS=1`.
 - Saving `config/migration.yaml` is optional and defaults to `No`; if saved, passwords are redacted by default.
 
 ## One-step required envs (config/migration.yaml)
 Source:
 - `SRC_HOST`, `SRC_PORT`, `SRC_ADMIN_USER`, `SRC_ADMIN_PASS`
 - `SRC_DB` or `SRC_DBS` (comma-separated)
+- Optional: `SRC_SSL_MODE` (DISABLED|PREFERRED|REQUIRED|VERIFY_CA|VERIFY_IDENTITY) for TLS-required sources
 
 Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
@@ -184,49 +212,67 @@ Replication:
 - Optional: `BINLOG_COORD_FILE` (default: `artifacts/binlog_coords.env`)
 - Optional: `BINLOG_MAX_LAG_SECS` (default: `30`)
 
-## Replace-slave required envs (config/migration.yaml)
-Source:
-- `SRC_HOST`, `SRC_PORT`, `SRC_ADMIN_USER`, `SRC_ADMIN_PASS`
-- `SRC_DB` (single DB) or `SRC_DBS` (comma-separated)
+## Staged required envs (config/migration.yaml)
+Phase selector:
+- `STAGED_PHASE` (`dump_and_load` | `dump_only` | `load_only`, default `dump_and_load`)
 
-Target:
+Source (required for `dump_and_load` and `dump_only`):
+- `SRC_HOST`, `SRC_PORT`, `SRC_ADMIN_USER`, `SRC_ADMIN_PASS`
+- `SRC_DB` or `SRC_DBS` (comma-separated)
+- Optional: `SRC_SSL_MODE` for TLS-required sources
+
+Target (required for `dump_and_load` and `load_only`):
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
-- `TGT_SSH_HOST`, `TGT_SSH_USER`, `TGT_SSH_OPTS`
+- `TGT_SSH_HOST`, `TGT_SSH_USER`, `TGT_SSH_OPTS` (required when running from a third host)
+- `INSTALL_TARGET_MARIADB` (`0` or `1`, default `1`; auto-set to `0` for `dump_only`)
 
-Replication:
-- `REPL_USER`, `REPL_PASS`
+Dump configuration (optional):
+- `STAGED_DUMP_DIR` (default `${RUN_DIR}/dumps`; required for `load_only` to point at the manifest directory)
+- `STAGED_COMPRESS` (`1` default — gzip-compress the dump)
+- `STAGED_PV` (`1` default — show progress meter via `pv` or fallback probe)
+- `STAGED_PARALLEL` (`4` default — concurrent per-DB dumps)
+- `STAGED_LOAD_PARALLEL` (`1` default — concurrent per-DB loads)
+- `STAGED_VERIFY_SHA256` (`1` default — checksum each dump file before load)
+- `STAGED_DISK_HEADROOM_FACTOR` (`2` default — multiplier on source data size for the dump-volume free-space check)
+- `STAGED_FINALIZE_DRIFT_PCT` (`50` default — row-count drift threshold above which finalize emits a warning)
+- `STAGED_CONFIRM_OFFLINE` (set to bypass the interactive offline-acknowledgment prompt for non-interactive runs)
 
-Target host command hooks:
-- `REPLACE_BACKUP_CMD`
-- `REPLACE_STOP_MYSQL_CMD`
-- `REPLACE_UNINSTALL_MYSQL_CMD` (optional)
-- `REPLACE_TARGET_OS` (required)
-- `REPLACE_MARIADB_VERSION` (required, for example `11.8`)
-- `REPLACE_START_MARIADB_CMD`
-- `REPLACE_DELETE_OLD_MYSQL_DATA` (`0` or `1`)
-- `REPLACE_CLEANUP_CMD` (required when delete flag is `1`)
+Example: dump now, load later on a different host
 
-## In-place required envs (config/migration.yaml)
-Source:
-- `SRC_HOST`, `SRC_PORT`, `SRC_ADMIN_USER`, `SRC_ADMIN_PASS`
+```bash
+# On source host:
+STAGED_PHASE=dump_only STAGED_DUMP_DIR=/mnt/transfer/dumps ./mariadb-migrator
 
-In-place controls:
-- `INPLACE_BACKUP_DIR`
-- `INPLACE_EXECUTE` (`0` or `1`)
-- `INPLACE_TARGET_OS` (`ubuntu|debian|rocky|rhel|centos7|sles`)
-- `INPLACE_MARIADB_VERSION` (for example `11.8`)
-- `INPLACE_STOP_CMD`
-- `INPLACE_START_CMD`
-- `INPLACE_UPGRADE_CMD`
+# Transfer the directory:
+scp -r /mnt/transfer/dumps target-host:/mnt/load/
 
+# On target host:
+STAGED_PHASE=load_only STAGED_DUMP_DIR=/mnt/load/dumps ./mariadb-migrator
+```
 
 ## Multi-DB example
 ```yaml
 SRC_DBS: "sakila,world"
 ```
 
+## Testing
+
+A phase-equivalence test exists for `staged` mode under `tests/test_staged_phase_matrix.sh`. It runs `dump_and_load` once and `dump_only` + `load_only` separately against the same source, then compares target signatures (schema DDL via `mariadb-dump --no-data`, per-table `CHECKSUM TABLE`) to verify both paths produce identical targets.
+
+```bash
+SRC_HOST=... SRC_USER=... SRC_PASS=... \
+TGT_HOST=... TGT_USER=... TGT_PASS=... \
+TEST_DB=sakila \
+tests/test_staged_phase_matrix.sh
+```
+
 ## Notes
-- Use a fresh `--out` directory per run to avoid step skips.
-- Orchestrator mode: `python -m orchestrator.migrationctl plan/run --config config/migration.yaml --mode <one_step|two_step|binlog|replace_slave> --out artifacts/<dir>`
-- Safety default: migration fails if target DB already exists. Set `ALLOW_TARGET_DB_OVERWRITE=1` only when overwrite is intentional.
+- Use a fresh `--out` directory per run to avoid step skips. The interactive launcher (`./mariadb-migrator`) handles this automatically.
+- Orchestrator mode: `python -m orchestrator.migrationctl plan/run --config config/migration.yaml --mode <one_step|two_step|binlog|staged> --out artifacts/<dir>`
+- Safety default: migration fails if target DB already exists. Set `ALLOW_TARGET_DB_OVERWRITE=1` only when overwrite is intentional. Note that `staged` `load_only` derives its DB list from the manifest, so the same overwrite check applies before load begins.
+- Live progress: every long-running phase prints a `tail -f run.log` hint. Open another terminal and paste the command to watch dump/load progress in real time.
 - Platform coverage note: this tool has been tested primarily on Ubuntu and Rocky Linux. Support hooks are included for additional Linux flavors, but validate in your target environment before production use.
+
+## Known limitations
+- `staged` per-DB load resume is not supported in v1. If a load fails partway through a multi-DB run, drop the partially-loaded databases on the target and re-run with `STAGED_PHASE=load_only`.
+- `pv` fallback in `one_step` is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in `staged` mode where the dump is on disk.

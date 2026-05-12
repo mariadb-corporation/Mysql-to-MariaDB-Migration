@@ -81,18 +81,28 @@ def _prompt_env(env: Dict[str, str], key: str, prompt: str, secret: bool = False
 def _prompt_required_env(env: Dict[str, str], mode_value: str, non_interactive: bool) -> None:
     if non_interactive:
         return
-    _prompt_env(env, "SRC_HOST", "Source host")
-    _prompt_env(env, "SRC_PORT", "Source port")
-    if mode_value != "inplace" and not env.get("SRC_DB") and not env.get("SRC_DBS"):
-        dbs = typer.prompt("Source database(s) (comma-separated for multiple)")
-        if "," in dbs:
-            env["SRC_DBS"] = dbs
-        else:
-            env["SRC_DB"] = dbs
 
-    _prompt_env(env, "SRC_ADMIN_USER", "Source admin user")
-    _prompt_env(env, "SRC_ADMIN_PASS", "Source admin password", secret=True)
-    if mode_value != "inplace":
+    # For staged mode, the phase determines which side's prompts apply:
+    #   dump_and_load (default) — both source and target prompts
+    #   dump_only               — source prompts only (no target)
+    #   load_only               — target prompts only (no source); STAGED_DUMP_DIR required
+    staged_phase = env.get("STAGED_PHASE", "dump_and_load") if mode_value == "staged" else ""
+    skip_source = (staged_phase == "load_only")
+    skip_target = (staged_phase == "dump_only") or (mode_value == "inplace")
+
+    if not skip_source:
+        _prompt_env(env, "SRC_HOST", "Source host")
+        _prompt_env(env, "SRC_PORT", "Source port")
+        if mode_value != "inplace" and not env.get("SRC_DB") and not env.get("SRC_DBS"):
+            dbs = typer.prompt("Source database(s) (comma-separated for multiple)")
+            if "," in dbs:
+                env["SRC_DBS"] = dbs
+            else:
+                env["SRC_DB"] = dbs
+        _prompt_env(env, "SRC_ADMIN_USER", "Source admin user")
+        _prompt_env(env, "SRC_ADMIN_PASS", "Source admin password", secret=True)
+
+    if not skip_target:
         _prompt_env(env, "TGT_HOST", "Target host")
         _prompt_env(env, "TGT_PORT", "Target port")
         _prompt_env(env, "TGT_ADMIN_USER", "Target admin user")
@@ -111,6 +121,8 @@ def _prompt_required_env(env: Dict[str, str], mode_value: str, non_interactive: 
         _prompt_env(env, "INPLACE_BACKUP_DIR", "In-place backup directory")
         _prompt_env(env, "INPLACE_TARGET_OS", "In-place target OS (ubuntu|debian|rocky|rhel|centos7|sles)")
         _prompt_env(env, "INPLACE_MARIADB_VERSION", "In-place MariaDB version (for example 11.8)")
+    if mode_value == "staged" and staged_phase == "load_only":
+        _prompt_env(env, "STAGED_DUMP_DIR", "Path to existing dump directory (must contain manifest.txt)")
 
     # Admin-only flow: align migration creds with admin creds.
     if env.get("SRC_ADMIN_USER"):
@@ -143,6 +155,15 @@ def assess(
     report = Report(report_path, log_path)
 
     cfg = _load_yaml(config)
+    # Added by Manoj on 08May
+    # Phase-aware short-circuit: load_only has no source to assess. The
+    if os.environ.get("STAGED_PHASE") == "load_only":
+        report.start_run(mode="assessment", config_path=str(config))
+        report.log("Skipping assessment: STAGED_PHASE=load_only has no source in scope.")
+        report.finish_run(success=True, message="Skipped: load_only phase has no source to assess.")
+        typer.echo("ASSESSMENT: SKIPPED (load_only: no source in scope)")
+        return
+
     report.start_run(mode="assessment", config_path=str(config))
 
     try:
@@ -248,6 +269,36 @@ def plan(
                 raise typer.BadParameter(
                     "SRC/TGT admin and migration users must not be root. Set ALLOW_ROOT_USERS=1 to override."
                 )
+    if mode_value == "staged":
+        staged_phase = env.get("STAGED_PHASE", "dump_and_load")
+        if staged_phase not in ("dump_and_load", "dump_only", "load_only"):
+            raise typer.BadParameter(
+                f"Invalid STAGED_PHASE='{staged_phase}'. "
+                "Must be one of: dump_and_load, dump_only, load_only"
+            )
+        if staged_phase != "load_only":
+            _require_env(env, ["SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS"], mode_value)
+            if not (env.get("SRC_DB") or env.get("SRC_DBS")):
+                raise typer.BadParameter(
+                    f"Missing SRC_DB or SRC_DBS for staged ({staged_phase})."
+                )
+        if staged_phase != "dump_only":
+            _require_env(env, ["TGT_HOST", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"], mode_value)
+            install_target = str(env.get("INSTALL_TARGET_MARIADB", "1")).strip().lower() in ("1", "true", "yes", "y")
+            if install_target:
+                _require_env(env, ["TGT_SSH_HOST"], mode_value)
+        if staged_phase == "load_only":
+            _require_env(env, ["STAGED_DUMP_DIR"], mode_value)
+        if env.get("ALLOW_ROOT_USERS") not in ("1", "true", "TRUE", "True"):
+            if (
+                env.get("SRC_USER") == "root"
+                or env.get("TGT_USER") == "root"
+                or env.get("SRC_ADMIN_USER") == "root"
+                or env.get("TGT_ADMIN_USER") == "root"
+            ):
+                raise typer.BadParameter(
+                    "SRC/TGT admin and migration users must not be root. Set ALLOW_ROOT_USERS=1 to override."
+                )
     if mode_value == "inplace":
         _require_env(
             env,
@@ -339,6 +390,36 @@ def run(
                 ["TGT_SSH_HOST", "TGT_SSH_USER", "REPLACE_TARGET_OS", "REPLACE_MARIADB_VERSION"],
                 mode_value,
             )
+        if env.get("ALLOW_ROOT_USERS") not in ("1", "true", "TRUE", "True"):
+            if (
+                env.get("SRC_USER") == "root"
+                or env.get("TGT_USER") == "root"
+                or env.get("SRC_ADMIN_USER") == "root"
+                or env.get("TGT_ADMIN_USER") == "root"
+            ):
+                raise typer.BadParameter(
+                    "SRC/TGT admin and migration users must not be root. Set ALLOW_ROOT_USERS=1 to override."
+                )
+    if mode_value == "staged":
+        staged_phase = env.get("STAGED_PHASE", "dump_and_load")
+        if staged_phase not in ("dump_and_load", "dump_only", "load_only"):
+            raise typer.BadParameter(
+                f"Invalid STAGED_PHASE='{staged_phase}'. "
+                "Must be one of: dump_and_load, dump_only, load_only"
+            )
+        if staged_phase != "load_only":
+            _require_env(env, ["SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS"], mode_value)
+            if not (env.get("SRC_DB") or env.get("SRC_DBS")):
+                raise typer.BadParameter(
+                    f"Missing SRC_DB or SRC_DBS for staged ({staged_phase})."
+                )
+        if staged_phase != "dump_only":
+            _require_env(env, ["TGT_HOST", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"], mode_value)
+            install_target = str(env.get("INSTALL_TARGET_MARIADB", "1")).strip().lower() in ("1", "true", "yes", "y")
+            if install_target:
+                _require_env(env, ["TGT_SSH_HOST"], mode_value)
+        if staged_phase == "load_only":
+            _require_env(env, ["STAGED_DUMP_DIR"], mode_value)
         if env.get("ALLOW_ROOT_USERS") not in ("1", "true", "TRUE", "True"):
             if (
                 env.get("SRC_USER") == "root"

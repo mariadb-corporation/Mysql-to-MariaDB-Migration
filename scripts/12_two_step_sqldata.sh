@@ -126,34 +126,22 @@ restore_fk_checks() {
 trap restore_fk_checks EXIT
 
 if [[ "$TWO_STEP_KEEP_FK_CHECKS" != "1" ]]; then
-  echo "==> Attempting to disable target FOREIGN_KEY_CHECKS at GLOBAL scope"
-  # Best-effort: SUPER is reserved on managed targets (RDS, Aurora,
-  # MariaDB Cloud, Cloud SQL, Azure Database), so this will fail with
-  # error 1227 there. That's expected and non-fatal. The actual FK
-  # bypass for the load happens at the SESSION level inside each sqldata
-  # connection via -mysql_set_foreign_key_checks=0 (set in sqldata.cfg),
-  # which requires no special privilege.
-  if target_sql "SET GLOBAL FOREIGN_KEY_CHECKS=0;"; then
-    echo "    GLOBAL disable succeeded; will be restored on exit"
+	echo "==> Setting target FOREIGN_KEY_CHECKS=0 for the data load"
+if target_sql "SET GLOBAL FOREIGN_KEY_CHECKS=0;"; then
+    echo "    Disabled at GLOBAL scope; will be restored on exit"
     fk_was_set=1
-  else
-    echo "    GLOBAL disable failed (typical on managed targets without SUPER)."
-    echo "    Continuing with sqldata's session-level setting from sqldata.cfg."
-  fi
 else
-  echo "==> TWO_STEP_KEEP_FK_CHECKS=1 set: leaving FK enforcement ON."
-  echo "    Expect failures if the source schema has foreign-key relationships."
+    echo "    GLOBAL scope unavailable (managed target without SUPER) — using session scope."
+    echo "    Per-worker FK_CHECKS=0 is set by sqldata.cfg; no cleanup needed."
+fi
 fi
 
-# Sqldata transfer-option behavior (-topt). Defaults to 'truncate' so the
+# Sqldata transfer-option behavior (-topt). Defaults to 'none' so the
 # schema produced by step 1 (11_two_step_schema.sh, via mariadb-dump --no-data)
-# is preserved as-is -- only row data is loaded. Sqldata's DEFAULT is
-# 'recreate', which DROPs and re-CREATEs tables from MySQL source metadata,
-# clobbering the MariaDB-converted DDL (indexes, charsets, FKs, definers, etc.).
-#
-# Valid values: recreate | truncate | none | create | skipifexists
-# Reference: https://sqlines.com/sqldata_cmd  (-topt option)
-SQLDATA_TOPT="${SQLDATA_TOPT:-truncate}"
+# is preserved as-is -- only row data is loaded. 
+# Sqldata's DEFAULT is 'recreate', which DROPs and re-CREATEs tables from MySQL 
+# source metadata,truncate was considered, but with parallelism, it fails FK checks. 
+SQLDATA_TOPT="${SQLDATA_TOPT:-none}"
 
 for db in "${DB_LIST[@]}"; do
   db="${db// /}"
