@@ -33,13 +33,13 @@ Mode-specific notes:
 | `staged` | Offline | Source/target not network-reachable; deferred or two-host load | `mariadb-dump` → on-disk file (per-DB, compressed) → `mariadb` client |
 
 ## Prerequisites (required)
-- For `binlog`: MariaDB must be pre-installed on the target and configured per customer requirements.
-- For `one_step`, `two_step`, and `staged`: the tool can install MariaDB using OS + version inputs when enabled.
+- **MariaDB must be installed and running on the target host before running the tool.** The tool verifies the target version during preflight but does not install MariaDB. This is a deliberate scope reduction as of v1.1.0-beta; install support remains in the codebase for backward compatibility but is deprecated and will be removed in a future release.
+- For `binlog`: MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
 - Python 3 is required on the orchestrator host to run the migration orchestrator/CLI workflow.
 - For `two_step`, SQLines Data (`sqldata`/`sqlinesdata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
 - SQLines Data may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
 - Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB. (Exception: `staged` mode in `dump_only` or `load_only` phase only needs connectivity to one side.)
-- The orchestrator can run on a third host; SSH access to the target is required for validation.
+- The orchestrator can run on a third host; SSH access to the target is only required for the deprecated install path and for `replace_slave` mode.
 - The tool prompts for required inputs if not provided in config/env.
 - `pv` is recommended for live progress visibility but optional. When missing, `staged` falls back to a 60-second file-size probe and `one_step` falls back to a 60-second heartbeat.
 
@@ -124,6 +124,7 @@ Best when source and target are not directly network-reachable, or when a checkp
 - Phase-aware completion banners: "DUMP COMPLETE" / "LOAD COMPLETE" / "MIGRATION SUCCESSFUL".
 - Auto-detects most recent `artifacts/run_staged_*/dumps/` as the `load_only` default — re-runs are one Enter press.
 - **Caveat**: offline mode. Writes to source during dump are not captured. Use `binlog` if downtime is unacceptable.
+- **Caveat**: target connections currently negotiate TLS where the server requires it (e.g. MariaDB Cloud), but server-certificate verification is not yet configurable on the target side. Connections are encrypted in transit but not authenticated against a trusted CA. Source-side TLS verification works as expected via `SRC_SSL_MODE`. Configurable target TLS is planned for a future release.
 
 ## Orchestrator usage
 
@@ -170,6 +171,12 @@ Notes:
 - `./mariadb-migrator` asks for source/target admin credentials at runtime; root is blocked by default unless `ALLOW_ROOT_USERS=1`.
 - Saving `config/migration.yaml` is optional and defaults to `No`; if saved, passwords are redacted by default.
 
+## Environment variables
+
+For a complete reference of all variables consumed by the tool — grouped by section (source, target, mode-specific) with defaults and descriptions — see [`docs/environment-variables.md`](docs/environment-variables.md).
+
+The sections below list the variables **required** to run each mode. Defaults and optional tuning variables are in the reference doc.
+
 ## One-step required envs (config/migration.yaml)
 Source:
 - `SRC_HOST`, `SRC_PORT`, `SRC_ADMIN_USER`, `SRC_ADMIN_PASS`
@@ -178,10 +185,6 @@ Source:
 
 Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
-- `TGT_SSH_HOST`, `TGT_SSH_USER`, `TGT_SSH_OPTS` (required when running from a third host)
-- `INSTALL_TARGET_MARIADB` (`0` or `1`, default `1`)
-- `TARGET_INSTALL_OS` (required when install flag is `1`)
-- `TARGET_MARIADB_VERSION` (required when install flag is `1`)
 
 ## Two-step required envs (config/migration.yaml)
 Source:
@@ -190,10 +193,6 @@ Source:
 
 Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
-- `TGT_SSH_HOST`, `TGT_SSH_USER`, `TGT_SSH_OPTS` (if running from a third host)
-- `INSTALL_TARGET_MARIADB` (`0` or `1`, default `1`)
-- `TARGET_INSTALL_OS` (required when install flag is `1`)
-- `TARGET_MARIADB_VERSION` (required when install flag is `1`)
 
 Optional:
 - `SQLINESDATA_BIN` (auto-detected: `sqldata` then `sqlinesdata`)
@@ -223,8 +222,6 @@ Source (required for `dump_and_load` and `dump_only`):
 
 Target (required for `dump_and_load` and `load_only`):
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
-- `TGT_SSH_HOST`, `TGT_SSH_USER`, `TGT_SSH_OPTS` (required when running from a third host)
-- `INSTALL_TARGET_MARIADB` (`0` or `1`, default `1`; auto-set to `0` for `dump_only`)
 
 Dump configuration (optional):
 - `STAGED_DUMP_DIR` (default `${RUN_DIR}/dumps`; required for `load_only` to point at the manifest directory)
@@ -276,3 +273,4 @@ tests/test_staged_phase_matrix.sh
 ## Known limitations
 - `staged` per-DB load resume is not supported in v1. If a load fails partway through a multi-DB run, drop the partially-loaded databases on the target and re-run with `STAGED_PHASE=load_only`.
 - `pv` fallback in `one_step` is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in `staged` mode where the dump is on disk.
+- Target-side TLS verification is not yet configurable. Connections to TLS-required targets (e.g. MariaDB Cloud) are encrypted but not server-verified. Source-side TLS works as expected via `SRC_SSL_MODE`.
