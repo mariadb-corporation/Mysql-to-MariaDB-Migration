@@ -117,9 +117,9 @@ Best when source and target are not directly network-reachable, or when a checkp
   - `load_only`: load existing dumps into target (no source connection needed; DB list comes from the manifest)
 - Per-database compressed dumps (`<db>.sql.gz`) under `${RUN_DIR}/dumps/` by default, or a custom location set via `STAGED_DUMP_DIR`.
 - Manifest (`manifest.txt`) tracks per-DB SHA-256, byte size, and approximate row count.
-- SHA-256 verification at load time (default on, `STAGED_VERIFY_SHA256=1`).
+- Per-file checksum verification at load time (default on, `STAGED_VERIFY_CHECKSUM=1`). Internally a SHA-256 hash; named "checksum" in customer-facing output to avoid confusion with MariaDB authentication plugins like `caching_sha2_password`.
 - Configurable per-DB parallelism (`STAGED_PARALLEL=4` default for dumps; sequential loads).
-- Post-load finalize step compares manifest vs. target `information_schema.tables`; hard-fails on missing/empty databases, soft-warns on row-count drift above `STAGED_FINALIZE_DRIFT_PCT` (default 50%).
+- Post-load finalize step compares manifest vs. target `information_schema.tables`; hard-fails on missing/empty databases, soft-warns on row-count variance above `STAGED_FINALIZE_VARIANCE_PCT` (default 50%). Both source and target row counts are InnoDB sampled estimates; small variance is expected and does not indicate data loss.
 - Live progress: `pv` lines every 10s when available; otherwise a 60s file-size probe with bytes/elapsed/rate/percent.
 - Phase-aware completion banners: "DUMP COMPLETE" / "LOAD COMPLETE" / "MIGRATION SUCCESSFUL".
 - Auto-detects most recent `artifacts/run_staged_*/dumps/` as the `load_only` default — re-runs are one Enter press.
@@ -232,9 +232,9 @@ Dump configuration (optional):
 - `STAGED_PV` (`1` default — show progress meter via `pv` or fallback probe)
 - `STAGED_PARALLEL` (`4` default — concurrent per-DB dumps)
 - `STAGED_LOAD_PARALLEL` (`1` default — concurrent per-DB loads)
-- `STAGED_VERIFY_SHA256` (`1` default — checksum each dump file before load)
+- `STAGED_VERIFY_CHECKSUM` (`1` default — file-integrity checksum each dump file before load; alias: `STAGED_VERIFY_SHA256`, deprecated)
 - `STAGED_DISK_HEADROOM_FACTOR` (`2` default — multiplier on source data size for the dump-volume free-space check)
-- `STAGED_FINALIZE_DRIFT_PCT` (`50` default — row-count drift threshold above which finalize emits a warning)
+- `STAGED_FINALIZE_VARIANCE_PCT` (`50` default — row-count variance threshold above which finalize emits a warning; alias: `STAGED_FINALIZE_DRIFT_PCT`, deprecated)
 - `STAGED_CONFIRM_OFFLINE` (set to bypass the interactive offline-acknowledgment prompt for non-interactive runs)
 
 Example: dump now, load later on a different host

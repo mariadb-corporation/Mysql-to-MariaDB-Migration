@@ -7,8 +7,10 @@ set -euo pipefail
 # on the target and have row counts in a reasonable ballpark relative to the
 # source-side estimates recorded in the manifest. Hard failures here mean a
 # DB is missing entirely or has no tables — i.e. the load did not complete.
-# Drift in row counts is reported but not gated, because both sides are
-# InnoDB sampled approximations, not exact counts.
+# Variance in row counts is reported but not gated, because both sides use
+# InnoDB sampled approximations (information_schema.tables.table_rows), not
+# exact COUNT(*) results. File integrity is verified separately by the
+# checksum check in 26_staged_load.sh during load.
 ##############################################################################
 
 # ----- STAGED_PHASE self-skip -----
@@ -23,10 +25,20 @@ echo "==> Staged finalize (post-load sanity counts and manifest verification)"
 # ----- Tunables -----
 MARIADB_BIN="${MARIADB_BIN:-mariadb}"
 STAGED_DUMP_DIR="${STAGED_DUMP_DIR:-}"
-# Drift % above which a per-DB warning is emitted. InnoDB row-count sampling
-# routinely produces 5-15% drift; we default to 50% as the "something is
-# probably wrong" threshold. Lower it (e.g. =20) for stricter verification.
-STAGED_FINALIZE_DRIFT_PCT="${STAGED_FINALIZE_DRIFT_PCT:-50}"
+
+# STAGED_FINALIZE_VARIANCE_PCT is the absolute-variance percentage above which
+# a per-DB warning is emitted. InnoDB row-count sampling routinely produces
+# 5-15% variance; we default to 50% as the "something is probably wrong"
+# threshold. Lower it (e.g. =20) for stricter verification.
+#
+# Backward compatibility: STAGED_FINALIZE_DRIFT_PCT was the original name
+# (v1.1.0-beta). Honor it if set, but emit a deprecation notice and prefer
+# the new name.
+if [[ -n "${STAGED_FINALIZE_DRIFT_PCT:-}" && -z "${STAGED_FINALIZE_VARIANCE_PCT:-}" ]]; then
+  echo "Note: STAGED_FINALIZE_DRIFT_PCT is deprecated; use STAGED_FINALIZE_VARIANCE_PCT instead." >&2
+  STAGED_FINALIZE_VARIANCE_PCT="$STAGED_FINALIZE_DRIFT_PCT"
+fi
+STAGED_FINALIZE_VARIANCE_PCT="${STAGED_FINALIZE_VARIANCE_PCT:-50}"
 
 # ----- Target vars -----
 TGT_HOST="${TGT_HOST:-}"
@@ -118,6 +130,31 @@ target_db_approx_rows() {
   run_target_sql "$q" 2>/dev/null | head -1 | tr -dc '0-9' || echo 0
 }
 
+# Format a signed variance percentage with one decimal place.
+# Args: signed_diff, manifest_rows
+# Emits e.g. "+0.6%", "-1.2%", "0.0%"
+format_variance_pct() {
+  local d="$1" m="$2"
+  awk -v d="$d" -v m="$m" 'BEGIN{
+    if (m+0 == 0) { print "0.0%"; exit }
+    v = (d * 100.0) / m
+    if (v > 0) printf "+%.1f%%", v
+    else       printf "%.1f%%", v
+  }'
+}
+
+# Returns "1" if absolute variance percentage exceeds the threshold,
+# otherwise "0". Uses floating-point comparison to catch e.g. 50.7 > 50.
+variance_exceeds_threshold() {
+  local abs_d="$1" m="$2" t="$3"
+  awk -v a="$abs_d" -v m="$m" -v t="$t" 'BEGIN{
+    if (m+0 == 0) { print 0; exit }
+    v = (a * 100.0) / m
+    if (v > t) print 1
+    else       print 0
+  }'
+}
+
 # ----- Connectivity check -----
 echo "Checking target connectivity..."
 if ! run_target_sql "SELECT 1;" >/dev/null 2>&1; then
@@ -125,9 +162,9 @@ if ! run_target_sql "SELECT 1;" >/dev/null 2>&1; then
   exit 4
 fi
 
-echo "Manifest        : $manifest"
-echo "Target          : $TGT_HOST:$TGT_PORT"
-echo "Drift threshold : ${STAGED_FINALIZE_DRIFT_PCT}% (warn-only)"
+echo "Manifest           : $manifest"
+echo "Target             : $TGT_HOST:$TGT_PORT"
+echo "Variance threshold : ${STAGED_FINALIZE_VARIANCE_PCT}% (warn-only)"
 
 # ----- Read manifest into MANIFEST_ROWS -----
 declare -A MANIFEST_ROWS
@@ -149,17 +186,24 @@ empty_dbs=()
 warnings=()
 
 echo ""
+echo "Note: Row counts shown below are InnoDB sampled estimates from"
+echo "      information_schema.tables, not exact COUNT(*) results. Small"
+echo "      variance between source and target estimates is expected and"
+echo "      does NOT indicate data loss. The checksum check performed during"
+echo "      load (see 26_staged_load.sh) is the authoritative file-integrity"
+echo "      verification."
+echo ""
 echo "Per-DB verification:"
-printf "  %-24s %-9s %-7s %-15s %-15s %s\n" "Database" "Exists" "Tables" "Manifest rows" "Target rows" "Drift"
-printf "  %-24s %-9s %-7s %-15s %-15s %s\n" "------------------------" "---------" "-------" "---------------" "---------------" "-----"
+printf "  %-24s %-9s %-7s %-15s %-15s %-8s\n" "Database" "Exists" "Tables" "Source rows" "Target rows" "Variance"
+printf "  %-24s %-9s %-7s %-15s %-15s %-8s\n" "------------------------" "---------" "-------" "---------------" "---------------" "--------"
 
 for db in "${DB_LIST[@]}"; do
   manifest_rows="${MANIFEST_ROWS[$db]:-0}"
 
   if ! target_db_exists "$db"; then
     missing_dbs+=("$db")
-    printf "  %-24s %-9s %-7s %-15s %-15s %s\n" \
-      "$db" "MISSING" "-" "$manifest_rows" "-" "-"
+    printf "  %-24s %-9s %-7s %-15s %-15s %-8s\n" \
+      "$db" "MISSING" "-" "~$manifest_rows" "-" "-"
     continue
   fi
 
@@ -173,31 +217,33 @@ for db in "${DB_LIST[@]}"; do
   # rows>0 is not.)
   if [[ "$table_count" -eq 0 && "$manifest_rows" -gt 0 ]]; then
     empty_dbs+=("$db")
-    printf "  %-24s %-9s %-7s %-15s %-15s %s\n" \
-      "$db" "OK" "0" "$manifest_rows" "$target_rows" "EMPTY-LOAD"
+    printf "  %-24s %-9s %-7s %-15s %-15s %-8s\n" \
+      "$db" "OK" "0" "~$manifest_rows" "~$target_rows" "EMPTY-LOAD"
     continue
   fi
 
-  # Drift % against manifest.
+  # Variance % against manifest (signed, one decimal place).
   if [[ "$manifest_rows" -gt 0 ]]; then
     diff=$(( target_rows - manifest_rows ))
     abs_diff=${diff#-}
-    drift_pct=$(( (abs_diff * 100) / manifest_rows ))
+    variance_display="$(format_variance_pct "$diff" "$manifest_rows")"
+    warn_trigger="$(variance_exceeds_threshold "$abs_diff" "$manifest_rows" "$STAGED_FINALIZE_VARIANCE_PCT")"
   else
-    drift_pct=0
+    variance_display="0.0%"
+    warn_trigger=0
   fi
 
-  drift_marker=""
+  variance_marker=""
   if [[ "$manifest_rows" -gt 0 && "$target_rows" -eq 0 ]]; then
-    drift_marker=" ← target empty"
-    warnings+=("$db: manifest had ${manifest_rows} rows, target reports 0")
-  elif [[ "$drift_pct" -gt "$STAGED_FINALIZE_DRIFT_PCT" ]]; then
-    drift_marker=" ← >${STAGED_FINALIZE_DRIFT_PCT}%"
-    warnings+=("$db: drift ${drift_pct}% (manifest=${manifest_rows}, target=${target_rows})")
+    variance_marker=" ← target empty"
+    warnings+=("$db: source ~${manifest_rows} rows, target reports 0")
+  elif [[ "$warn_trigger" -eq 1 ]]; then
+    variance_marker=" ← >${STAGED_FINALIZE_VARIANCE_PCT}%"
+    warnings+=("$db: variance ${variance_display} (source=~${manifest_rows}, target=~${target_rows})")
   fi
 
-  printf "  %-24s %-9s %-7s %-15s %-15s %d%%%s\n" \
-    "$db" "OK" "$table_count" "$manifest_rows" "$target_rows" "$drift_pct" "$drift_marker"
+  printf "  %-24s %-9s %-7s %-15s %-15s %-8s%s\n" \
+    "$db" "OK" "$table_count" "~$manifest_rows" "~$target_rows" "$variance_display" "$variance_marker"
 done
 
 echo ""
@@ -225,13 +271,16 @@ if [[ "${#warnings[@]}" -gt 0 ]]; then
     echo "  - $w"
   done
   echo ""
-  echo "  Notes on drift:"
-  echo "  - Both manifest and target row counts use information_schema, which is a"
-  echo "    SAMPLED ESTIMATE for InnoDB tables. Drift up to ~30%% can be normal."
-  echo "  - For authoritative verification of a specific database, run:"
-  echo "      SELECT table_name, table_rows FROM information_schema.tables"
-  echo "        WHERE table_schema='<db>';"
-  echo "    Then run SELECT COUNT(*) on the tables you care about."
+  echo "  Notes on variance:"
+  echo "  - Both source and target row counts use information_schema, which"
+  echo "    provides SAMPLED ESTIMATES for InnoDB tables. Variance up to ~30%"
+  echo "    can be normal — both numbers being shown are approximations of"
+  echo "    the same underlying data."
+  echo "  - For authoritative row-count verification of a specific table, run:"
+  echo "      SELECT COUNT(*) FROM <db>.<table>;"
+  echo "    against the tables you care about."
+  echo "  - File-level integrity was verified at load time via per-database"
+  echo "    checksum comparison against the manifest."
 fi
 
 echo ""

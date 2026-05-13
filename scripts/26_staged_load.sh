@@ -33,7 +33,19 @@ GZIP_BIN="${GZIP_BIN:-gzip}"
 GUNZIP_BIN="${GUNZIP_BIN:-gunzip}"
 STAGED_DUMP_DIR="${STAGED_DUMP_DIR:-}"
 STAGED_PV="${STAGED_PV:-1}"
-STAGED_VERIFY_SHA256="${STAGED_VERIFY_SHA256:-1}"
+
+# STAGED_VERIFY_CHECKSUM controls per-file integrity verification at load time.
+# The check uses SHA-256 internally (the manifest stores SHA-256 hashes), but
+# the customer-facing name avoids collision with MariaDB authentication plugins
+# like caching_sha2_password and sha256_password.
+#
+# Backward compatibility: STAGED_VERIFY_SHA256 was the original name (v1.1.0-beta).
+# Honor it if set, but emit a deprecation notice and prefer the new name.
+if [[ -n "${STAGED_VERIFY_SHA256:-}" && -z "${STAGED_VERIFY_CHECKSUM:-}" ]]; then
+  echo "Note: STAGED_VERIFY_SHA256 is deprecated; use STAGED_VERIFY_CHECKSUM instead." >&2
+  STAGED_VERIFY_CHECKSUM="$STAGED_VERIFY_SHA256"
+fi
+STAGED_VERIFY_CHECKSUM="${STAGED_VERIFY_CHECKSUM:-1}"
 
 # Note: load is sequential by design.
 #   - All loads target the same target server, so the bottleneck is target
@@ -146,7 +158,7 @@ echo "Dump dir         : $STAGED_DUMP_DIR"
 echo "Manifest         : $manifest"
 echo "Source @ dump    : ${src_version_at_dump:-unknown}"
 echo "Compressed dumps : $([[ "$compressed_flag" == "1" ]] && echo "yes" || echo "no")"
-echo "Verify sha256    : $([[ "$STAGED_VERIFY_SHA256" == "1" ]] && echo "yes" || echo "no (skipped)")"
+echo "Verify checksum  : $([[ "$STAGED_VERIFY_CHECKSUM" == "1" ]] && echo "yes" || echo "no (skipped)")"
 echo "Progress         : $([[ "$PV_OK" -eq 1 ]] && echo "pv" || echo "off")"
 echo "Parallel         : $effective_parallel of ${#DB_LIST[@]} DB(s)"
 echo "Databases        : ${DB_LIST[*]}"
@@ -155,10 +167,13 @@ LOG_DIR="${STAGED_DUMP_DIR}/.logs"
 mkdir -p "$LOG_DIR"
 
 # ----- Helpers -----
-verify_sha256() {
+# Internally this is a SHA-256 check, but we present it to the customer as a
+# "checksum" to avoid confusion with caching_sha2_password / sha256_password
+# authentication. See header comment on STAGED_VERIFY_CHECKSUM above.
+verify_checksum() {
   local file="$1" expected="$2"
   if [[ "$expected" == "unknown" || -z "$expected" ]]; then
-    echo "    sha256: skipped (manifest entry is 'unknown')"
+    echo "    checksum: skipped (manifest entry is 'unknown')"
     return 0
   fi
   local actual
@@ -167,13 +182,13 @@ verify_sha256() {
     actual="$(shasum -a 256 "$file" 2>/dev/null | awk '{print $1}')"
   fi
   if [[ "$actual" != "$expected" ]]; then
-    echo "ERROR: sha256 mismatch" >&2
+    echo "ERROR: checksum mismatch (file integrity check failed)" >&2
     echo "  file:     $file" >&2
     echo "  expected: $expected" >&2
     echo "  actual:   ${actual:-<could not compute>}" >&2
     return 1
   fi
-  echo "    sha256: OK"
+  echo "    checksum: OK"
   return 0
 }
 
@@ -193,8 +208,8 @@ load_one_db() {
     return 4
   fi
 
-  if [[ "$STAGED_VERIFY_SHA256" == "1" ]]; then
-    verify_sha256 "$dump_file" "$expected_sha" || return 5
+  if [[ "$STAGED_VERIFY_CHECKSUM" == "1" ]]; then
+    verify_checksum "$dump_file" "$expected_sha" || return 5
   fi
 
   db_start=$(date +%s)
