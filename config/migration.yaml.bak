@@ -1,13 +1,13 @@
-mode: "binlog"
+mode: "staged"
 
 env:
   # Source
-  SRC_HOST: "mdb-mysql80"
+  SRC_HOST: "database-2.clkism0gmbhz.ap-south-1.rds.amazonaws.com"
   SRC_PORT: "3306"
   SRC_USER: "mig_demo"
   SRC_PASS: ""
   # SRC_DB: "sakila"
-  SRC_DBS: ""
+  SRC_DBS: "sakila_mig_copy, sakila_migrate"
   SRC_SSL_MODE: "DISABLED"  # DISABLED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
   SRC_ADMIN_USER: "mig_demo"
   SRC_ADMIN_PASS: ""

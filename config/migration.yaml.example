@@ -1,5 +1,4 @@
 mode: "one_step"
-
 env:
   # Source
   SRC_HOST: "source-db-host"
@@ -11,7 +10,6 @@ env:
   SRC_SSL_MODE: "DISABLED"  # DISABLED | REQUIRED | VERIFY_CA | VERIFY_IDENTITY
   SRC_ADMIN_USER: "admin"
   SRC_ADMIN_PASS: ""
-
   # Target
   TGT_HOST: "target-db-host"
   TGT_PORT: "3306"
@@ -22,18 +20,12 @@ env:
   TGT_SSH_HOST: "target-ssh-host"
   TGT_SSH_USER: "root"
   TGT_SSH_OPTS: "-o StrictHostKeyChecking=no"
-
   # User migration
   MIGRATE_APP_USERS: "0"
-  INSTALL_TARGET_MARIADB: "1"
-  TARGET_INSTALL_OS: "ubuntu"
-  TARGET_MARIADB_VERSION: "11.8"
   APP_USER_DEFAULT_PASSWORD: ""
-
   # Replication (binlog / replace_slave)
   REPL_USER: "repl"
   REPL_PASS: ""
-
   # In-place
   INPLACE_BACKUP_DIR: "artifacts/inplace_backup"
   INPLACE_EXECUTE: "0"
@@ -42,7 +34,6 @@ env:
   INPLACE_STOP_CMD: "sudo systemctl stop mysql || sudo systemctl stop mysqld"
   INPLACE_START_CMD: "sudo systemctl start mariadb || sudo systemctl start mysql"
   INPLACE_UPGRADE_CMD: "mariadb-upgrade"
-
   # Replace-slave
   REPLACE_BACKUP_CMD: "sudo tar -czf /tmp/mysql_slave_backup_$(date +%Y%m%d_%H%M%S).tgz /var/lib/mysql /etc/mysql /etc/my.cnf 2>/dev/null || true"
   REPLACE_STOP_MYSQL_CMD: "sudo systemctl stop mysql || sudo systemctl stop mysqld"
@@ -56,3 +47,8 @@ env:
   REPLACE_TARGET_ADMIN_HOST_PATTERN: "%"
   REPLACE_DELETE_OLD_MYSQL_DATA: "0"
   REPLACE_CLEANUP_CMD: ""
+# Staged
+  STAGED_PHASE: ""
+  STAGED_COMPRESS: "1"
+  STAGED_PV: "1"
+  STAGED_PARALLEL: "4"

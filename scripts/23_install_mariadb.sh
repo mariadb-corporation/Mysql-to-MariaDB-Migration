@@ -8,6 +8,15 @@ TGT_SSH_USER="${TGT_SSH_USER:-root}"
 TGT_SSH_OPTS="${TGT_SSH_OPTS:--o StrictHostKeyChecking=no}"
 TGT_HOST="${TGT_HOST:-}"
 TGT_PORT="${TGT_PORT:-3306}"
+# Install support is deprecated as of v1.1.0-beta. MariaDB must be pre-installed
+#INSTALL_TARGET_MARIADB="${INSTALL_TARGET_MARIADB:-1}"
+INSTALL_TARGET_MARIADB="${INSTALL_TARGET_MARIADB:-0}"
+if [[ "$INSTALL_TARGET_MARIADB" == "1" ]]; then
+  echo "WARNING: INSTALL_TARGET_MARIADB=1 is deprecated. MariaDB should be"
+  echo "         pre-installed on the target host. This code path will be"
+  echo "         removed in a future release. See README prerequisites." >&2
+fi
+
 TGT_ADMIN_USER="${TGT_ADMIN_USER:-}"
 TGT_ADMIN_PASS="${TGT_ADMIN_PASS:-}"
 

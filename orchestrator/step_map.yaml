@@ -19,7 +19,6 @@ modes:
     - precheck_only
     - two_step_schema
     - two_step_data
-    - two_step_finalize
     - validate
 
   binlog:
@@ -46,6 +45,18 @@ modes:
     - binlog_replication
     - binlog_verify
     - replace_slave_cleanup
+
+  staged:
+    # Offline two-phase: dump source → disk → load to target.
+    # The dump/load/finalize scripts self-skip via STAGED_PHASE so a single
+    # mode entry covers dump_and_load (default), dump_only, and load_only.
+    # target_install no-ops via INSTALL_TARGET_MARIADB=0, which mariadb-migrator
+    # forces for STAGED_PHASE=dump_only.
+    - target_install
+    - staged_prepare
+    - staged_dump
+    - staged_load
+    - staged_finalize
 
 phases:
   precheck_only:
@@ -188,4 +199,28 @@ phases:
     - id: replace_slave_cleanup_old_mysql
       name: Optional cleanup of old MySQL data on replaced slave host
       script: scripts/24_replace_slave_cleanup.sh
+      args: []
+
+  staged_prepare:
+    - id: preflight_staged
+      name: Preflight checks (staged)
+      script: scripts/00_preflight_staged.sh
+      args: []
+
+  staged_dump:
+    - id: staged_dump
+      name: Dump source DB(s) to disk (mariadb-dump | pv | gzip)
+      script: scripts/25_staged_dump.sh
+      args: []
+
+  staged_load:
+    - id: staged_load
+      name: Load dump file(s) into target (gunzip | pv | mariadb)
+      script: scripts/26_staged_load.sh
+      args: []
+
+  staged_finalize:
+    - id: staged_finalize
+      name: Post-load sanity counts and manifest verification
+      script: scripts/27_staged_finalize.sh
       args: []

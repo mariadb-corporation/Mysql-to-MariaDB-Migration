@@ -116,7 +116,11 @@ echo "Target: $TGT_HOST:$TGT_PORT"
 
 PIPE_CMD=()
 if command -v "$PV_BIN" >/dev/null 2>&1; then
-  PIPE_CMD=( "$PV_BIN" -pet )
+  # -f -i 10: force output and emit a progress line every 10 seconds even
+  # when stderr is not a TTY. The orchestrator (runner.py) pipes both
+  # stdout and stderr to run.log, which would otherwise suppress pv's
+  # interactive progress bar. tail -f run.log to watch live.
+  PIPE_CMD=( "$PV_BIN" -pet -f -i 10 )
 fi
 
 SRC_SSL_ARGS=()
@@ -132,8 +136,24 @@ if [[ -n "$SRC_SSL_MODE" ]]; then
   fi
 fi
 
+PROBE_PID=""
 if [[ "${#PIPE_CMD[@]}" -eq 0 ]]; then
-  echo "pv not found; running without progress meter."
+  echo "Note: pv not found; emitting heartbeat every 60s instead."
+  # Background heartbeat. Prints elapsed-time markers so the operator (and
+  # tail -f viewers) can see the script is alive during long dump/load
+  # pipelines. We can't report bytes here because one_step has no on-disk
+  # file to stat — data goes mariadb-dump → mariadb client over a pipe.
+  (
+    start=$(date +%s)
+    while true; do
+      sleep 60
+      elapsed=$(( $(date +%s) - start ))
+      printf "still running... %ds elapsed\n" "$elapsed"
+    done
+  ) &
+  PROBE_PID=$!
+  # shellcheck disable=SC2064  # intentional early expansion of $PROBE_PID
+  trap "[[ -n \"$PROBE_PID\" ]] && kill $PROBE_PID 2>/dev/null; wait $PROBE_PID 2>/dev/null; trap - EXIT" EXIT
 fi
 
 set -o pipefail
