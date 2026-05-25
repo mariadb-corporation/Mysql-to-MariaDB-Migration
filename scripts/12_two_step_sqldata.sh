@@ -148,13 +148,13 @@ for db in "${DB_LIST[@]}"; do
   [[ -z "$db" ]] && continue
   db_out_dir="$SQLINES_OUT_DIR/$db"
   mkdir -p "$db_out_dir"
+#    -ss=6 \
   "$SQLINESDATA_BIN" \
     "-sd=mysql,${SRC_USER}/${SRC_PASS}@${SRC_HOST}:${SRC_PORT}/${db}" \
     "-td=mariadb,${TGT_USER}/${TGT_PASS}@${TGT_HOST}:${TGT_PORT}/${db}" \
     "-smap=${db}:${db}" \
     "-out=$db_out_dir" \
     "-log=$db_out_dir/sqldata.log" \
-    -ss=6 \
     "-t=${db}.*" \
     "-topt=${SQLDATA_TOPT}" \
     -constraints=no \

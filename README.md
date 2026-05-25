@@ -17,31 +17,36 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 ## Supported Versions
 - MySQL: 8.0, 8.4 (mode-dependent)
 - MariaDB: 11.x (LTS)
-- MariaDB Cloud as a target (validated for `staged`,`two_step` and `one_step`)
+- MariaDB Cloud as a target (validated for Offline Copy (`staged`), Parallel Streaming Copy (`two_step`), and Serial Streaming Copy (`one_step`))
 
 Mode-specific notes:
-- MySQL 8.0 / 8.4 migrations are supported via `one_step`, `two_step`, `binlog`, or `staged`.
-- Sources behind TLS-required endpoints (e.g. AWS RDS, Aurora) are supported via `SRC_SSL_MODE` for `one_step` and `staged`.
+- MySQL 8.0 / 8.4 migrations are supported via any of the four modes.
+- Sources behind TLS-required endpoints (e.g. AWS RDS, Aurora) are supported via `SRC_SSL_MODE` for Serial Streaming Copy (`one_step`) and Offline Copy (`staged`).
+- **Replication (`binlog`) is not safe for schemas containing JSON columns** when the source uses `binlog_format=MIXED` (MySQL's default since 8.0). Under MIXED, any DML statement involving a non-deterministic construct — `RAND()`, `UUID()`, certain uses of `NOW()`/`SYSDATE()`, AUTO_INCREMENT touched by a trigger, `FOUND_ROWS()`, `ROW_COUNT()`, `LOAD_FILE()`, loadable functions, or several others — is automatically logged as a ROW event. ROW events for JSON columns carry MySQL's binary JSON image, which MariaDB cannot apply against its `LONGTEXT` JSON storage. For JSON-bearing schemas use Offline Copy (`staged`), Serial Streaming Copy (`one_step`), or Parallel Streaming Copy (`two_step`) instead.
 
 ## Migration modes at a glance
 
-| Mode | Type | Best for | Tooling |
-|---|---|---|---|
-| `one_step` | Offline | Smaller databases, standard maintenance windows | `mariadb-dump` piped to target `mariadb` |
-| `two_step` | Offline | Larger datasets needing schema-then-parallel-data | `mariadb-dump` (schema) + SQLines Data (parallel data) |
-| `binlog` | Online | Low-downtime cutover, ongoing replication | `mariadb-dump` snapshot + MySQL binlog replication into MariaDB |
-| `staged` | Offline | Source/target not network-reachable; deferred or two-host load | `mariadb-dump` → on-disk file (per-DB, compressed) → `mariadb` client |
+The interactive launcher presents these as a numbered menu (1–4). Internal identifiers (`one_step`, `two_step`, `staged`, `binlog`) are unchanged and remain the canonical form in `config/migration.yaml`, env vars (`MODE=...`), state files, and the orchestrator CLI (`--mode <id>`).
+
+| # | Mode | Internal id | Type | Best for | Tooling |
+|---|---|---|---|---|---|
+| 1 | Serial Streaming Copy (mariadb-dump) | `one_step` | Offline | Smaller databases, standard maintenance windows | `mariadb-dump` piped to target `mariadb`; single pipe, tables transferred sequentially |
+| 2 | Parallel Streaming Copy (sqldata) | `two_step` | Offline | Larger datasets needing schema-then-parallel-data | `mariadb-dump` (schema) + SQLines Data (multiple concurrent sessions per database) |
+| 3 | Offline Copy (mariadb-dump) | `staged` | Offline | Source/target not network-reachable; deferred or two-host load | `mariadb-dump` → on-disk file (per-DB, compressed) → `mariadb` client |
+| 4 | Replication (binlog) | `binlog` | Online | Low-downtime cutover, ongoing replication | `mariadb-dump` snapshot + MySQL binlog replication into MariaDB |
+
+The two streaming modes differ in their transfer topology: **Serial Streaming Copy** uses a single `mariadb-dump | mariadb` pipe and migrates tables sequentially, while **Parallel Streaming Copy** uses SQLines Data with multiple concurrent worker sessions per database (controlled by sqldata's `-ss` parameter).
 
 ## Prerequisites (required)
 - **MariaDB must be installed and running on the target host before running the tool.** The tool verifies the target version during preflight but does not install MariaDB. This is a deliberate scope reduction as of v1.1.0-beta; install support remains in the codebase for backward compatibility but is deprecated and will be removed in a future release.
-- For `binlog`: MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
+- For Replication (`binlog`): MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
 - Python 3 is required on the orchestrator host to run the migration orchestrator/CLI workflow.
-- For `two_step`, SQLines Data (`sqldata`/`sqlinesdata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
+- For Parallel Streaming Copy (`two_step`), SQLines Data (`sqldata`/`sqlinesdata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
 - SQLines Data may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
-- Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB. (Exception: `staged` mode in `dump_only` or `load_only` phase only needs connectivity to one side.)
+- Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB. (Exception: Offline Copy (`staged`) in `dump_only` or `load_only` phase only needs connectivity to one side.)
 - The orchestrator can run on a third host; SSH access to the target is only required for the deprecated install path and for `replace_slave` mode.
 - The tool prompts for required inputs if not provided in config/env.
-- `pv` is recommended for live progress visibility but optional. When missing, `staged` falls back to a 60-second file-size probe and `one_step` falls back to a 60-second heartbeat.
+- `pv` is recommended for live progress visibility but optional. When missing, Offline Copy (`staged`) falls back to a 60-second file-size probe and Serial Streaming Copy (`one_step`) falls back to a 60-second heartbeat.
 
 ## Prerequisites (user privileges)
 The tool expects valid privileges to already exist for the entered users.
@@ -65,8 +70,8 @@ Optional grant inspection:
 SHOW GRANTS FOR 'admin'@'<orchestrator_ip_or_%>';
 ```
 
-## Prerequisites (two_step data load)
-If you hit foreign key / unique constraint ordering errors during `two_step_parallel_data`, run the following on the **target MariaDB** before starting `two_step`:
+## Prerequisites (Parallel Streaming Copy data load)
+If you hit foreign key / unique constraint ordering errors during `two_step_parallel_data`, run the following on the **target MariaDB** before starting Parallel Streaming Copy (`two_step`):
 
 ```sql
 SET GLOBAL FOREIGN_KEY_CHECKS=0;
@@ -85,34 +90,46 @@ Notes:
 - This is a manual DBA pre/post step; the scripts do not toggle these globals automatically.
 
 ## Status
-Beta. All six modes have been exercised end-to-end against representative source/target pairs. `staged` mode is the most recent addition and has been validated against AWS RDS sources and MariaDB Cloud targets.
+Beta. All four modes have been exercised end-to-end against representative source/target pairs. Offline Copy (`staged`) has been validated against AWS RDS sources and MariaDB Cloud targets. In v1.2.0-beta, mode selection moved from a free-text prompt to a numbered interactive menu, and Parallel Streaming Copy (`two_step`) gained a resumable load variant (currently EXPERIMENTAL — see Known limitations).
 
 ## Migration playbooks
 
-### One-step (dump/restore)
+### Serial Streaming Copy (`one_step`)
 Best for smaller databases and standard maintenance windows.
 - Uses `mariadb-dump` (or `mysqldump`) on source and streams to target `mariadb`.
+- Single pipe, tables transferred sequentially — predictable memory and network profile, no concurrency tuning required.
 - Supports single DB (`SRC_DB`) or multi-DB (`SRC_DBS="db1,db2"`).
 - Strips DEFINER clauses by default to avoid permission errors on target.
 - Live progress: `pv` lines every 10s in `run.log`; falls back to a 60s heartbeat when `pv` is unavailable.
 
-### Two-step (schema + parallel data)
+### Parallel Streaming Copy (`two_step`)
 Best for larger datasets or tighter windows.
-- Schema-only dump first, then parallel load, then finalize objects.
+- Schema-only dump first, then parallel data load via SQLines Data, then finalize objects (triggers, routines, events).
+- SQLines Data uses multiple concurrent worker sessions per database for the data phase.
 - Assumes SQLines Data is installed and available on `PATH` (`sqldata` or `sqlinesdata`), or set `SQLINESDATA_BIN`.
 - Requires admin users (`SRC_ADMIN_USER`/`TGT_ADMIN_USER`); preflight fails fast if those logins are not ready.
 
-### Binlog (seed + replication)
+#### Variants
+
+`TWO_STEP_VARIANT` (or the interactive sub-menu) selects between two load strategies:
+
+- **`single_pass`** (default) — one SQLines Data invocation per database, loading all tables in that DB. Fastest path when there are no failures, but a failed load must restart from the beginning by re-truncating the target tables.
+- **`resumable`** **[EXPERIMENTAL]** — tables grouped into batches; a manifest is written after each batch completes successfully. If the load fails mid-way, re-running picks up at the first non-complete batch (truncating only the tables in that batch). Requires `PRIMARY KEY` on every migrated table — enforced by the preflight check, which lists any PK-less tables and fails before load begins.
+
+The `resumable` variant is tagged **[EXPERIMENTAL]** in v1.2.0-beta pending resolution of a SQLines Data data-loss issue affecting large tables (see Known limitations). Use `single_pass` for production-critical runs in this release.
+
+### Replication (`binlog`)
 Best for low-downtime cutover.
 - Seeds target from a consistent dump snapshot with embedded binlog coordinates.
 - Starts MariaDB replication from MySQL binlog using `REPL_USER`/`REPL_PASS`.
 - Verifies replication thread health and lag after start.
 - For MySQL 8.4 sources, an upstream `mysqldump` ≥ 8.4 must be available (8.4 servers reject `SHOW MASTER STATUS`); the tool detects this and fails fast at preflight.
+- **JSON column caveat**: replication is not safe for schemas containing JSON columns when the source uses `binlog_format=MIXED`. See Supported Versions for the full explanation. If the source is JSON-bearing, choose one of the offline modes.
 
-### Staged (offline two-phase via on-disk dump)
+### Offline Copy (`staged`)
 Best when source and target are not directly network-reachable, or when a checkpoint between dump and load is desirable.
 - Phase-driven via `STAGED_PHASE`:
-  - `dump_and_load` (default): dump from source, then load to target on the same host
+  - `dump_and_load` (default): full end-to-end from source to target
   - `dump_only`: dump from source to a file directory, then exit (target untouched)
   - `load_only`: load existing dumps into target (no source connection needed; DB list comes from the manifest)
 - Per-database compressed dumps (`<db>.sql.gz`) under `${RUN_DIR}/dumps/` by default, or a custom location set via `STAGED_DUMP_DIR`.
@@ -123,7 +140,7 @@ Best when source and target are not directly network-reachable, or when a checkp
 - Live progress: `pv` lines every 10s when available; otherwise a 60s file-size probe with bytes/elapsed/rate/percent.
 - Phase-aware completion banners: "DUMP COMPLETE" / "LOAD COMPLETE" / "MIGRATION SUCCESSFUL".
 - Auto-detects most recent `artifacts/run_staged_*/dumps/` as the `load_only` default — re-runs are one Enter press.
-- **Caveat**: offline mode. Writes to source during dump are not captured. Use `binlog` if downtime is unacceptable.
+- **Caveat**: offline mode. Writes to source during dump are not captured. Use Replication (`binlog`) if downtime is unacceptable.
 - **Caveat**: target connections currently negotiate TLS where the server requires it (e.g. MariaDB Cloud), but server-certificate verification is not yet configurable on the target side. Connections are encrypted in transit but not authenticated against a trusted CA. Source-side TLS verification works as expected via `SRC_SSL_MODE`. Configurable target TLS is planned for a future release.
 
 ## Orchestrator usage
@@ -132,6 +149,24 @@ Interactive (recommended):
 ```bash
 ./mariadb-migrator
 ```
+
+The launcher presents a numbered menu for mode selection (1–4):
+
+```
+Select a migration mode:
+
+  1) Serial Streaming Copy (mariadb-dump)   [OFFLINE]
+  2) Parallel Streaming Copy (sqldata)      [OFFLINE]
+  3) Offline Copy (mariadb-dump)            [OFFLINE]
+  4) Replication (binlog)                   [ONLINE]
+
+  d) Show detailed descriptions (caveats, disk requirements, version notes)
+  q) Quit
+```
+
+Sub-menus then prompt for `two_step` variant (single_pass / resumable) and `staged` phase (dump_and_load / dump_only / load_only) when applicable. From any sub-menu, `b` returns to the top-level mode menu without restarting.
+
+For scripted runs and the regression matrix harness, preset env values skip the corresponding prompts: `MODE`, `TWO_STEP_VARIANT`, `STAGED_PHASE`, `STAGED_DUMP_DIR`, and `STAGED_CONFIRM_OFFLINE` are all respected. This is also how the hidden modes (`inplace`, `replace_slave`) are reached — they are intentionally not in the numbered menu.
 
 Non-interactive CLI:
 ```bash
@@ -168,6 +203,7 @@ The orchestrator captures all script output to `run.log` rather than streaming i
 
 Notes:
 - `./mariadb-migrator` runs assess → plan → run, and resumes automatically if a previous run failed.
+- To force a fresh run instead of resuming, set `FORCE_NEW_RUN=1`. The launcher detects this on every resume branch (one_step, two_step, binlog, staged) and prints a clear banner distinguishing "FORCE_NEW_RUN=1 set; ignoring previous run" from "inputs changed since last run".
 - `./mariadb-migrator` asks for source/target admin credentials at runtime; root is blocked by default unless `ALLOW_ROOT_USERS=1`.
 - Saving `config/migration.yaml` is optional and defaults to `No`; if saved, passwords are redacted by default.
 
@@ -193,6 +229,11 @@ Source:
 
 Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
+
+Variant selector (optional; interactive sub-menu prompts when unset):
+- `TWO_STEP_VARIANT` (`single_pass` | `resumable`, default `single_pass`)
+  - `single_pass`: one sqldata invocation per database (historical behavior).
+  - `resumable` **[EXPERIMENTAL]**: batched load with per-batch manifest for restart-on-failure. Requires `PRIMARY KEY` on every migrated table. See Known limitations.
 
 Optional:
 - `SQLINESDATA_BIN` (auto-detected: `sqldata` then `sqlinesdata`)
@@ -254,7 +295,7 @@ SRC_DBS: "sakila,world"
 
 ## Testing
 
-A phase-equivalence test exists for `staged` mode under `tests/test_staged_phase_matrix.sh`. It runs `dump_and_load` once and `dump_only` + `load_only` separately against the same source, then compares target signatures (schema DDL via `mariadb-dump --no-data`, per-table `CHECKSUM TABLE`) to verify both paths produce identical targets.
+A phase-equivalence test exists for Offline Copy (`staged`) under `tests/test_staged_phase_matrix.sh`. It runs `dump_and_load` once and `dump_only` + `load_only` separately against the same source, then compares target signatures (schema DDL via `mariadb-dump --no-data`, per-table `CHECKSUM TABLE`) to verify both paths produce identical targets.
 
 ```bash
 SRC_HOST=... SRC_USER=... SRC_PASS=... \
@@ -271,6 +312,9 @@ tests/test_staged_phase_matrix.sh
 - Platform coverage note: this tool has been tested primarily on Ubuntu and Rocky Linux. Support hooks are included for additional Linux flavors, but validate in your target environment before production use.
 
 ## Known limitations
-- `staged` per-DB load resume is not supported in v1. If a load fails partway through a multi-DB run, drop the partially-loaded databases on the target and re-run with `STAGED_PHASE=load_only`.
-- `pv` fallback in `one_step` is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in `staged` mode where the dump is on disk.
+- **SQLines Data may silently truncate reads on very large tables** (>~5M rows) in some configurations, leading to row-count shortfalls on the target without an error from the tool. Validate post-load with `COUNT(*)` parity on both sides for any Parallel Streaming Copy (`two_step`) run involving large tables. For production-critical runs in this release prefer Offline Copy (`staged`) or Serial Streaming Copy (`one_step`), both of which use `mariadb-dump` and are not affected. Investigation ongoing with the SQLines developer; a fix is targeted for a follow-up release.
+- **The `resumable` `two_step` variant is EXPERIMENTAL in this release.** The resume/manifest mechanics are correct, but they sit on the same SQLines Data load path affected by the bullet above. Use `single_pass` (default) for production-critical runs.
+- **Replication (`binlog`) is not safe for schemas containing JSON columns** when the source uses `binlog_format=MIXED` (the MySQL default since 8.0). See Supported Versions for the full explanation. Use one of the offline modes for JSON-bearing schemas.
+- Offline Copy (`staged`) per-DB load resume is not supported in v1. If a load fails partway through a multi-DB run, drop the partially-loaded databases on the target and re-run with `STAGED_PHASE=load_only`.
+- `pv` fallback in Serial Streaming Copy (`one_step`) is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in Offline Copy (`staged`) where the dump is on disk.
 - Target-side TLS verification is not yet configurable. Connections to TLS-required targets (e.g. MariaDB Cloud) are encrypted but not server-verified. Source-side TLS works as expected via `SRC_SSL_MODE`.

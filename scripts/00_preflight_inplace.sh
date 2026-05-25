@@ -3,7 +3,8 @@ set -euo pipefail
 
 echo "==> Preflight checks (inplace)"
 
-MYSQL_BIN="${MYSQL_BIN:-mysql}"
+MYSQL_BIN="${MYSQL_BIN:-mariadb}"
+#MYSQL_BIN="${MYSQL_BIN:-mysql}"
 
 SRC_HOST="${SRC_HOST:-}"
 SRC_PORT="${SRC_PORT:-3306}"

@@ -9,3 +9,14 @@ sqldata.log
 sqldata_ddl.sql
 sqldata_failed.sql
 sqldata_failed_tables.txt
+config/source.yaml
+
+# Runtime artifacts (per-run state, never committed)
+state.json
+sqldata_tables_remain.txt
+
+# Local migrator backups (developer-only, never committed)
+mariadb-migrator-*
+scripts/*-[0-9]*May
+scripts/*-before_*
+scripts/*-working_*

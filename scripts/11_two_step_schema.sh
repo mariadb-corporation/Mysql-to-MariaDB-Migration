@@ -25,6 +25,32 @@ TGT_SSH_USER="${TGT_SSH_USER:-root}"
 TGT_SSH_OPTS="${TGT_SSH_OPTS:-}"
 ALLOW_TARGET_DB_OVERWRITE="${ALLOW_TARGET_DB_OVERWRITE:-0}"
 
+# Output directory for schema_post.sql files. These are produced here in this
+# script (POST pass) and consumed by 13_two_step_finalize.sh after the data
+# load completes. Resolution mirrors 12_two_step_sqldata.sh's SQLINES_OUT_DIR
+# logic so all per-run artifacts cluster under the same run directory:
+#   1. SCHEMA_POST_DIR if explicitly set by the caller
+#   2. $RUN_DIR/schema_post if RUN_DIR is exported by the orchestrator
+#   3. .migration_last_run pointer (current orchestrator behavior, since
+#      RUN_DIR is a bash local in mariadb-migrator and is not exported)
+#   4. artifacts/schema_post fallback (legacy flat layout)
+if [[ -z "${SCHEMA_POST_DIR:-}" ]]; then
+  if [[ -n "${RUN_DIR:-}" ]]; then
+    SCHEMA_POST_DIR="${RUN_DIR}/schema_post"
+  elif [[ -f .migration_last_run ]]; then
+    _run_dir_from_file="$(tr -d '\n\r' < .migration_last_run 2>/dev/null || true)"
+    if [[ -n "$_run_dir_from_file" && -d "$_run_dir_from_file" ]]; then
+      SCHEMA_POST_DIR="${_run_dir_from_file}/schema_post"
+    else
+      SCHEMA_POST_DIR="artifacts/schema_post"
+    fi
+    unset _run_dir_from_file
+  else
+    SCHEMA_POST_DIR="artifacts/schema_post"
+  fi
+fi
+mkdir -p "$SCHEMA_POST_DIR"
+
 if [[ -z "$SRC_HOST" || -z "$SRC_USER" || -z "$SRC_PASS" || ( -z "$SRC_DB" && -z "$SRC_DBS" ) ]]; then
   echo "ERROR: Missing source envs. Set SRC_HOST, SRC_USER, SRC_PASS, and SRC_DB or SRC_DBS."
   exit 1
@@ -109,6 +135,9 @@ else
   echo "Source: $SRC_HOST:$SRC_PORT  DB: $SRC_DB"
 fi
 echo "Target: $TGT_HOST:$TGT_PORT"
+echo "Schema PRE will be applied to target now."
+echo "Schema POST (triggers/routines/events) will be staged at: $SCHEMA_POST_DIR"
+echo "  → 13_two_step_finalize.sh applies it after the data load."
 
 set -o pipefail
 SRC_SSL_ARGS=()
@@ -124,28 +153,61 @@ if [[ -n "$SRC_SSL_MODE" ]]; then
   fi
 fi
 
-COMMON_ARGS=(
+# Pre-data DDL: tables, indexes, foreign keys. NO triggers/routines/events.
+# These are deferred to 13_two_step_finalize.sh so they don't fire during
+# the data load. Without this split, triggers on the target re-insert rows
+# that sqldata then tries to load directly, producing duplicate-key churn
+# (sakila.film_text is the canonical example). FK_CHECKS=0 in step 12
+# handles cross-table parallel load contention; deferring triggers fixes
+# the orthogonal trigger-side double-load problem.
+PRE_ARGS=(
   --no-data
+  --skip-triggers
+  --no-tablespaces
+  --skip-lock-tables
+)
+
+# Post-data DDL: triggers, routines, events ONLY.
+#   --no-create-info: skip CREATE TABLE (tables already exist from PRE).
+#   --no-create-db:   skip CREATE DATABASE (DBs already exist from PRE).
+#                     USE statements are still emitted so triggers/routines/
+#                     events attach to the correct schema.
+#   --add-drop-trigger: emit DROP TRIGGER IF EXISTS before each CREATE TRIGGER.
+#                       Makes step 13 idempotent for triggers. Routines and
+#                       events have no equivalent flag — if step 13 fails
+#                       partway through routines/events, manual cleanup of
+#                       partially-created objects is required before retry.
+POST_ARGS=(
+  --no-data
+  --no-create-info
+  --no-create-db
   --routines --triggers --events
   --no-tablespaces
   --skip-lock-tables
 )
+if "$MARIADB_DUMP_BIN" --help 2>/dev/null | grep -q -- '--add-drop-trigger'; then
+  POST_ARGS+=( --add-drop-trigger )
+fi
+
 FILTER_CMD=()
 if [[ "$STRIP_DEFINERS" == "1" ]]; then
   if [[ "$dump_is_mysql" -eq 1 ]]; then
     FILTER_CMD=( sed -E 's/\/\*!50017 DEFINER=`[^`]+`@`[^`]+`\*\/ ?//g; s/DEFINER=`[^`]+`@`[^`]+`//g' )
   else
     if "$MARIADB_DUMP_BIN" --help 2>/dev/null | grep -q -- '--skip-definer'; then
-      COMMON_ARGS+=(--skip-definer)
+      PRE_ARGS+=(--skip-definer)
+      POST_ARGS+=(--skip-definer)
     else
       FILTER_CMD=( sed -E 's/\/\*!50017 DEFINER=`[^`]+`@`[^`]+`\*\/ ?//g; s/DEFINER=`[^`]+`@`[^`]+`//g' )
     fi
   fi
 fi
 if [[ "$dump_is_mysql" -eq 1 ]]; then
-  COMMON_ARGS+=(--set-gtid-purged=OFF)
+  PRE_ARGS+=(--set-gtid-purged=OFF)
+  POST_ARGS+=(--set-gtid-purged=OFF)
 else
-  COMMON_ARGS+=(--gtid=0)
+  PRE_ARGS+=(--gtid=0)
+  POST_ARGS+=(--gtid=0)
 fi
 
 if [[ -n "$SRC_DBS" ]]; then
@@ -173,8 +235,11 @@ fi
 for db in "${DB_LIST[@]}"; do
   db="${db// /}"
   [[ -z "$db" ]] && continue
-  DUMP_ARGS=("${COMMON_ARGS[@]}" --databases "$db")
-  MYSQL_PWD="$SRC_PASS" "$MARIADB_DUMP_BIN" "${SRC_AUTH[@]}" "${SRC_SSL_ARGS[@]}" "${DUMP_ARGS[@]}" \
+
+  # ---- PRE pass: dump tables/indexes/FKs and apply directly to target ----
+  echo "==> [${db}] dumping pre-data DDL and applying to target"
+  PRE_DUMP_ARGS=("${PRE_ARGS[@]}" --databases "$db")
+  MYSQL_PWD="$SRC_PASS" "$MARIADB_DUMP_BIN" "${SRC_AUTH[@]}" "${SRC_SSL_ARGS[@]}" "${PRE_DUMP_ARGS[@]}" \
     | if [[ "${#FILTER_CMD[@]}" -gt 0 ]]; then "${FILTER_CMD[@]}"; else cat; fi \
     | if [[ -n "$TGT_SSH_HOST" ]]; then
         TGT_PASS_Q="$(printf '%q' "$TGT_PASS")"
@@ -183,7 +248,22 @@ for db in "${DB_LIST[@]}"; do
       else
         MYSQL_PWD="$TGT_PASS" "$MARIADB_BIN" "${TGT_AUTH[@]}"
       fi
+
+  # ---- POST pass: dump triggers/routines/events to file for step 13 ----
+  echo "==> [${db}] dumping post-data DDL (triggers/routines/events) to file"
+  post_file="${SCHEMA_POST_DIR}/${db}_schema_post.sql"
+  POST_DUMP_ARGS=("${POST_ARGS[@]}" --databases "$db")
+  MYSQL_PWD="$SRC_PASS" "$MARIADB_DUMP_BIN" "${SRC_AUTH[@]}" "${SRC_SSL_ARGS[@]}" "${POST_DUMP_ARGS[@]}" \
+    | if [[ "${#FILTER_CMD[@]}" -gt 0 ]]; then "${FILTER_CMD[@]}"; else cat; fi \
+    > "$post_file"
+  if [[ -s "$post_file" ]]; then
+    post_size="$(wc -c < "$post_file" | tr -d ' ')"
+    echo "    Wrote ${post_file} (${post_size} bytes)"
+  else
+    echo "    Wrote ${post_file} (empty — no triggers/routines/events in ${db})"
+  fi
 done
 set +o pipefail
 
 echo "Schema-only migration completed."
+echo "  PRE applied to target. POST staged at: ${SCHEMA_POST_DIR}"

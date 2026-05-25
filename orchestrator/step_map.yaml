@@ -19,6 +19,7 @@ modes:
     - precheck_only
     - two_step_schema
     - two_step_data
+    - two_step_finalize
     - validate
 
   binlog:
@@ -126,12 +127,12 @@ phases:
   two_step_data:
     - id: two_step_parallel_data
       name: Parallel data transfer with SQLines Data
-      script: scripts/12_two_step_sqldata.sh
+      script: scripts/12_two_step_dispatch.sh
       args: []
 
   two_step_finalize:
     - id: two_step_finalize_objects
-      name: Apply constraints/indexes/routines after data load
+      name: Apply post-data DDL (triggers, routines, events)
       script: scripts/13_two_step_finalize.sh
       args: []
 
