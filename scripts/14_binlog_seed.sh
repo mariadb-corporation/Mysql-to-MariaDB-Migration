@@ -24,7 +24,8 @@ TGT_ADMIN_USER="${TGT_ADMIN_USER:-}"
 TGT_ADMIN_PASS="${TGT_ADMIN_PASS:-}"
 
 ALLOW_TARGET_DB_OVERWRITE="${ALLOW_TARGET_DB_OVERWRITE:-0}"
-BINLOG_COORD_FILE="${BINLOG_COORD_FILE:-artifacts/binlog_coords.env}"
+#BINLOG_COORD_FILE="${BINLOG_COORD_FILE:-artifacts/binlog_coords.env}"
+BINLOG_COORD_FILE="${BINLOG_COORD_FILE:-${RUN_DIR:-artifacts}/binlog_coords.env}"
 
 if [[ -z "$SRC_HOST" || ( -z "$SRC_USER" && -z "$SRC_ADMIN_USER" ) || ( -z "$SRC_PASS" && -z "$SRC_ADMIN_PASS" ) || ( -z "$SRC_DB" && -z "$SRC_DBS" ) ]]; then
   echo "ERROR: Missing source envs. Set SRC_HOST, SRC_USER/SRC_ADMIN_USER, SRC_PASS/SRC_ADMIN_PASS, and SRC_DB or SRC_DBS."
