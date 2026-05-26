@@ -92,38 +92,6 @@ fi
 echo "Source MySQL: $src_version_full (using: $SHOW_BINLOG_STATUS_SQL)"
 export SHOW_BINLOG_STATUS_SQL
 
-echo "Checking source binary logging..."
-log_bin_val="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-  -e "SHOW VARIABLES LIKE 'log_bin';" | awk 'NR==1 {print $2}')"
-if [[ "$log_bin_val" != "ON" && "$log_bin_val" != "1" ]]; then
-  echo "ERROR: Source binary log is not enabled (log_bin=$log_bin_val)."
-  exit 5
-fi
-
-echo "Checking source binlog format..."
-required_fmt="MIXED"
-current_fmt="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-  -e "SHOW VARIABLES LIKE 'binlog_format';" | awk 'NR==1 {print toupper($2)}')"
-if [[ "$current_fmt" != "$required_fmt" ]]; then
-  echo "Current source binlog_format is $current_fmt. Setting it to $required_fmt..."
-  MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-    -e "SET GLOBAL binlog_format='${required_fmt}';"
-  current_fmt="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-    -e "SHOW VARIABLES LIKE 'binlog_format';" | awk 'NR==1 {print toupper($2)}')"
-fi
-if [[ "$current_fmt" != "$required_fmt" ]]; then
-  echo "ERROR: source binlog_format is $current_fmt, expected $required_fmt."
-  exit 9
-fi
-
-echo "Checking source master/binary-log status visibility..."
-if ! MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-  -e "$SHOW_BINLOG_STATUS_SQL" | head -n1 | grep -q .; then
-  echo "ERROR: $SHOW_BINLOG_STATUS_SQL returned no rows."
-  echo "Ensure source is primary and admin user has REPLICATION CLIENT (or BINLOG_ADMIN on 8.4+) privilege."
-  exit 6
-fi
-
 echo "Checking source database(s) exist..."
 if [[ -n "$SRC_DBS" ]]; then
   IFS=',' read -r -a DB_LIST <<< "$SRC_DBS"
@@ -144,6 +112,85 @@ done
 if [[ "${#missing_src[@]}" -gt 0 ]]; then
   echo "ERROR: Source DB does not exist: ${missing_src[*]}"
   exit 7
+fi
+
+# JSON columns are not supported for replication-based migration. The canonical
+# detection query lives in sql/checks/json_columns.sql (also used by the
+# assessment precheck); we reuse it here and filter to the selected schemas.
+echo "Checking source schemas for JSON columns..."
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+JSON_COLUMNS_SQL="${REPO_ROOT}/sql/checks/json_columns.sql"
+if [[ ! -r "$JSON_COLUMNS_SQL" ]]; then
+  echo "ERROR: cannot read $JSON_COLUMNS_SQL"
+  exit 10
+fi
+
+selected_schemas=""
+for db in "${DB_LIST[@]}"; do
+  db="${db// /}"
+  [[ -z "$db" ]] && continue
+  selected_schemas+="${db}"$'\n'
+done
+
+json_hits="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+    < "$JSON_COLUMNS_SQL" \
+  | awk -v sel="$selected_schemas" '
+      BEGIN {
+        FS = "\t"
+        n = split(sel, a, "\n")
+        for (i = 1; i <= n; i++) if (a[i] != "") s[a[i]] = 1
+      }
+      $1 in s { printf "  %s.%s.%s\n", $1, $2, $3 }
+    ')"
+
+if [[ -n "$json_hits" ]]; then
+  echo ""
+  echo "ERROR: Replication mode is not compatible with JSON columns in the source schema."
+  echo ""
+  echo "Detected JSON columns:"
+  echo "$json_hits"
+  echo ""
+  echo "JSON column types are not supported for online replication-based migration."
+  echo "Please use one of the offline migration modes:"
+  echo ""
+  echo "  - Serial Streaming Copy"
+  echo "  - Parallel Streaming Copy"
+  echo "  - Offline Copy"
+  echo ""
+  exit 10
+fi
+
+echo "Checking source binary logging..."
+log_bin_val="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+  -e "SHOW VARIABLES LIKE 'log_bin';" | awk 'NR==1 {print $2}')"
+if [[ "$log_bin_val" != "ON" && "$log_bin_val" != "1" ]]; then
+  echo "ERROR: Source binary log is not enabled (log_bin=$log_bin_val)."
+  exit 5
+fi
+
+echo "Checking source binlog format..."
+required_fmt="ROW"
+current_fmt="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+  -e "SHOW VARIABLES LIKE 'binlog_format';" | awk 'NR==1 {print toupper($2)}')"
+if [[ "$current_fmt" != "$required_fmt" ]]; then
+  echo ""
+  echo "ERROR: Source binlog_format is '$current_fmt'. Replication mode requires 'ROW'."
+  echo ""
+  echo "To remediate, set the following in the source MySQL configuration"
+  echo "(e.g. /etc/my.cnf or /etc/mysql/my.cnf) and restart the source server:"
+  echo ""
+  echo "  [mysqld]"
+  echo "  binlog_format = ROW"
+  echo ""
+  exit 9
+fi
+
+echo "Checking source master/binary-log status visibility..."
+if ! MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+  -e "$SHOW_BINLOG_STATUS_SQL" | head -n1 | grep -q .; then
+  echo "ERROR: $SHOW_BINLOG_STATUS_SQL returned no rows."
+  echo "Ensure source is primary and admin user has REPLICATION CLIENT (or BINLOG_ADMIN on 8.4+) privilege."
+  exit 6
 fi
 
 if [[ "$ALLOW_TARGET_DB_OVERWRITE" != "1" ]]; then

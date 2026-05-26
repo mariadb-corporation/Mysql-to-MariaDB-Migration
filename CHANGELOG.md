@@ -1,5 +1,106 @@
 # Changelog
 
+## [1.2.1-beta] — 2026-05-26
+
+Hardens Replication (`binlog`) mode against two source-side configurations
+documented as Known issues in 1.2.0-beta. The failure modes are now caught at
+three independent points in the operator's journey rather than surfacing as a
+downstream replication abort, and the prior auto-coercion of `binlog_format`
+has been replaced with an explicit requirement.
+
+### Replication (`binlog`) mode — source compatibility gate
+
+Two source-side configurations were known to break Replication (`binlog`)
+mode in 1.2.0-beta and earlier: schemas containing JSON columns, and sources
+running `binlog_format` other than `ROW`. Both are now enforced as a single
+composite gate (`binlog_source_compatibility`) at three independent points in
+the operator's journey. Operators with either issue are routed to one of the
+offline modes — Serial Streaming Copy (`one_step`), Parallel Streaming Copy
+(`two_step`), or Offline Copy (`staged`) — which are unaffected by the JSON
+limitation, or instructed to remediate the source `binlog_format`
+configuration and re-run.
+
+- **JSON columns.** Schemas containing one or more JSON columns are detected
+  via `sql/checks/json_columns.sql` and the result set is filtered to the
+  schemas selected for migration. Offending `schema.table.column` triples
+  are listed inline in every layer's failure message.
+
+- **`binlog_format`.** The source must be at `binlog_format=ROW`. MIXED and
+  STATEMENT are both rejected. The preflight previously auto-coerced the
+  source to `binlog_format=MIXED` via `SET GLOBAL`; this has been removed
+  because `SET GLOBAL` only affects sessions established after the change,
+  so existing application writer sessions continue using the prior format
+  until they reconnect. The remediation message instructs setting
+  `binlog_format = ROW` under `[mysqld]` in the source `my.cnf` and
+  restarting the source MySQL server.
+
+Enforcement layers:
+
+- **Launcher.** Fires immediately after source DB verification, before any
+  target credentials are requested. On failure, the operator is returned to
+  the mode-selection menu with the source connection info preserved, so a
+  compatible mode can be picked without restarting the tool. Both sub-checks
+  run; if both fail, both findings are presented in a single unified
+  advisory rather than as a sequence of run→fix→re-run cycles.
+
+- **Assessment.** `migrationctl assess` now accepts `--mode` and emits
+  `ASSESSMENT: FAIL` when binlog mode is selected against an incompatible
+  source. This replaces the prior informational `ASSESSMENT: PASS` that
+  contradicted the downstream preflight outcome.
+
+- **Preflight.** `scripts/00_preflight_binlog.sh` enforces both checks for
+  non-interactive `--run` callers that bypass the assessment phase. The
+  checks remain at distinct exit codes (exit 9 for `binlog_format`, exit 10
+  for JSON columns) to preserve granularity for ops automation that
+  distinguishes between failure categories.
+
+Failure messages at every layer reference the three alternative modes by
+their user-facing labels only — internal mode identifiers do not appear in
+operator-facing output.
+
+### Menu labels — serial vs. parallel distinction
+
+- Menu options 1 and 2 now indicate the practical difference in data-transfer
+  behavior at selection time:
+  - `Streaming Copy (mariadb-dump)` → `Serial Streaming Copy (mariadb-dump)`
+  - `Streaming Copy (sqldata)` → `Parallel Streaming Copy (sqldata)`
+- The new labels apply consistently across the short menu, the
+  detailed-descriptions view (`d`), the two_step variant sub-menu header,
+  the `mode_label()` function used in completion banners and logs, and the
+  sqldata-not-found error message. Internal mode identifiers (`one_step`,
+  `two_step`, `staged`, `binlog`) are unchanged; only display strings
+  differ. Existing config files, env-var workflows, and `step_map.yaml`
+  entries need no changes.
+
+### Source-side compatibility checks — extension point
+
+- The launcher gains a dispatcher (`run_source_side_compatibility_checks`)
+  called after source DB verification and before target prompts. The
+  dispatcher routes to per-mode helper functions; only `binlog` is populated
+  at this release (`check_binlog_source_compat`). Other modes fall through
+  with no checks, preserving prior behavior exactly. Future mode-specific
+  source-side blockers should be added at three layers in parallel —
+  launcher dispatcher, mode preflight, assessment gate — as documented in
+  the comment block above the dispatcher in `mariadb-migrator`.
+
+### Compatibility notes
+
+- Operators previously attempting binlog mode against a JSON-bearing schema
+  will now be blocked. The migration was not succeeding in those
+  configurations in 1.2.0-beta; the failure mode shifts from a runtime
+  replication abort to an upfront refusal with a clear remediation path.
+
+- Operators previously running binlog mode against a source at
+  `binlog_format=MIXED` (the prior auto-coerced default) or `STATEMENT`
+  will now be blocked at all three enforcement layers, not just the
+  run-phase preflight. Remediation: set `binlog_format = ROW` in the source
+  `my.cnf` and restart the source server, or switch to an offline mode.
+
+- No changes to non-binlog modes. Serial Streaming Copy (`one_step`),
+  Parallel Streaming Copy (`two_step`), and Offline Copy (`staged`) are
+  unaffected by any gate added in this release; the launcher's
+  compatibility-check dispatcher is a no-op for these modes.
+
 ## [1.2.0-beta] 
 
 ### Added

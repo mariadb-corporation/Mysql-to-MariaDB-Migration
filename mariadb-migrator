@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.2.0-beta"
-MIG_TOOL_BUILD="20260525"
+MIG_TOOL_VERSION="1.2.1-beta"
+MIG_TOOL_BUILD="20260526"
 
 # Display professional welcome header
 cat << EOF
@@ -33,16 +33,16 @@ print_modes_briefing() {
 
 Select a migration mode:
 
-  1) Streaming Copy (mariadb-dump)   [OFFLINE]
+  1) Serial Streaming Copy (mariadb-dump)      [OFFLINE]
        Tooling : mariadb-dump (schema + data, single pass)
        Pipeline: Piped end-to-end. No disk staging on either host.
 
-  2) Streaming Copy (sqldata)        [OFFLINE]
+  2) Parallel Streaming Copy (sqldata)         [OFFLINE]
        Tooling : Step 1 (schema) - mariadb-dump
                  Step 2 (data)   - MariaDB Data migration tool (sqldata)
        Pipeline: Streaming end-to-end. No disk staging on either host.
 
-  3) Offline Copy (mariadb-dump)     [OFFLINE]
+  3) Offline Copy (mariadb-dump)               [OFFLINE]
        Tooling : Phase 1 (dump) - mariadb-dump → file on disk (per database)
                  Phase 2 (load) - mariadb client < file
        Pipeline: Two-phase via on-disk dump file. Resumable load,
@@ -50,7 +50,7 @@ Select a migration mode:
                  network-reachable, or when you want a checkpoint between
                  phases for review or transfer.
 
-  4) Replication (binlog)            [ONLINE]
+  4) Replication (binlog)                      [ONLINE]
        Tooling : mariadb-dump for initial snapshot, then MySQL binary log
                  replication into MariaDB to catch up ongoing changes.
 
@@ -65,13 +65,13 @@ print_modes_detailed() {
   cat <<'EOF'
 Migration modes:
 
-  1) Streaming Copy (mariadb-dump)   [OFFLINE]   (internal id: one_step)
+  1) Serial Streaming Copy (mariadb-dump)      [OFFLINE]   (internal id: one_step)
       Tooling : mariadb-dump (schema + data, single pass)
       Pipeline: Piped end-to-end. No disk staging on either host.
       Caveat  : Writes to the source during migration may be lost. Stop
                 application traffic to the source for a consistent cutover.
 
-  2) Streaming Copy (sqldata)        [OFFLINE]   (internal id: two_step)
+  2) Parallel Streaming Copy (sqldata)         [OFFLINE]   (internal id: two_step)
       Tooling : Step 1 (schema) - mariadb-dump
                 Step 2 (data)   - MariaDB Data migration tool (sqldata)
       Pipeline: Streaming end-to-end. No disk staging on either host.
@@ -82,7 +82,7 @@ Migration modes:
                   resumable [EXPERIMENTAL] - batched with manifest; restart
                                              from last completed batch.
 
-  3) Offline Copy (mariadb-dump)     [OFFLINE]   (internal id: staged)
+  3) Offline Copy (mariadb-dump)               [OFFLINE]   (internal id: staged)
       Tooling : Phase 1 (dump) - mariadb-dump → file on disk (per database)
                 Phase 2 (load) - mariadb client < file
       Pipeline: Two-phase via on-disk dump file. Resumable load,
@@ -102,7 +102,7 @@ Migration modes:
       Parallel: STAGED_PARALLEL=4 by default — concurrent per-DB dumps
                 using a job pool. Set =1 for sequential with progress meter.
 
-  4) Replication (binlog)            [ONLINE]    (internal id: binlog)
+  4) Replication (binlog)                      [ONLINE]    (internal id: binlog)
       Tooling : mariadb-dump for initial snapshot, then MySQL binary log
                 replication into MariaDB to catch up ongoing changes.
       Caveat  : The source's binary logging must be enabled (log_bin = ON,
@@ -284,8 +284,8 @@ confirm_proceed() {
 # state.json, and the orchestrator API — only the display text changes.
 mode_label() {
   case "$1" in
-    one_step)      printf "%s" "Streaming Copy (mariadb-dump)" ;;
-    two_step)      printf "%s" "Streaming Copy (sqldata)" ;;
+    one_step)      printf "%s" "Serial Streaming Copy (mariadb-dump)" ;;
+    two_step)      printf "%s" "Parallel Streaming Copy (sqldata)" ;;
     staged)        printf "%s" "Offline Copy (mariadb-dump)" ;;
     binlog)        printf "%s" "Replication (binlog)" ;;
     inplace)       printf "%s" "In-place upgrade" ;;
@@ -332,7 +332,7 @@ prompt_two_step_variant() {
   while true; do
     cat <<'EOF'
 
-Streaming Copy (sqldata) — select variant:
+Parallel Streaming Copy (sqldata) — select variant:
 
   1) Single-pass            One sqldata invocation per database. Fastest
                             path. A failed load must restart from the
@@ -390,6 +390,30 @@ EOF
       b|B)  return 1 ;;
       q|Q)  echo "Cancelled."; exit 0 ;;
       *)    echo "Invalid choice: '$choice'. Please enter 1, 2, 3, b, or q." ;;
+    esac
+  done
+}
+
+# Mode selection with sub-menus for two_step variant and staged phase.
+# 'b' from a sub-menu returns to the top-level so the operator can pick a
+# different top-level mode without restarting. Sets $MODE (and possibly
+# $TWO_STEP_VARIANT / $STAGED_PHASE). Used both at first invocation and on
+# re-prompt after a source-side compatibility check rejects the choice.
+prompt_mode_with_submenus() {
+  while true; do
+    prompt_mode_selection  # sets $MODE; exits the script on 'q'
+    case "$MODE" in
+      two_step)
+        if [[ -z "$TWO_STEP_VARIANT" ]]; then
+          if ! prompt_two_step_variant; then continue; fi
+        fi
+        break ;;
+      staged)
+        if [[ -z "$STAGED_PHASE" ]]; then
+          if ! prompt_staged_phase; then continue; fi
+        fi
+        break ;;
+      *) break ;;
     esac
   done
 }
@@ -882,6 +906,130 @@ source_dbs_exist_check() {
   return 0
 }
 
+# --- Source-side compatibility gates ----------------------------------------
+# Run after source DB verification and before target prompts. Each mode's
+# helper queries the source and either returns 0 (continue) or emits an
+# advisory and returns non-zero (caller re-prompts the mode menu). Modes
+# without known source-side blockers fall through with no checks.
+#
+# To add a new mode check:
+#   1. Define check_<mode>_source_compat() — query source, return 0/1
+#      and emit advisory on failure.
+#   2. Add a case branch to run_source_side_compatibility_checks.
+#   3. Mirror the check in scripts/00_preflight_<mode>.sh and in
+#      orchestrator/checks.py for non-interactive callers.
+
+# Source-side compatibility check for binlog mode. Composes two sub-checks:
+#   1. JSON columns — reuses the canonical sql/checks/json_columns.sql query
+#      (shared with the assess-phase precheck bundle).
+#   2. binlog_format = ROW — inline SHOW VARIABLES query (no shared SQL file;
+#      the query is a one-liner and the preflight + assess do their own
+#      inline checks).
+# Both sub-checks run; findings accumulate; if either fails, a single
+# composed advisory is printed and the function returns non-zero. The
+# assess gate and the run-phase preflight enforce the same checks
+# independently; this is the operator-friendly early stop so failures
+# surface before target credentials are requested.
+check_binlog_source_compat() {
+  local repo_root json_sql_file
+  repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  json_sql_file="${repo_root}/sql/checks/json_columns.sql"
+
+  local json_offenders=""
+  local bad_fmt=""
+
+  # --- JSON column sub-check ---
+  if [[ ! -r "$json_sql_file" ]]; then
+    echo "WARNING: cannot read $json_sql_file; skipping early JSON-column check."
+    echo "         (The assess and preflight gates will still enforce this.)"
+  else
+    local json_sql; json_sql="$(cat "$json_sql_file")"
+    echo "==> Checking source schemas for JSON columns..."
+    if db_run_query "$SRC_HOST" "$SRC_PORT" "$SRC_ADMIN_USER" "$SRC_ADMIN_PASS" "$json_sql"; then
+      # Parse SRC_DBS_INPUT into selected[] for scope filtering.
+      local -a selected=()
+      local raw_name
+      local IFS_saved="$IFS"
+      IFS=','
+      local -a raw_list=( $SRC_DBS_INPUT )
+      IFS="$IFS_saved"
+      for raw_name in "${raw_list[@]}"; do
+        raw_name="$(printf "%s" "$raw_name" | xargs)"
+        [[ -n "$raw_name" ]] && selected+=("$raw_name")
+      done
+      if [[ ${#selected[@]} -gt 0 ]]; then
+        json_offenders="$(printf "%s\n" "$DB_QUERY_STDOUT" | awk -F'\t' \
+            -v sel="$(IFS='|'; echo "${selected[*]}")" '
+          BEGIN { n = split(sel, a, "|"); for (i=1;i<=n;i++) s[a[i]] = 1 }
+          $1 in s { printf "  %s.%s.%s\n", $1, $2, $3 }
+        ')"
+      fi
+    else
+      echo "WARNING: JSON-column query failed; skipping early JSON-column check."
+      echo "         (The assess and preflight gates will still enforce this.)"
+    fi
+  fi
+
+  # --- binlog_format sub-check (inline query, no shared SQL file) ---
+  echo "==> Checking source binlog_format..."
+  if db_run_query "$SRC_HOST" "$SRC_PORT" "$SRC_ADMIN_USER" "$SRC_ADMIN_PASS" \
+                  "SHOW VARIABLES LIKE 'binlog_format';"; then
+    local current_fmt
+    current_fmt="$(printf "%s\n" "$DB_QUERY_STDOUT" | awk -F'\t' 'NR==1 {print toupper($2)}')"
+    if [[ -n "$current_fmt" && "$current_fmt" != "ROW" ]]; then
+      bad_fmt="$current_fmt"
+    fi
+  else
+    echo "WARNING: binlog_format query failed; skipping early binlog_format check."
+    echo "         (The assess and preflight gates will still enforce this.)"
+  fi
+
+  # --- Compose advisory ---
+  if [[ -z "$json_offenders" && -z "$bad_fmt" ]]; then
+    echo "==> OK: source is compatible with replication mode."
+    return 0
+  fi
+
+  echo ""
+  echo "ERROR: Source is not compatible with replication mode."
+  echo ""
+
+  if [[ -n "$json_offenders" ]]; then
+    echo "Detected JSON columns:"
+    echo "$json_offenders"
+    echo ""
+    echo "JSON column types are not supported for online replication-based migration."
+    echo "Please use one of the offline migration modes:"
+    echo ""
+    echo "  - Serial Streaming Copy"
+    echo "  - Parallel Streaming Copy"
+    echo "  - Offline Copy"
+    echo ""
+  fi
+
+  if [[ -n "$bad_fmt" ]]; then
+    echo "Source binlog_format is '$bad_fmt'. Replication mode requires 'ROW'."
+    echo ""
+    echo "To remediate, set the following in the source MySQL configuration"
+    echo "(e.g. /etc/my.cnf or /etc/mysql/my.cnf) and restart the source server:"
+    echo ""
+    echo "  [mysqld]"
+    echo "  binlog_format = ROW"
+    echo ""
+  fi
+
+  return 1
+}
+
+# Dispatcher. Routes to the per-mode source-compat check, or returns 0
+# for modes with no known source-side blockers.
+run_source_side_compatibility_checks() {
+  case "$MODE" in
+    binlog) check_binlog_source_compat ;;
+    *) return 0 ;;
+  esac
+}
+
 # Full "Source ready" banner. Printed once, after connectivity + DB existence pass.
 print_source_ready_banner() {
   echo ""
@@ -1129,37 +1277,11 @@ if [[ -n "${MODE:-}" ]]; then
     echo "       Valid values: one_step, two_step, binlog, staged, inplace, replace_slave"
     exit 1
   fi
+  MODE_FROM_ENV=1
   echo "==> Mode: $(mode_label "$MODE")  [from environment: MODE=$MODE]"
 else
-  while true; do
-    prompt_mode_selection  # sets $MODE; exits the script on 'q'
-
-    case "$MODE" in
-      two_step)
-        # Variant is selected here too so 'b' can return us to the top-level
-        # menu before sqldata/preflight side effects begin. If a variant was
-        # preset in env, skip the sub-menu — the env value wins.
-        if [[ -z "$TWO_STEP_VARIANT" ]]; then
-          if ! prompt_two_step_variant; then
-            continue  # 'b' pressed → re-enter top-level menu
-          fi
-        fi
-        break
-        ;;
-      staged)
-        if [[ -z "$STAGED_PHASE" ]]; then
-          if ! prompt_staged_phase; then
-            continue
-          fi
-        fi
-        break
-        ;;
-      *)
-        # one_step, binlog — no sub-menu.
-        break
-        ;;
-    esac
-  done
+  MODE_FROM_ENV=0
+  prompt_mode_with_submenus
 fi
 
 # --- Post-selection plumbing: two_step --------------------------------------
@@ -1172,7 +1294,7 @@ if [[ "$MODE" == "two_step" ]]; then
 
 ERROR: MariaDB Data migration tool (sqldata) not found.
 
-  Streaming Copy (sqldata) needs the 'sqldata' binary. Install it, then
+  Parallel Streaming Copy (sqldata) needs the 'sqldata' binary. Install it, then
   either put it on PATH or export SQLINESDATA_BIN=/path/to/sqldata before
   re-running:
 
@@ -1332,6 +1454,26 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
       fi
     done
     print_source_ready_banner
+
+    # Source-side compatibility checks (mode-aware). On failure, re-enter
+    # the mode selection menu so the operator can pick a compatible mode
+    # without re-entering source connection info. Env-set MODE cannot
+    # interactively change, so we hard-exit in that path instead.
+    while ! run_source_side_compatibility_checks; do
+      if [[ "${MODE_FROM_ENV:-0}" == "1" ]]; then
+        echo "MODE was set in the environment; cannot interactively re-select."
+        echo "Re-run with a compatible MODE (e.g. one_step, two_step, or staged)."
+        exit 1
+      fi
+      echo "Returning to mode selection (source connection info is preserved)."
+      echo ""
+      # Reset submenu state to empty (not unset) so prompt_mode_with_submenus
+      # re-triggers the sub-menus on the next pick while keeping the variables
+      # defined for downstream references under `set -u`.
+      TWO_STEP_VARIANT=""
+      STAGED_PHASE=""
+      prompt_mode_with_submenus
+    done
   fi
 fi
 
@@ -1823,12 +1965,78 @@ fi
         fi
     fi
 
+  # Pick the example subcommand to show in the re-use hint, based on which
+  # phase the operator just invoked. For the default flow (PHASE_MODE=all)
+  # and --assess, the natural starting point for a re-run is assess. For
+  # --plan and --run, show the matching subcommand so an operator who wants
+  # to re-trigger that same phase later can copy-paste the command directly.
+  case "$PHASE_MODE" in
+    plan)
+      hint_subcmd="plan"
+      hint_outvar="plan"
+      ;;
+    run)
+      hint_subcmd="run"
+      hint_outvar="run_${MODE}"
+      ;;
+    *)  # all, assess
+      hint_subcmd="assess"
+      hint_outvar="assess"
+      ;;
+  esac
+
   save_with_passwords="$(prompt "Include passwords/secrets in saved config? (y/n)" "n")"
   if [[ "$(printf "%s" "$save_with_passwords" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
     save_config 1
+    echo ""
+    echo "To re-use this saved config later, use any of these:"
+    echo ""
+    echo "  ./mariadb-migrator                       # all phases, interactive"
+    if [[ "$PHASE_MODE" != "all" ]]; then
+      echo ""
+      echo "  # or, for $PHASE_MODE phase only:"
+      echo "  ./mariadb-migrator --$PHASE_MODE"
+    fi
+    echo ""
+    echo "  # or, non-interactively (single phase at a time):"
+    echo "  python3 -m orchestrator.migrationctl $hint_subcmd \\"
+    echo "      --config config/migration.yaml --mode $MODE \\"
+    echo "      --out artifacts/${hint_outvar}_\$(date +%Y%m%d_%H%M%S)"
+    echo ""
+    echo "  (See docs/INVOCATION_REFERENCE.md for other subcommands.)"
+    echo ""
   else
     save_config 0
     echo "==> Saved config with passwords redacted."
+    echo ""
+    # Compose the env-var prefix for the example command. SRC_ADMIN_PASS is
+    # always needed. TGT_ADMIN_PASS is needed for every mode except inplace
+    # (no target server). REPL_PASS is binlog-specific (the replication user
+    # the target connects as).
+    hint_env="SRC_ADMIN_PASS='...'"
+    if [[ "$MODE" != "inplace" ]]; then
+      hint_env+=" TGT_ADMIN_PASS='...'"
+    fi
+    if [[ "$MODE" == "binlog" || "$MODE" == "replace_slave" ]]; then
+      hint_env+=" REPL_PASS='...'"
+    fi
+    echo "To re-use this saved config later, use any of these:"
+    echo ""
+    echo "  ./mariadb-migrator                       # all phases, interactive"
+    if [[ "$PHASE_MODE" != "all" ]]; then
+      echo ""
+      echo "  # or, for $PHASE_MODE phase only:"
+      echo "  ./mariadb-migrator --$PHASE_MODE"
+    fi
+    echo ""
+    echo "  # or, non-interactively (passwords required via environment):"
+    echo "  $hint_env \\"
+    echo "      python3 -m orchestrator.migrationctl $hint_subcmd \\"
+    echo "        --config config/migration.yaml --mode $MODE \\"
+    echo "        --out artifacts/${hint_outvar}_\$(date +%Y%m%d_%H%M%S)"
+    echo ""
+    echo "  (See docs/INVOCATION_REFERENCE.md for other subcommands and full env-var list.)"
+    echo ""
   fi
 else
   echo "==> Skipping config save."
@@ -1855,11 +2063,11 @@ fi
 if [[ "$PHASE_MODE" == "assess" ]]; then
   if [[ -f "config/source.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
-    python3 -m orchestrator.migrationctl assess --config config/source.yaml --out "$ASSESS_DIR"
+    python3 -m orchestrator.migrationctl assess --config config/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
     STATUS=$?
   elif [[ -f "config/migration.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
-    python3 -m orchestrator.migrationctl assess --config config/migration.yaml --out "$ASSESS_DIR"
+    python3 -m orchestrator.migrationctl assess --config config/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
     STATUS=$?
   else
     echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
@@ -1870,6 +2078,17 @@ elif [[ "$PHASE_MODE" == "plan" ]]; then
   python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
   STATUS=$?
 elif [[ "$PHASE_MODE" == "run" ]]; then
+  # Final confirmation before the migration actually starts. The default flow
+  # already has assess→plan→run confirms upstream; under --run those phases
+  # are skipped, so this is the operator's last beat to bail before run-phase
+  # writes begin. Default 'y' so push-through-friendly: hit Enter to proceed.
+  if ! confirm_proceed "Proceed to run phase now?"; then
+    echo "==> Run phase cancelled."
+    echo "    Configuration is saved. To start the run later:"
+    echo "      ./mariadb-migrator --run"
+    echo "    (See docs/INVOCATION_REFERENCE.md for non-interactive options.)"
+    exit 0
+  fi
   if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
     echo "==> Resuming: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
@@ -1916,10 +2135,10 @@ else
     rm -f "$RUN_DIR_FILE" "$RUN_SIG_FILE"
     if [[ -f "config/source.yaml" ]]; then
       echo "==> Assessing (out: $ASSESS_DIR)"
-      python3 -m orchestrator.migrationctl assess --config config/source.yaml --out "$ASSESS_DIR"
+      python3 -m orchestrator.migrationctl assess --config config/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
     elif [[ -f "config/migration.yaml" ]]; then
       echo "==> Assessing (out: $ASSESS_DIR)"
-      python3 -m orchestrator.migrationctl assess --config config/migration.yaml --out "$ASSESS_DIR"
+      python3 -m orchestrator.migrationctl assess --config config/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
     else
       echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
     fi
