@@ -239,7 +239,104 @@ def _source_db_gate(cfg: Dict[str, Any]) -> Gate:
     )
 
 
-def run_assessment_checks(cfg: Dict[str, Any], report: Report, repo_root: Path, outdir: Path) -> AssessmentResult:
+def _binlog_source_compatibility_gate(
+    cfg: Dict[str, Any],
+    mode: Optional[str],
+    json_cols: List[List[str]],
+) -> Optional[Gate]:
+    """
+    Mode-aware gate. Returns a Gate only when mode == 'binlog'.
+
+    Composes two source-side compatibility checks into one gate:
+      - JSON columns in any selected source schema cannot be replicated
+        to a MariaDB target via binlog mode.
+      - The source must be running binlog_format=ROW. MIXED and STATEMENT
+        are both rejected.
+
+    Either failure trips the gate. When both fail, both are surfaced in
+    the gate's details so the operator-facing message can render the
+    full picture in one shot.
+
+    The binlog_format value is queried inline via subprocess (mirroring
+    _source_db_gate) rather than read from a precheck TSV, because the
+    query is a one-liner with no shared-SQL-file complexity to justify.
+    """
+    if mode != "binlog":
+        return None
+
+    env_cfg = _effective_env_cfg(cfg)
+    src_db = str(env_cfg.get("SRC_DB", "")).strip()
+    src_dbs = str(env_cfg.get("SRC_DBS", "")).strip()
+    selected: List[str] = []
+    if src_dbs:
+        selected = [x.strip() for x in src_dbs.split(",") if x.strip()]
+    elif src_db:
+        selected = [src_db]
+    if not selected:
+        # No schemas in scope; cannot evaluate. Don't emit a gate.
+        return None
+
+    failures: Dict[str, Any] = {}
+
+    # JSON sub-check
+    selected_set = set(selected)
+    offenders = [
+        f"{r[0]}.{r[1]}.{r[2]}"
+        for r in json_cols
+        if len(r) >= 3 and r[0] in selected_set
+    ]
+    if offenders:
+        failures["json_columns"] = offenders
+
+    # binlog_format sub-check (inline query, no precheck TSV dependency)
+    client = cfg.get("client", {}) or {}
+    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", "mysql")))
+    host = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
+    port = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
+    user, password, _ = _select_source_credentials(cfg, env_cfg)
+    if user:
+        env = dict(os.environ)
+        if password:
+            env["MYSQL_PWD"] = password
+        elif "MYSQL_PWD" in env:
+            del env["MYSQL_PWD"]
+        try:
+            p = subprocess.run(
+                [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
+                 "--batch", "--skip-column-names",
+                 "-e", "SHOW VARIABLES LIKE 'binlog_format';"],
+                capture_output=True, text=True, env=env,
+            )
+            if p.returncode == 0:
+                # Output is "binlog_format<tab>VALUE"
+                first = (p.stdout or "").splitlines()[:1]
+                if first and "\t" in first[0]:
+                    current_fmt = first[0].split("\t", 1)[1].strip().upper()
+                    if current_fmt and current_fmt != "ROW":
+                        failures["binlog_format"] = current_fmt
+        except FileNotFoundError:
+            # mysql client missing; the source_databases_exist gate will
+            # have already failed for the same reason. Skip silently.
+            pass
+
+    return Gate(
+        "binlog_source_compatibility",
+        GateStatus.PASS if not failures else GateStatus.FAIL,
+        {
+            "mode": mode,
+            "selected_schemas": selected,
+            "failures": failures,
+        },
+    )
+
+
+def run_assessment_checks(
+    cfg: Dict[str, Any],
+    report: Report,
+    repo_root: Path,
+    outdir: Path,
+    mode: Optional[str] = None,
+) -> AssessmentResult:
     gates: List[Gate] = []
     warnings: List[WarningItem] = []
     inventory: Dict[str, Any] = {}
@@ -317,6 +414,10 @@ def run_assessment_checks(cfg: Dict[str, Any], report: Report, repo_root: Path, 
         )
     )
     gates.append(_source_db_gate(cfg))
+
+    binlog_gate = _binlog_source_compatibility_gate(cfg, mode, json_cols)
+    if binlog_gate is not None:
+        gates.append(binlog_gate)
 
     # Warnings/Inventory
     if innodb_fast_shutdown and innodb_fast_shutdown != "0":

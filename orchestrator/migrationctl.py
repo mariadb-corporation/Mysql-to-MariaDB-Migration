@@ -140,6 +140,13 @@ def _prompt_required_env(env: Dict[str, str], mode_value: str, non_interactive: 
 def assess(
     config: Path = typer.Option(..., "--config", "-c", help="Source DB config YAML (read-only)."),
     out: Path = typer.Option(DEFAULT_OUTDIR, "--out", "-o", help="Output directory for artifacts."),
+    mode: Optional[str] = typer.Option(
+        None,
+        "--mode",
+        "--playbook",
+        "-m",
+        help="Selected migration mode (enables mode-aware gates, e.g. binlog/JSON compatibility).",
+    ),
     non_interactive: bool = typer.Option(True, "--non-interactive", help="Never prompt; CI-safe."),
 ):
     """Run read-only assessment: safety gates + warnings + inventory."""
@@ -168,7 +175,7 @@ def assess(
 
     try:
         # Perform assessment checks (read-only)
-        result: AssessmentResult = run_assessment_checks(cfg, report, repo_root, out)
+        result: AssessmentResult = run_assessment_checks(cfg, report, repo_root, out, mode=mode)
     except Exception as exc:
         msg = f"Assessment failed during checks: {exc}"
         report.log(f"ERROR: {msg}")
@@ -185,6 +192,43 @@ def assess(
 
     # Gate decision
     if any(g.status == GateStatus.FAIL for g in result.gates):
+        # Surface a friendly, actionable message on stdout for the binlog
+        # source-compatibility gate before the generic FAIL summary. The
+        # gate may report one or both sub-failures (JSON columns and/or
+        # non-ROW binlog_format); render whichever are present.
+        for g in result.gates:
+            if g.name == "binlog_source_compatibility" and g.status == GateStatus.FAIL:
+                failures = (g.details or {}).get("failures") or {}
+                json_cols = failures.get("json_columns") or []
+                bad_fmt = failures.get("binlog_format")
+
+                typer.echo("")
+                typer.echo("ERROR: Source is not compatible with replication mode.")
+                typer.echo("")
+
+                if json_cols:
+                    typer.echo("Detected JSON columns:")
+                    for col in json_cols:
+                        typer.echo(f"  {col}")
+                    typer.echo("")
+                    typer.echo("JSON column types are not supported for online replication-based migration.")
+                    typer.echo("Please use one of the offline migration modes:")
+                    typer.echo("")
+                    typer.echo("  - Serial Streaming Copy")
+                    typer.echo("  - Parallel Streaming Copy")
+                    typer.echo("  - Offline Copy")
+                    typer.echo("")
+
+                if bad_fmt:
+                    typer.echo(f"Source binlog_format is '{bad_fmt}'. Replication mode requires 'ROW'.")
+                    typer.echo("")
+                    typer.echo("To remediate, set the following in the source MySQL configuration")
+                    typer.echo("(e.g. /etc/my.cnf or /etc/mysql/my.cnf) and restart the source server:")
+                    typer.echo("")
+                    typer.echo("  [mysqld]")
+                    typer.echo("  binlog_format = ROW")
+                    typer.echo("")
+                break
         report.finish_run(success=False, message="Assessment failed: one or more hard gates failed.")
         typer.echo("ASSESSMENT: FAIL (see artifacts/report.json and run.log)")
         raise typer.Exit(code=2)
