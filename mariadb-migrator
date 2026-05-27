@@ -182,13 +182,17 @@ Usage:
   ./migration --plan
   ./migration --run
 
-Default behavior (no flag): assess -> plan -> run
+Default behavior (no flag): present an interactive top-level menu with two
+choices: 'Assess & Plan' (run assess + plan, stop before run) or 'Assess +
+Run' (run the full migration: assess -> plan -> run, with confirm steps
+between phases). The phase flags below bypass the menu and run a single
+phase.
 
 Options:
   -h, --help    Show this help message and exit
-  --assess      Run the assessment phase only
-  --plan        Run the planning phase only
-  --run         Run the migration execution phase only
+  --assess      Run the assessment phase only (bypasses the menu)
+  --plan        Run the planning phase only (bypasses the menu)
+  --run         Run the migration execution phase only (bypasses the menu)
 
 EOF
   print_prerequisites
@@ -306,19 +310,21 @@ prompt_mode_selection() {
     print_modes_briefing
     cat <<'EOF'
   d) Show detailed descriptions (caveats, disk requirements, version notes)
+  b) Back to top-level menu
   q) Quit
 
 EOF
-    read -r -p "Enter choice [1-4, d, q]: " choice
+    read -r -p "Enter choice [1-4, d, b, q]: " choice
     case "$choice" in
       1)   MODE="one_step"; return 0 ;;
       2)   MODE="two_step"; return 0 ;;
       3)   MODE="staged";   return 0 ;;
       4)   MODE="binlog";   return 0 ;;
       d|D) print_modes_detailed ;;
+      b|B) MODE_SELECT_BACK=1; return 0 ;;
       q|Q) echo "Cancelled."; exit 0 ;;
       "")  echo "Please enter a choice." ;;
-      *)   echo "Invalid choice: '$choice'. Please enter 1, 2, 3, 4, d, or q." ;;
+      *)   echo "Invalid choice: '$choice'. Please enter 1, 2, 3, 4, d, b, or q." ;;
     esac
   done
 }
@@ -401,7 +407,16 @@ EOF
 # re-prompt after a source-side compatibility check rejects the choice.
 prompt_mode_with_submenus() {
   while true; do
-    prompt_mode_selection  # sets $MODE; exits the script on 'q'
+    MODE_SELECT_BACK=0
+    prompt_mode_selection  # sets $MODE; exits the script on 'q'; sets MODE_SELECT_BACK=1 on 'b'
+    if [[ "$MODE_SELECT_BACK" == "1" ]]; then
+      # Operator chose to go back. Re-run the top-level menu so they can pick
+      # a different action (Assess & Plan vs. Assess + Run), then loop back
+      # here for mode selection. The my.cnf conversion is NOT re-offered —
+      # the operator already answered that prompt earlier in the flow.
+      prompt_top_level_action
+      continue
+    fi
     case "$MODE" in
       two_step)
         if [[ -z "$TWO_STEP_VARIANT" ]]; then
@@ -427,6 +442,62 @@ print_progress_hint() {
   local run_dir="$1"
   local run_log="${run_dir}/run.log"
   echo "    Live progress: tail -f $run_log"
+}
+
+# Top-level action menu. Asks the operator what they want to do before any
+# other prompting (mode selection, source/target creds, etc). Only shown when
+# the operator invoked the launcher with no CLI phase flag — --assess, --plan,
+# and --run are atomic and bypass this menu entirely (they set PHASE_MODE
+# directly during arg parsing).
+#
+# Sets PHASE_MODE to one of:
+#   "assess_plan" - choice 1: run assess + plan phases, stop before run. New
+#                   composite phase added in 1.2.2; not exposed as a CLI flag
+#                   because CLI flags remain atomic (one phase each).
+#   "all"         - choice 2: existing default flow (assess -> plan -> run with
+#                   confirms between phases). PHASE_MODE is already "all" when
+#                   we enter this function; we leave it unchanged.
+# Choice 'q' exits the script cleanly.
+prompt_top_level_action() {
+  local choice
+  while true; do
+    cat <<'EOF'
+
+Direct invocation (bypasses this menu):
+  ./mariadb-migrator --assess    Run the assessment phase only
+  ./mariadb-migrator --plan      Run the planning phase only
+  ./mariadb-migrator --run       Run the migration execution phase only
+  ./mariadb-migrator --help      Show full usage and mode descriptions
+
+What would you like to do?
+  1) Assess & Plan    Inspect source and target, validate connectivity and
+                      compatibility, and produce an assessment report and the
+                      migration plan. No data is moved.
+  2) Assess + Run     Assess the source, then proceed to the full migration
+                      (plan + run, with confirm steps between phases).
+  q) Quit
+EOF
+    read -r -p "Enter choice [1, 2, q, Enter=2]: " choice
+    case "$choice" in
+      1)
+        PHASE_MODE="assess_plan"
+        echo "==> Selected: Assess & Plan (no run)"
+        return 0
+        ;;
+      ""|2)
+        # PHASE_MODE stays "all" — the existing default flow.
+        echo "==> Selected: Assess + Run (full migration with confirms)"
+        return 0
+        ;;
+      q|Q)
+        echo "==> Exiting."
+        exit 0
+        ;;
+      *)
+        echo "Invalid choice. Please enter 1, 2, or q."
+        ;;
+    esac
+  done
 }
 
 # Convert MySQL my.cnf to MariaDB format via mariadb-migrate-config-file. Non-fatal.
@@ -1251,6 +1322,25 @@ echo "==> MySQL to MariaDB Migration"
 
 ensure_db_client
 
+# --- Top-level action menu --------------------------------------------------
+# Interactive operators choose what they want to do up front (assess-only vs.
+# the full migration). CLI flags (--assess, --plan, --run) bypass this menu
+# because they're atomic: each flag selects exactly one phase and PHASE_MODE
+# was already set during arg parsing. Only the default (PHASE_MODE="all", set
+# when no flag was given) is overridable by the menu — choice 1 changes it to
+# "assess_plan", choice 2 leaves it as "all".
+if [[ "$PHASE_MODE" == "all" ]]; then
+  prompt_top_level_action
+fi
+
+# --- Optional my.cnf conversion ---------------------------------------------
+# Moved above mode selection in 1.2.2. The conversion is mode-agnostic — it
+# only depends on the operator having a MySQL my.cnf they want translated to
+# MariaDB format. Offering it before mode selection means the operator can
+# handle the config file regardless of which migration path they pick (or
+# even if they only run --assess).
+migrate_mysql_config_file
+
 # Initialize sub-prompt vars from env first, so the menu and post-selection
 # code can use them consistently. Each defaults to empty (or its inherent
 # default) when not preset.
@@ -1596,10 +1686,6 @@ fi
 INSTALL_TARGET_MARIADB="0"
 TARGET_INSTALL_OS=""
 TARGET_MARIADB_VERSION=""
-
-if needs_endpoint_preflight; then
-  migrate_mysql_config_file
-fi
 
 INPLACE_BACKUP_DIR="$CFG_INPLACE_BACKUP_DIR"
 INPLACE_EXECUTE="$CFG_INPLACE_EXECUTE"
@@ -2112,6 +2198,36 @@ elif [[ "$PHASE_MODE" == "run" ]]; then
     echo "==> Running: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
     python3 -m orchestrator.migrationctl run --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    STATUS=$?
+  fi
+elif [[ "$PHASE_MODE" == "assess_plan" ]]; then
+  # Composite phase introduced in 1.2.2 for menu option 1 ("Assess"). Runs the
+  # assess phase, asks the operator to confirm before continuing, then runs the
+  # plan phase and stops. No run-phase invocation. CLI flags (--assess / --plan)
+  # remain atomic and do not set this PHASE_MODE; only the interactive menu
+  # selects it.
+  if [[ -f "config/source.yaml" ]]; then
+    echo "==> Assessing (out: $ASSESS_DIR)"
+    python3 -m orchestrator.migrationctl assess --config config/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
+    STATUS=$?
+  elif [[ -f "config/migration.yaml" ]]; then
+    echo "==> Assessing (out: $ASSESS_DIR)"
+    python3 -m orchestrator.migrationctl assess --config config/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
+    STATUS=$?
+  else
+    echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
+    STATUS=0
+  fi
+
+  if [[ $STATUS -ne 0 ]]; then
+    echo "==> Assess failed (status $STATUS). Skipping plan phase."
+  else
+    if ! confirm_proceed "Proceed to plan phase now?"; then
+      echo "Stopped after assess by user choice."
+      exit 0
+    fi
+    echo "==> Planning: $MODE (out: $PLAN_DIR)"
+    python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
     STATUS=$?
   fi
 else
