@@ -1,5 +1,268 @@
 # Changelog
 
+## [1.2.3-beta] — 2026-05-28
+
+Rewrites application user migration to be plugin-aware, role-aware, and
+consistent across all four user-facing modes. Adds a read-only assess-phase
+counterpart so operators can preview which users would migrate, which would
+have their passwords reset, and which would be skipped, before committing to
+a run.
+
+### Application user migration — plugin-aware behavior
+
+The user migration step (`scripts/09_migrate_app_users.sh`) previously had
+two code paths: `mysql_native_password` users had their hash ported via
+`IDENTIFIED BY PASSWORD '<hash>'`, and everyone else was recreated on the
+target with a default password. This collapsed too many cases. Notably,
+`caching_sha2_password` users (the MySQL 8.0 default plugin) were silently
+re-credentialed with the default password and no per-user audit trail, and
+non-password authentication plugins (`auth_socket`, `unix_socket`,
+`auth_pam`, `mysql_no_login`) were treated identically — pushed onto the
+target as password-authenticated accounts even though their original
+authentication model wouldn't have been password-based at all.
+
+User creation is now a four-way branch:
+
+| Source plugin | Target outcome |
+|---|---|
+| `mysql_native_password` (with hash) | Hash ported via MariaDB-native `IDENTIFIED VIA mysql_native_password USING '<hash>'`. Original password preserved. |
+| `mysql_native_password` (no hash) | Default password + `PASSWORD EXPIRE`. |
+| `caching_sha2_password`, `sha256_password` | Default password + `PASSWORD EXPIRE`. Hash formats are not portable across engines. |
+| `auth_socket`, `unix_socket`, `auth_pam`, `mysql_no_login`, anything else | Skipped. Non-password auth does not translate cleanly; manual configuration on target required. |
+
+The `IDENTIFIED VIA ... USING` form replaces the prior
+`IDENTIFIED BY PASSWORD '<hash>'`. Both work on current MariaDB releases, but
+the new form is the documented MariaDB-native syntax and is more
+future-proof.
+
+Every user creation that uses the default password also sets `PASSWORD
+EXPIRE`, so the user is forced to change their password on first login
+rather than relying on operator follow-through after reading the report.
+
+### Roles — distinguished from users and replayed via `CREATE ROLE`
+
+In MySQL 8.0+, roles are stored in `mysql.user` alongside users, and prior
+versions of `09_migrate_app_users.sh` did not distinguish them. A source
+role would land on the target as a regular password-authenticated user with
+the default password — both incorrect (the row should be a role, not a
+user) and a security smell (an apparently-loginable account with a known
+default password).
+
+Role discovery now runs as a separate pass before user migration, using the
+standard MySQL fingerprint:
+
+```sql
+account_locked = 'Y' AND password_expired = 'Y' AND authentication_string = ''
+```
+
+Each identified role is replayed on target via `CREATE ROLE IF NOT EXISTS`.
+The user loop then skips role rows so they are not re-created as users.
+Grants of roles to users (`GRANT <role> TO <user>`) are attempted as normal
+during grant replay; if the role was created successfully in the prior pass,
+the grant succeeds.
+
+### Application user migration — wired into all user-facing modes
+
+Previously, the `migrate_app_users` step was wired only into
+`one_step_prepare` in `orchestrator/step_map.yaml`. Operators who picked
+Parallel Streaming Copy (`two_step`), Offline Copy (`staged`), or
+Replication (`binlog`) and answered `y` to the
+`Migrate application users? (y/n)` prompt found their application users had
+silently not been migrated. The step is now part of the prepare phase for
+all four user-facing modes. Internal mode (`inplace`) and deprecated mode
+(`replace_slave`) are not wired.
+
+### Application user assessment — new read-only assess-phase step
+
+A new `scripts/01_assess_app_users.sh` runs during the assess phase when
+`MIGRATE_APP_USERS=1`. It performs the same discovery the run-phase script
+does (source role identification, user enumeration, plugin classification,
+grant count) but writes nothing to the target. It emits a prediction report
+at `<assess_dir>/user_assessment_report.txt` framed in "would create / would
+preserve / would default-password / would skip" language.
+
+The assess script is invoked from `orchestrator/migrationctl.py` after the
+existing assessment checks complete and before the gate decision. Failures
+in user assessment are logged but do not fail the assess gate — user
+migration is operator-optional, so a discovery failure should not block a
+migration the operator wants to proceed with regardless.
+
+Operators picking `Assess & Plan` from the top-level menu (added in
+1.2.2-beta) now see exactly what user migration would do without committing
+to a run. Picking `Assess + Run` produces both a prediction report (under
+`assess_<ts>/`) and a write report (under `run_<mode>_<ts>/`) for the same
+migration, allowing post-hoc diff to confirm prediction matched outcome.
+
+### Per-user audit trail
+
+Both the run-phase and assess-phase scripts emit a summary block at the end
+of their execution, to stdout and to a report file at
+`<run_dir>/user_migration_report.txt` (run) and
+`<assess_dir>/user_assessment_report.txt` (assess). The summary tabulates:
+
+- Roles created (or to be created)
+- Users with original password preserved (or to be preserved)
+- Users with password reset to default — with `PASSWORD EXPIRE` set
+- Users skipped due to non-password authentication plugin
+- Users that failed to migrate (CREATE/ALTER USER returned an error)
+- Grants attempted, succeeded, and dropped (or grant count, in assess)
+
+Per-user detail lists follow the counts, naming each affected user@host
+identifier. Operators can grep the report for "ROTATE THESE" pointers or
+diff the assess and run reports across the same migration.
+
+### Client noise — filtered in user migration scripts
+
+Both user migration scripts now filter known cosmetic noise from the
+underlying client invocations:
+
+- The `mysql: Deprecated program name. It will be removed in a future
+  release, use '/usr/bin/mariadb' instead` banner emitted when `mysql` is a
+  legacy alias for `mariadb`.
+- The `WARNING: option --ssl-verify-server-cert is disabled, because of an
+  insecure passwordless login.` warning emitted whenever credentials are
+  passed via `MYSQL_PWD` env var instead of on the command line.
+
+The same noise from other phase scripts (preflight, dump, validate) is
+unaffected in this release and is tracked for a future cleanup pass.
+
+The default for `MYSQL_BIN` is also changed from `mysql` to `mariadb` in the
+user migration scripts, eliminating the deprecation banner at its source on
+systems where `mysql` is a legacy alias. Operators who genuinely need the
+upstream `mysql` client can still override via `MYSQL_BIN=mysql`.
+
+### Compatibility notes
+
+- No configuration changes required. The `Migrate application users? (y/n)`
+  prompt and the `MIGRATE_APP_USERS` env var behave the same as before;
+  what changed is what happens when the operator says yes.
+
+- Tested against MySQL 8.0 and 8.4 sources with MariaDB 11.x as the target,
+  across Serial Streaming Copy, Parallel Streaming Copy, and Offline Copy.
+  Replication (`binlog`) uses the same wiring but wasn't exercised this
+  release.
+
+- For MySQL 8.4 sources, expect most users to land on the default-password
+  path — 8.4 ships with `mysql_native_password` disabled by default, so
+  there's usually no portable hash to preserve. Plan a password rotation
+  pass before bringing traffic up on the target.
+
+- Replication, monitoring, and backup-tool accounts (`repl_user`,
+  `replicator`, `dbpwf*`, `aws_*`, `pmm_*`, `xtrabackup*`,
+  `mysqld_exporter`, and similar) still come across as application users.
+  A pattern-based exclusion list is planned for the next release; for now,
+  drop these on target after migration if you don't want them.
+
+- Grants that fail at replay time all show up as "dropped (incompatible
+  with MariaDB)" — the report doesn't distinguish between MariaDB not
+  understanding a privilege (e.g. `APPLICATION_PASSWORD_ADMIN`,
+  `SYSTEM_USER`, `SET_ANY_DEFINER`) and the target admin lacking
+  `GRANT OPTION`. If you're seeing more dropped grants than expected,
+  double-check the target admin's grants before assuming syntax
+  incompatibility.
+
+## [1.2.2-beta] — 2026-05-27
+
+Introduces a top-level operator menu separating assess-only flow from the
+full migration, moves the optional my.cnf converter above mode selection so
+it applies regardless of mode, and adds a back-navigation option on the
+mode-selection menu so operators can change their initial choice without
+restarting the tool.
+
+### Top-level menu — Assess & Plan vs. Assess + Run
+
+The launcher previously dropped operators directly into mode selection on
+invocation. There was no way to express "I want to look at the source and
+generate a plan but not run anything" except by invoking the orchestrator's
+phase flags (`--assess`, `--plan`) directly, which bypasses the interactive
+flow entirely. Operators evaluating a migration before commitment had to
+either run the full flow and decline the run-phase confirm, or learn the
+non-interactive invocation.
+
+A new menu now precedes mode selection in the interactive flow:
+
+```
+What would you like to do?
+  1) Assess & Plan    Inspect source and target, validate connectivity and
+                      compatibility, and produce an assessment report and the
+                      migration plan. No data is moved.
+  2) Assess + Run     Assess the source, then proceed to the full migration
+                      (plan + run, with confirm steps between phases).
+  q) Quit
+```
+
+Pressing Enter selects option 2 (Assess + Run) to match the most common
+operator intent. The menu also displays the direct-invocation flags
+(`--assess`, `--plan`, `--run`, `--help`) for operators who prefer the CLI
+form.
+
+Internally, option 1 sets `PHASE_MODE="assess_plan"` — a new composite mode
+that invokes `migrationctl assess` and then `migrationctl plan`, stopping
+cleanly before the run phase. Direct invocation with `--assess`, `--plan`,
+or `--run` bypasses the menu entirely; the CLI flags remain atomic
+(one phase per flag) and the new `assess_plan` mode is not exposed as a
+flag.
+
+### Mode-selection menu — back-to-top-level option
+
+A `b) Back to top-level menu` option is added to the mode-selection menu.
+Selecting it re-runs the top-level menu so operators can change their
+Assess & Plan / Assess + Run choice without restarting the tool. The
+my.cnf converter is not re-offered when returning from this path; it was
+already answered earlier in the flow.
+
+### my.cnf converter — moved above mode selection
+
+The optional MySQL `my.cnf` → MariaDB conversion (via
+`mariadb-migrate-config-file`) was previously invoked after mode selection,
+source/target prompts, and the user-migration prompt — inside a guard that
+checked for `needs_endpoint_preflight`, which is mode-dependent. The
+conversion itself is mode-agnostic (it reads a file and produces a file;
+no source or target involvement), so the placement was a historical
+accident rather than a design choice.
+
+The conversion prompt is now offered immediately after the top-level menu
+and before mode selection, unguarded by mode. Operators can convert a
+my.cnf regardless of which migration mode they ultimately pick, and the
+prompt appears at the same logical point in every flow rather than buried
+in mid-flow.
+
+### CLI help text — describes the menu
+
+The `--help` output previously read:
+
+```
+Default behavior (no flag): assess -> plan -> run
+```
+
+This is no longer accurate. The updated text reads:
+
+```
+Default behavior (no flag): present an interactive top-level menu with two
+choices: 'Assess & Plan' (run assess + plan, stop before run) or 'Assess +
+Run' (run the full migration: assess -> plan -> run, with confirm steps
+between phases). The phase flags below bypass the menu and run a single
+phase.
+```
+
+Each phase flag's description also gains "(bypasses the menu)" so the
+interactive vs. CLI behavior is unambiguous.
+
+### Compatibility notes
+
+- No configuration changes required. Saved `config/migration.yaml` files
+  from prior releases continue to work; the top-level menu only affects the
+  interactive flow.
+
+- `--assess`, `--plan`, and `--run` CLI flags behave identically to prior
+  releases. They remain atomic (one phase per flag) and bypass the new
+  menu entirely.
+
+- The my.cnf converter relocation has no behavioral impact when the
+  converter is declined (operators who answered `n` previously will continue
+  to see and decline the prompt; only its position in the flow changed).
+  When the converter is accepted, the resulting file is unchanged.
+
 ## [1.2.1-beta] — 2026-05-26
 
 Hardens Replication (`binlog`) mode against two source-side configurations

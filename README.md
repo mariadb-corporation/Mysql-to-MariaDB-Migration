@@ -37,6 +37,23 @@ The interactive launcher presents these as a numbered menu (1–4). Internal ide
 
 The two streaming modes differ in their transfer topology: **Serial Streaming Copy** uses a single `mariadb-dump | mariadb` pipe and migrates tables sequentially, while **Parallel Streaming Copy** uses SQLines Data with multiple concurrent worker sessions per database (controlled by sqldata's `-ss` parameter).
 
+## Top-level menu
+
+Invoked interactively (no CLI flag), the launcher presents two choices before mode selection:
+
+```
+1) Assess & Plan    Inspect source and target, validate connectivity and
+                    compatibility, and produce an assessment report and the
+                    migration plan. No data is moved.
+2) Assess + Run     Assess the source, then proceed to the full migration
+                    (plan + run, with confirm steps between phases).
+q) Quit
+```
+
+Pressing Enter selects option 2. Operators previewing a migration before committing should pick option 1 — the assess and plan phases produce artifacts under `artifacts/assess_<ts>/` and `artifacts/plan_<ts>/` respectively, and no writes happen on the target. Operators ready to migrate can pick option 2 to run the full flow with confirm steps between phases.
+
+The same phases are reachable non-interactively via `--assess`, `--plan`, `--run` — see `./mariadb-migrator --help`. CLI flags bypass the menu.
+
 ## Prerequisites (required)
 - **MariaDB must be installed and running on the target host before running the tool.** The tool verifies the target version during preflight but does not install MariaDB. This is a deliberate scope reduction as of v1.1.0-beta; install support remains in the codebase for backward compatibility but is deprecated and will be removed in a future release.
 - For Replication (`binlog`): MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
@@ -88,6 +105,53 @@ SET GLOBAL UNIQUE_CHECKS=1;
 Notes:
 - Run these statements using an account with sufficient privileges to set global variables.
 - This is a manual DBA pre/post step; the scripts do not toggle these globals automatically.
+
+## Application user migration
+
+When the operator answers `y` to the `Migrate application users? (y/n)` prompt, the tool migrates application users and roles from the source MySQL to the target MariaDB during the run phase. From 1.2.3-beta, this runs in every user-facing mode (`one_step`, `two_step`, `staged`, `binlog`), and the assess phase produces a prediction report ahead of the run.
+
+### What happens to each user
+
+User creation on target is plugin-aware. The source plugin determines which path each user takes:
+
+| Source plugin | Outcome on target |
+|---|---|
+| `mysql_native_password` (with hash) | Migrated with original password preserved (hash ported via MariaDB's `IDENTIFIED VIA ... USING` syntax). |
+| `mysql_native_password` (no hash) | Created with the default password supplied at the prompt, with `PASSWORD EXPIRE` set so the user must change it on first login. |
+| `caching_sha2_password`, `sha256_password` | Same as above — default password + `PASSWORD EXPIRE`. The hash formats are not portable across the engine boundary. |
+| `auth_socket`, `unix_socket`, `auth_pam`, `mysql_no_login`, anything else | **Skipped.** Not created on target. Configure these manually after the migration if needed. |
+
+Roles are detected separately (using the standard MySQL fingerprint of locked, expired, no authentication string) and replayed on target via `CREATE ROLE IF NOT EXISTS`. They are not migrated as users.
+
+### Grants
+
+After each user is created, the tool runs `SHOW GRANTS` against the source and replays each grant on the target. Grants that fail at replay time are dropped from the migration and listed in the per-user report. Common causes:
+
+- MySQL 8.0 / 8.4 dynamic privileges that MariaDB doesn't recognize (e.g. `APPLICATION_PASSWORD_ADMIN`, `SYSTEM_USER`, `SET_ANY_DEFINER`)
+- Grants to a database that doesn't exist on target
+- Grants to a role that wasn't migrated (because the source user was identified as a role and skipped from the user loop)
+- Permission denial when the target admin user lacks `GRANT OPTION` on the database being granted on
+
+### Reports
+
+Two artifacts are produced when user migration is enabled:
+
+- **`artifacts/assess_<ts>/user_assessment_report.txt`** — written by the assess phase. Predicts which users would be preserved, defaulted, or skipped. No writes to the target are performed.
+- **`artifacts/run_<mode>_<ts>/user_migration_report.txt`** — written by the run phase. Records what actually happened: roles created, users preserved, users with password reset to default, users skipped, users that failed to migrate, and the full list of grants that were dropped.
+
+The two reports use parallel structure for direct comparison. Operators running `Assess + Run` can diff them post-migration to confirm the prediction matched the outcome.
+
+### Default password handling
+
+When the operator supplies a default password at the `Default password for app users:` prompt, that password is used for every user that cannot have their original password preserved (i.e. all non-native-password users and native-password users without a hash). Every such user is also marked `PASSWORD EXPIRE`, so they must change their password on first login.
+
+The default password is recorded in plain text in `user_migration_report.txt`. Treat that file as sensitive and rotate the default after the migration completes.
+
+### Limitations and known behavior
+
+- Replication, monitoring, and backup-tool accounts (e.g. `repl_user`, `dbpwf*`, `pmm_*`, `xtrabackup`, `mysqld_exporter`) are migrated as application users in this release. They need to be cleaned up manually on target post-migration. A pattern-based exclusion list is planned.
+- MySQL 8.4 sources default to `caching_sha2_password` and ship with `mysql_native_password` disabled. Most or all users on a fresh 8.4 source will land on the default-password path. Plan a password rotation pass before re-enabling application traffic on the target.
+- The dump phase (one_step, two_step, staged) may replay user-related rows from `mysql.user` as part of the data load, which can produce duplicate or conflicting entries alongside what the user migration script created. Worth a `SELECT user, host, plugin, is_role FROM mysql.user` review on target post-migration if the user set looks off.
 
 ## Status
 Beta. All four modes have been exercised end-to-end against representative source/target pairs. Offline Copy (`staged`) has been validated against AWS RDS sources and MariaDB Cloud targets. In v1.2.0-beta, mode selection moved from a free-text prompt to a numbered interactive menu, and Parallel Streaming Copy (`two_step`) gained a resumable load variant (currently EXPERIMENTAL — see Known limitations).
