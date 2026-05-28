@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -189,6 +190,47 @@ def assess(
     report.set_gates(result.gates)
     report.set_warnings(result.warnings)
     report.set_inventory(result.inventory)
+
+    # User assessment (read-only). Runs only when the operator opted into
+    # user migration via MIGRATE_APP_USERS=1, and only for user-facing modes.
+    # Failures are logged but do NOT fail the assess phase: user migration is
+    # optional and the operator can still proceed without it. The companion
+    # write-phase script (scripts/09_migrate_app_users.sh) runs during the
+    # run phase. Added in 1.2.3.
+    if os.environ.get("MIGRATE_APP_USERS") == "1" and mode in (
+        "one_step", "two_step", "binlog", "staged",
+    ):
+        assess_script = repo_root / "scripts" / "01_assess_app_users.sh"
+        if assess_script.is_file() and os.access(assess_script, os.X_OK):
+            env = os.environ.copy()
+            # Surface the assess output dir so the script writes its report
+            # alongside report.json/run.log instead of falling back to
+            # artifacts/.
+            env["ASSESS_DIR"] = str(out)
+            try:
+                proc = subprocess.run(
+                    [str(assess_script)],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                for line in (proc.stdout or "").splitlines():
+                    report.log(line)
+                for line in (proc.stderr or "").splitlines():
+                    report.log(f"STDERR: {line}")
+                if proc.returncode != 0:
+                    report.log(
+                        f"WARN: user assessment script exited with code "
+                        f"{proc.returncode}; continuing (assessment is optional)."
+                    )
+            except Exception as exc:
+                report.log(f"WARN: user assessment script failed to invoke: {exc}")
+        else:
+            report.log(
+                "NOTE: scripts/01_assess_app_users.sh not found or not executable; "
+                "skipping user assessment."
+            )
 
     # Gate decision
     if any(g.status == GateStatus.FAIL for g in result.gates):

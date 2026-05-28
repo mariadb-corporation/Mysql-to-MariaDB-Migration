@@ -94,10 +94,20 @@ phases:
       script: scripts/00_preflight_two_step.sh
       args: []
 
+    - id: migrate_app_users
+      name: Migrate application users to target (optional)
+      script: scripts/09_migrate_app_users.sh
+      args: []
+
   binlog_prepare:
     - id: preflight_binlog
       name: Preflight checks (binlog)
       script: scripts/00_preflight_binlog.sh
+      args: []
+
+    - id: migrate_app_users
+      name: Migrate application users to target (optional)
+      script: scripts/09_migrate_app_users.sh
       args: []
 
   inplace_prepare:
@@ -206,6 +216,11 @@ phases:
     - id: preflight_staged
       name: Preflight checks (staged)
       script: scripts/00_preflight_staged.sh
+      args: []
+
+    - id: migrate_app_users
+      name: Migrate application users to target (optional)
+      script: scripts/09_migrate_app_users.sh
       args: []
 
   staged_dump:
