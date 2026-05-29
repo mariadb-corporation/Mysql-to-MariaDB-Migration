@@ -54,7 +54,7 @@ Pressing Enter selects option 2. Operators previewing a migration before committ
 The same phases are reachable non-interactively via `--assess`, `--plan`, `--run` — see `./mariadb-migrator --help`. CLI flags bypass the menu.
 
 ## Prerequisites (required)
-- **MariaDB must be installed and running on the target host before running the tool.** The tool verifies the target version during preflight but does not install MariaDB. This is a deliberate scope reduction as of v1.1.0-beta; install support remains in the codebase for backward compatibility but is deprecated and will be removed in a future release.
+- **MariaDB must be installed and running on the target host before running the tool.** The tool verifies the target version during preflight but does not install MariaDB. 
 - For Replication (`binlog`): MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
 - Python 3 is required on the orchestrator host to run the migration orchestrator/CLI workflow.
 - For Parallel Streaming Copy (`two_step`), SQLines Data (`sqldata`/`sqlinesdata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
@@ -72,19 +72,6 @@ Admin users (`SRC_ADMIN_USER` / `TGT_ADMIN_USER`):
 - Must be able to check/create/drop target database objects as needed by workflow.
 - Must be able to run dump/restore and configure replication where applicable.
 - In practice, this means admin-level privileges, including grant capability.
-
-For TLS-required sources (RDS, Aurora):
-
-```bash
-MYSQL_PWD='***' mysql --protocol=TCP -h<SRC_HOST> -P<SRC_PORT> -u<SRC_ADMIN_USER> \
-  --ssl-mode=VERIFY_IDENTITY --ssl-ca=/path/to/ca-bundle.pem -e "SELECT 1;"
-```
-
-Optional grant inspection:
-
-```sql
-SHOW GRANTS FOR 'admin'@'<orchestrator_ip_or_%>';
-```
 
 ## Prerequisites (Parallel Streaming Copy data load)
 If you hit foreign key / unique constraint ordering errors during `two_step_parallel_data`, run the following on the **target MariaDB** before starting Parallel Streaming Copy (`two_step`):
@@ -179,7 +166,7 @@ Best for larger datasets or tighter windows.
 - **`single_pass`** (default) — one SQLines Data invocation per database, loading all tables in that DB. Fastest path when there are no failures, but a failed load must restart from the beginning by re-truncating the target tables.
 - **`resumable`** **[EXPERIMENTAL]** — tables grouped into batches; a manifest is written after each batch completes successfully. If the load fails mid-way, re-running picks up at the first non-complete batch (truncating only the tables in that batch). Requires `PRIMARY KEY` on every migrated table — enforced by the preflight check, which lists any PK-less tables and fails before load begins.
 
-The `resumable` variant is tagged **[EXPERIMENTAL]** in v1.2.0-beta pending resolution of a SQLines Data data-loss issue affecting large tables (see Known limitations). Use `single_pass` for production-critical runs in this release.
+The `resumable` variant is tagged **[EXPERIMENTAL]** in v1.2.0-beta pending new feature in SQLines Data data-loss. Use `single_pass` for production-critical runs in this release.
 
 ### Replication (`binlog`)
 Best for low-downtime cutover.
@@ -187,7 +174,7 @@ Best for low-downtime cutover.
 - Starts MariaDB replication from MySQL binlog using `REPL_USER`/`REPL_PASS`.
 - Verifies replication thread health and lag after start.
 - For MySQL 8.4 sources, an upstream `mysqldump` ≥ 8.4 must be available (8.4 servers reject `SHOW MASTER STATUS`); the tool detects this and fails fast at preflight.
-- **JSON column caveat**: replication is not safe for schemas containing JSON columns when the source uses `binlog_format=MIXED`. See Supported Versions for the full explanation. If the source is JSON-bearing, choose one of the offline modes.
+- **JSON column caveat**: replication is not safe for schemas containing JSON columns when the source uses `binlog_format=MIXED` binlog_format=ROW check is enforced. See Supported Versions for the full explanation. If the source is JSON-bearing, choose one of the offline modes.
 
 ### Offline Copy (`staged`)
 Best when source and target are not directly network-reachable, or when a checkpoint between dump and load is desirable.
