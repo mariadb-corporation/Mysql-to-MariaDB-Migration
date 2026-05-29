@@ -21,8 +21,7 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 
 Mode-specific notes:
 - MySQL 8.0 / 8.4 migrations are supported via any of the four modes.
-- Sources behind TLS-required endpoints (e.g. AWS RDS, Aurora) are supported via `SRC_SSL_MODE` for Serial Streaming Copy (`one_step`) and Offline Copy (`staged`).
-- **Replication (`binlog`) is not safe for schemas containing JSON columns** when the source uses `binlog_format=MIXED` (MySQL's default since 8.0). Under MIXED, any DML statement involving a non-deterministic construct — `RAND()`, `UUID()`, certain uses of `NOW()`/`SYSDATE()`, AUTO_INCREMENT touched by a trigger, `FOUND_ROWS()`, `ROW_COUNT()`, `LOAD_FILE()`, loadable functions, or several others — is automatically logged as a ROW event. ROW events for JSON columns carry MySQL's binary JSON image, which MariaDB cannot apply against its `LONGTEXT` JSON storage. For JSON-bearing schemas use Offline Copy (`staged`), Serial Streaming Copy (`one_step`), or Parallel Streaming Copy (`two_step`) instead.
+- **Replication (`binlog`) requires `binlog_format=ROW` on the source and does not support schemas containing JSON columns.** Both conditions are enforced at three layers (launcher, assessment, preflight) as of v1.2.1-beta — operators with either configuration are blocked upfront and routed to one of the offline modes (Serial Streaming Copy `one_step`, Parallel Streaming Copy `two_step`, or Offline Copy `staged`), which are unaffected by either limitation. To use Replication mode, set `binlog_format = ROW` under `[mysqld]` in the source `my.cnf` and restart the source MySQL server.
 
 ## Migration modes at a glance
 
