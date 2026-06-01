@@ -4,6 +4,7 @@ __pycache__/
 *.bak
 artifacts/
 .migration_last_*
+.venv/
 config/migration.yaml
 sqldata.log
 sqldata_ddl.sql
