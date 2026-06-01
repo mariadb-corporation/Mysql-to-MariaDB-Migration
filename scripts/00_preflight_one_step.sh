@@ -3,9 +3,22 @@ set -euo pipefail
 
 echo "==> Preflight checks (one_step)"
 
-MYSQL_BIN="${MYSQL_BIN:-mysql}"
+# Source-side client queries use the canonical 'mariadb' client by default
+# (avoids the "Deprecated program name" banner when 'mysql' is a MariaDB alias).
+# Operators needing the upstream mysql client can still set MYSQL_BIN=mysql.
+# Note: this is only for the connectivity/version/db-existence probes below;
+# the 8.4 mysqldump detection block is independent and unchanged.
+MYSQL_BIN="${MYSQL_BIN:-mariadb}"
 MARIADB_DUMP_BIN="${MARIADB_DUMP_BIN:-mariadb-dump}"
 PV_BIN="${PV_BIN:-pv}"
+
+# Explicit SSL flag for the mariadb client family on source probes. Passing it
+# (rather than letting the client auto-disable verification on a passwordless
+# login and warn) keeps preflight output clean. Empty for a non-mariadb client.
+SRC_SSL_ARGS=()
+if [[ "$MYSQL_BIN" == *mariadb* ]]; then
+  SRC_SSL_ARGS=( --ssl-verify-server-cert=OFF )
+fi
 
 SRC_HOST="${SRC_HOST:-}"
 SRC_PORT="${SRC_PORT:-3306}"
@@ -60,7 +73,7 @@ fi
 
 echo "Checking source connectivity..."
 MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
-  --connect-timeout=5 --batch --skip-column-names \
+  "${SRC_SSL_ARGS[@]}" --connect-timeout=5 --batch --skip-column-names \
   -e "SELECT 1;" >/dev/null
 
 # Detect source version and warn early if 8.4+ but no upstream mysqldump 8.4+
@@ -68,7 +81,7 @@ MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADM
 # same guidance, but surfacing it here saves the user from progressing past
 # preflight only to fail mid-migration.
 src_version_full="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
-  --connect-timeout=5 --batch --skip-column-names \
+  "${SRC_SSL_ARGS[@]}" --connect-timeout=5 --batch --skip-column-names \
   -e "SELECT VERSION();" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+' | head -1)"
 echo "Source MySQL: ${src_version_full:-unknown}"
 src_version_num="$(printf "%s" "$src_version_full" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')"
@@ -103,7 +116,7 @@ fi
 
 echo "Checking source migration user readiness..."
 if ! MYSQL_PWD="$SRC_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_USER" \
-  --connect-timeout=5 --batch --skip-column-names -e "SELECT 1;" >/dev/null 2>&1; then
+  "${SRC_SSL_ARGS[@]}" --connect-timeout=5 --batch --skip-column-names -e "SELECT 1;" >/dev/null 2>&1; then
   echo "WARN: Source migration user login failed for ${SRC_USER}@${SRC_HOST}:${SRC_PORT}."
   echo "one_step will continue and attempt to create migration users in the next step."
 fi
@@ -121,7 +134,7 @@ source_db_exists() {
   local q="SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='${db_esc}';"
   local out
   out="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
-    --batch --skip-column-names -e "$q")"
+    "${SRC_SSL_ARGS[@]}" --batch --skip-column-names -e "$q")"
   [[ "${out:-0}" -gt 0 ]]
 }
 if [[ -n "$SRC_DBS" ]]; then

@@ -4,8 +4,13 @@ set -euo pipefail
 echo "==> One-step migration (mariadb-dump | mariadb)"
 
 MARIADB_DUMP_BIN="${MARIADB_DUMP_BIN:-mariadb-dump}"
+# Source version probe uses the canonical 'mariadb' client by default (avoids
+# the "Deprecated program name" banner when 'mysql' is a MariaDB alias —
+# Finding L). Operators who genuinely need the upstream mysql client can still
+# set MYSQL_BIN=mysql in their environment. Note: this is only the informational
+# version probe; dump-tool selection below is independent and unchanged.
 MARIADB_BIN="${MARIADB_BIN:-mariadb}"
-MYSQL_BIN="${MYSQL_BIN:-mysql}"
+MYSQL_BIN="${MYSQL_BIN:-mariadb}"
 PV_BIN="${PV_BIN:-pv}"
 
 SRC_HOST="${SRC_HOST:-}"
@@ -44,8 +49,13 @@ sql_escape() {
 
 # Connection args. Drop --protocol=TCP (newer mariadb clients reject self-signed
 # certs when it's set), add --ssl-verify-server-cert=OFF for mariadb client.
+# The flag is added explicitly (rather than letting the client auto-disable and
+# warn) so the source version probe below stays quiet on a passwordless login.
 src_admin_args=( -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_USER" --batch --skip-column-names )
 tgt_admin_args=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" --batch --skip-column-names )
+if [[ "$MYSQL_BIN" == *mariadb* ]]; then
+  src_admin_args+=( --ssl-verify-server-cert=OFF )
+fi
 if [[ "$MARIADB_BIN" == *mariadb* ]]; then
   tgt_admin_args+=( --ssl-verify-server-cert=OFF )
 fi
@@ -106,6 +116,16 @@ fi
 
 SRC_AUTH=( -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_USER" )
 TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" )
+# Explicit SSL flag on the data-path clients so the dump (mariadb-dump) and
+# load (mariadb) invocations don't auto-disable verification and warn on a
+# passwordless login. Skip for upstream mysqldump on the dump side — it uses
+# --ssl-mode (set via SRC_SSL_ARGS), not --ssl-verify-server-cert.
+if [[ "$dump_is_mysql" -ne 1 ]]; then
+  SRC_AUTH+=( --ssl-verify-server-cert=OFF )
+fi
+if [[ "$MARIADB_BIN" == *mariadb* ]]; then
+  TGT_AUTH+=( --ssl-verify-server-cert=OFF )
+fi
 
 if [[ -n "$SRC_DBS" ]]; then
   echo "Source: $SRC_HOST:$SRC_PORT  DBs: $SRC_DBS"

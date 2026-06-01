@@ -11,6 +11,7 @@ modes:
     - one_step_prepare
     - precheck_only
     - one_step
+    - analyze_target
     - validate
 
   two_step:
@@ -20,6 +21,7 @@ modes:
     - two_step_schema
     - two_step_data
     - two_step_finalize
+    - analyze_target
     - validate
 
   binlog:
@@ -57,6 +59,7 @@ modes:
     - staged_prepare
     - staged_dump
     - staged_load
+    - analyze_target
     - staged_finalize
 
 phases:
@@ -69,6 +72,12 @@ phases:
     - id: validate
       name: Validate after upgrade
       script: scripts/07_validate.sh
+      args: []
+
+  analyze_target:
+    - id: analyze_target
+      name: ANALYZE TABLE on target after load (optional)
+      script: scripts/28_analyze_target.sh
       args: []
 
   target_install:
