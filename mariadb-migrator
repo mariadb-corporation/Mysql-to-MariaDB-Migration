@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.2.1-beta"
-MIG_TOOL_BUILD="20260526"
+MIG_TOOL_VERSION="1.2.6-beta"
+MIG_TOOL_BUILD="20260601"
 
 # Display professional welcome header
 cat << EOF
@@ -218,6 +218,24 @@ if [[ -x "$DEP_CHECK_SCRIPT" ]]; then
     fi
 else
     echo "WARNING: Dependency check script ($DEP_CHECK_SCRIPT) not found or not executable. Skipping."
+fi
+
+# System binaries (DB client required; pv optional).
+
+SYS_CHECK_SCRIPT="scripts/00_check_system_deps.sh"
+if [[ -x "$SYS_CHECK_SCRIPT" ]]; then
+    if ! "$SYS_CHECK_SCRIPT"; then
+        echo "ERROR: System dependency check failed. Please resolve the issues above."
+        exit 1
+    fi
+else
+    echo "WARNING: System dependency check script ($SYS_CHECK_SCRIPT) not found or not executable. Skipping."
+fi
+
+if [[ -z "${VIRTUAL_ENV:-}" && -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source ".venv/bin/activate"
+  echo "==> Using project virtual environment: ${VIRTUAL_ENV}"
 fi
 
 
