@@ -1,5 +1,94 @@
 # Changelog
 
+## [1.2.6-beta] — 2026-06-01
+
+Adds an optional post-load ANALYZE TABLE phase so the target's optimizer
+statistics are refreshed automatically after a migration, and reduces the
+client-tool noise in the Serial Streaming Copy (`one_step`) run logs.
+
+### Post-load ANALYZE TABLE — new optional phase
+
+After a dump/restore the target's optimizer statistics are empty or stale,
+which can produce poor query plans until something triggers a refresh. A new
+phase (`scripts/28_analyze_target.sh`) runs `ANALYZE TABLE` across the base
+tables of each migrated database on the target, so the MariaDB optimizer has
+accurate statistics immediately after the load.
+
+A new prompt — `Run ANALYZE TABLE on target after load? (y/n)` — appears
+during setup directly after the `Migrate application users?` prompt, with a
+default of `y` (opt-out). It is shown only for the modes where a fresh load
+occurs: Serial Streaming Copy (`one_step`), Parallel Streaming Copy
+(`two_step`), and Offline Copy (`staged`). The phase runs after the load step
+and before final validation in each. It is not wired into Replication
+(`binlog`) — replication continues to mutate tables after the seed, so a
+post-snapshot analyze would be meaningless — nor into the internal `inplace`
+mode, which has no fresh load.
+
+Behavior:
+
+- The phase self-skips when the operator declines (`ANALYZE_TARGET=0`) or when
+  Offline Copy runs as `dump_only` (no load happens on that host), consistent
+  with how the other optional phases gate themselves.
+- A connection failure to the target is fatal (the run stops). An `ANALYZE
+  TABLE` error on an individual table is recorded in the report but is
+  non-fatal — a statistics-refresh problem on one table must not mark an
+  otherwise-successful data migration as failed.
+- A per-run report is written to `<run_dir>/analyze_target_report.txt`
+  (and echoed to the run log) summarizing tables analyzed, status counts, and
+  any per-table errors.
+
+`ANALYZE_TARGET` is consumed by the orchestrator like the other phase
+settings and is persisted in `config/migration.yaml.example` so saved
+configurations carry the choice forward.
+
+### Client noise — reduced in the Serial Streaming Copy chain
+
+The `one_step` run path emitted two recurring cosmetic lines from its client
+invocations: the `mysql: Deprecated program name` banner (from invoking the
+legacy `mysql` client name when it is a MariaDB alias) and the
+`WARNING: option --ssl-verify-server-cert is disabled` warning (emitted when
+the client silently disables certificate verification on a passwordless
+login). These are now addressed at the source across the `one_step` chain:
+
+- `scripts/00_preflight_one_step.sh`, `scripts/10_one_step_migration.sh`:
+  source-side client queries default to the canonical `mariadb` binary
+  (`MYSQL_BIN` default changed from `mysql` to `mariadb`; override still
+  honored) and pass `--ssl-verify-server-cert` explicitly so the client does
+  not auto-disable-and-warn.
+- `scripts/10_one_step_migration.sh`: the data-path dump and load client
+  invocations also pass the flag explicitly.
+- `scripts/07_validate.sh`: all target validation queries (TCP and SSH) pass
+  the flag explicitly.
+
+The deprecation banner is eliminated from the `one_step` chain. This is a
+presentation change only — the underlying connection behavior (encrypted, not
+server-verified, on a passwordless login) is unchanged; the option is simply
+stated rather than left implicit. Dump-tool selection — including the
+requirement for an upstream `mysqldump` 8.4+ when migrating from MySQL 8.4
+sources in binlog seeding — is deliberately untouched.
+
+### Repository cleanup
+
+- Removed stale dated backup copies of phase and orchestrator scripts
+  (`*-functioning-*`, `*-depricated-remove`, dated suffixes) that duplicated
+  tracked files and were an edit-the-wrong-copy hazard.
+
+### Known issues
+
+- One source-side check in `scripts/00_preflight_one_step.sh` (source database
+  existence) still emits the `--ssl-verify-server-cert is disabled` warning.
+- The client-noise reduction covers the `one_step` chain only. Other modes'
+  preflight and phase scripts still emit the deprecation banner and/or SSL
+  warning; converting them is planned for a later release.
+
+### Compatibility notes
+
+- No configuration changes required. The new ANALYZE prompt defaults to yes;
+  set `ANALYZE_TARGET=0` (or answer `n`) to skip it. Existing config files and
+  env-var workflows are unaffected.
+- Verified end-to-end on a Serial Streaming Copy migration from MySQL 8.4.7 to
+  MariaDB 11.8.1.
+
 ## [1.2.3-beta] — 2026-05-28
 
 Rewrites application user migration to be plugin-aware, role-aware, and

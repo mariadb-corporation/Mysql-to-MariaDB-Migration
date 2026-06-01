@@ -139,6 +139,18 @@ The default password is recorded in plain text in `user_migration_report.txt`. T
 - MySQL 8.4 sources default to `caching_sha2_password` and ship with `mysql_native_password` disabled. Most or all users on a fresh 8.4 source will land on the default-password path. Plan a password rotation pass before re-enabling application traffic on the target.
 - The dump phase (one_step, two_step, staged) may replay user-related rows from `mysql.user` as part of the data load, which can produce duplicate or conflicting entries alongside what the user migration script created. Worth a `SELECT user, host, plugin, is_role FROM mysql.user` review on target post-migration if the user set looks off.
 
+## Post-load optimizer statistics (ANALYZE TABLE)
+
+After a dump/restore the target's optimizer statistics are empty or stale, which can lead to poor query plans until they are refreshed. From 1.2.6-beta, the tool can run `ANALYZE TABLE` across the migrated databases on the target as a final step, so the optimizer has accurate statistics immediately.
+
+A prompt — `Run ANALYZE TABLE on target after load? (y/n)` — appears during setup just after the `Migrate application users?` prompt. It defaults to `y` (opt-out) and is shown only for the modes where a fresh load occurs: Serial Streaming Copy (`one_step`), Parallel Streaming Copy (`two_step`), and Offline Copy (`staged`). The step runs after the load and before final validation. It is not part of Replication (`binlog`) mode, where replication keeps changing the tables after the seed.
+
+Behavior and controls:
+- Set `ANALYZE_TARGET=0` (or answer `n`) to skip it.
+- The step is skipped automatically when Offline Copy runs as `dump_only` (no load happens on that host).
+- A connection failure to the target stops the run; an `ANALYZE TABLE` error on an individual table is reported but does not fail the migration.
+- A report is written to `artifacts/run_<mode>_<ts>/analyze_target_report.txt` listing the tables analyzed, status counts, and any per-table errors.
+
 ## Status
 Beta. All four modes have been exercised end-to-end against representative source/target pairs. Offline Copy (`staged`) has been validated against AWS RDS sources and MariaDB Cloud targets. In v1.2.0-beta, mode selection moved from a free-text prompt to a numbered interactive menu, and Parallel Streaming Copy (`two_step`) gained a resumable load variant (currently EXPERIMENTAL — see Known limitations).
 
@@ -272,6 +284,9 @@ Source:
 Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
 
+Optional (applies to one_step, two_step, and staged):
+- `ANALYZE_TARGET` (`1` default — run `ANALYZE TABLE` on the target after load to refresh optimizer statistics; set `0` to skip)
+
 ## Two-step required envs (config/migration.yaml)
 Source:
 - `SRC_HOST`, `SRC_PORT`, `SRC_ADMIN_USER`, `SRC_ADMIN_PASS`
@@ -362,9 +377,10 @@ tests/test_staged_phase_matrix.sh
 - Platform coverage note: this tool has been tested primarily on Ubuntu and Rocky Linux. Support hooks are included for additional Linux flavors, but validate in your target environment before production use.
 
 ## Known limitations
-- **SQLines Data may silently truncate reads on very large tables** (>~5M rows) in some configurations, leading to row-count shortfalls on the target without an error from the tool. Validate post-load with `COUNT(*)` parity on both sides for any Parallel Streaming Copy (`two_step`) run involving large tables. For production-critical runs in this release prefer Offline Copy (`staged`) or Serial Streaming Copy (`one_step`), both of which use `mariadb-dump` and are not affected. Investigation ongoing with the SQLines developer; a fix is targeted for a follow-up release.
-- **The `resumable` `two_step` variant is EXPERIMENTAL in this release.** The resume/manifest mechanics are correct, but they sit on the same SQLines Data load path affected by the bullet above. Use `single_pass` (default) for production-critical runs.
-- **Replication (`binlog`) is not safe for schemas containing JSON columns** when the source uses `binlog_format=MIXED` (the MySQL default since 8.0). See Supported Versions for the full explanation. Use one of the offline modes for JSON-bearing schemas.
+- **ARM64 release: SQLines Data may silently truncate reads on very large tables** (>~5M rows) in some configurations, leading to row-count shortfalls on the target without an error from the tool. This is specific to the ARM64 build of the SQLines Data integration; fixes are in progress. On ARM64, for production-critical Parallel Streaming Copy (`two_step`) runs involving large tables, validate post-load with `COUNT(*)` parity on both sides, or prefer Offline Copy (`staged`) or Serial Streaming Copy (`one_step`) — both use `mariadb-dump` and are not affected. The x86_64 release is not affected by this issue.
+- **The `resumable` `two_step` variant is EXPERIMENTAL in this release.** The resume/manifest mechanics are correct, but they sit on the same SQLines Data load path noted in the ARM64 bullet above. Use `single_pass` (default) for production-critical runs.
+- **Replication (`binlog`) does not support schemas containing JSON columns** when the source uses `binlog_format=MIXED` (the MySQL default since 8.0). This is detected and blocked upfront at three layers (launcher, assessment, preflight) as of v1.2.1-beta — the operator is refused with a clear message and routed to an offline mode rather than hitting a runtime replication failure. See Supported Versions for the full explanation.
 - Offline Copy (`staged`) per-DB load resume is not supported in v1. If a load fails partway through a multi-DB run, drop the partially-loaded databases on the target and re-run with `STAGED_PHASE=load_only`.
 - `pv` fallback in Serial Streaming Copy (`one_step`) is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in Offline Copy (`staged`) where the dump is on disk.
 - Target-side TLS verification is not yet configurable. Connections to TLS-required targets (e.g. MariaDB Cloud) are encrypted but not server-verified. Source-side TLS works as expected via `SRC_SSL_MODE`.
+- Client-tool noise (the `mysql: Deprecated program name` banner and the `--ssl-verify-server-cert is disabled` warning) has been removed from the Serial Streaming Copy (`one_step`) run path as of 1.2.6-beta, except for one source-side check in its preflight. The other modes' preflight and phase scripts still emit these cosmetic lines; full cleanup is planned for a later release. They are presentation-only and do not affect migration correctness.
