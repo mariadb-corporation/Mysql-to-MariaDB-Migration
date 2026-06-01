@@ -56,8 +56,9 @@ The same phases are reachable non-interactively via `--assess`, `--plan`, `--run
 ## Prerequisites (required)
 - **MariaDB must be installed and running on the target host before running the tool.** The tool verifies the target version during preflight but does not install MariaDB. 
 - For Replication (`binlog`): MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
-- Python 3 is required on the orchestrator host to run the migration orchestrator/CLI workflow.
-- For Parallel Streaming Copy (`two_step`), SQLines Data (`sqldata`/`sqlinesdata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
+- Python 3.9+ is required on the orchestrator host. On first run the launcher creates a project-local virtual environment (`.venv`) and installs the Python dependencies into it automatically — no manual `pip install` step is needed. On Debian/Ubuntu, install the venv module first: `sudo apt-get install -y python3-venv`.
+- The `mariadb` client must be available on the orchestrator host (used for connectivity, version, and database checks). If it is missing, the launcher detects your platform and offers to install it on first run; you can also install it manually (`dnf install mariadb`, `apt-get install mariadb-client`, `zypper install mariadb-client`, or `brew install mariadb`).
+- For Parallel Streaming Copy (`two_step`), SQLines Data (`sqldata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
 - SQLines Data may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
 - Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB. (Exception: Offline Copy (`staged`) in `dump_only` or `load_only` phase only needs connectivity to one side.)
 - The orchestrator can run on a third host; SSH access to the target is only required for the deprecated install path and for `replace_slave` mode.
@@ -168,7 +169,7 @@ Best for smaller databases and standard maintenance windows.
 Best for larger datasets or tighter windows.
 - Schema-only dump first, then parallel data load via SQLines Data, then finalize objects (triggers, routines, events).
 - SQLines Data uses multiple concurrent worker sessions per database for the data phase.
-- Assumes SQLines Data is installed and available on `PATH` (`sqldata` or `sqlinesdata`), or set `SQLINESDATA_BIN`.
+- Assumes SQLines Data is installed and available on `PATH` as `sqldata`, or set `SQLINESDATA_BIN`.
 - Requires admin users (`SRC_ADMIN_USER`/`TGT_ADMIN_USER`); preflight fails fast if those logins are not ready.
 
 #### Variants
@@ -205,6 +206,30 @@ Best when source and target are not directly network-reachable, or when a checkp
 - **Caveat**: offline mode. Writes to source during dump are not captured. Use Replication (`binlog`) if downtime is unacceptable.
 - **Caveat**: target connections currently negotiate TLS where the server requires it (e.g. MariaDB Cloud), but server-certificate verification is not yet configurable on the target side. Connections are encrypted in transit but not authenticated against a trusted CA. Source-side TLS verification works as expected via `SRC_SSL_MODE`. Configurable target TLS is planned for a future release.
 
+## Installation and first run
+
+The launcher bootstraps its own Python environment, so there is no manual setup beyond the prerequisites above.
+
+```bash
+git clone <repo-url>
+cd Mysql-to-MariaDB-Migration
+./mariadb-migrator
+```
+
+On first run the launcher will:
+
+1. Create a project-local virtual environment at `./.venv` (unless one is already active) and install the Python dependencies (`typer`, `click`, `rich`, `PyYAML`) into it. Your system Python is never modified.
+2. Detect the `mariadb` client and, if it is missing, show the correct install command for your platform and offer to run it. `pv` (optional) is offered the same way, without blocking the run.
+3. Present the interactive menu.
+
+Subsequent runs reuse `./.venv` and go straight to the menu. `.venv` is git-ignored and must not be committed or included in a release archive — it is recreated automatically.
+
+First-run prompts can be controlled for unattended or CI hosts:
+
+- `MIGRATOR_ASSUME_YES=1` — accept install prompts automatically.
+- `MIGRATOR_NO_SYSTEM_INSTALL=1` — never run system installs; print the commands only.
+- `MIGRATOR_NO_AUTO_VENV=1` — do not auto-create `.venv`; print manual venv steps and exit.
+
 ## Orchestrator usage
 
 Interactive (recommended):
@@ -231,12 +256,21 @@ Sub-menus then prompt for `two_step` variant (single_pass / resumable) and `stag
 For scripted runs and the regression matrix harness, preset env values skip the corresponding prompts: `MODE`, `TWO_STEP_VARIANT`, `STAGED_PHASE`, `STAGED_DUMP_DIR`, and `STAGED_CONFIRM_OFFLINE` are all respected. This is also how the hidden modes (`inplace`, `replace_slave`) are reached — they are intentionally not in the numbered menu.
 
 Non-interactive CLI:
+
+The launcher creates and uses `.venv` automatically. To call the orchestrator CLI directly, activate that environment first (run the launcher once to create it, or create it yourself):
+
+```bash
+source .venv/bin/activate    # created on the first ./mariadb-migrator run
+python -m orchestrator.migrationctl plan --config config/migration.yaml --mode one_step --out artifacts/plan
+python -m orchestrator.migrationctl run  --config config/migration.yaml --mode one_step --out artifacts/run
+```
+
+To manage the environment yourself instead of letting the launcher bootstrap it:
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r orchestrator/requirements.txt
-python -m orchestrator.migrationctl plan --config config/migration.yaml --mode one_step --out artifacts/plan
-python -m orchestrator.migrationctl run  --config config/migration.yaml --mode one_step --out artifacts/run
 ```
 
 Plan:
@@ -301,7 +335,7 @@ Variant selector (optional; interactive sub-menu prompts when unset):
   - `resumable` **[EXPERIMENTAL]**: batched load with per-batch manifest for restart-on-failure. Requires `PRIMARY KEY` on every migrated table. See Known limitations.
 
 Optional:
-- `SQLINESDATA_BIN` (auto-detected: `sqldata` then `sqlinesdata`)
+- `SQLINESDATA_BIN` (auto-detected from `sqldata` on `PATH`)
 
 ## Binlog required envs (config/migration.yaml)
 Source:
