@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.2.7-beta"
-MIG_TOOL_BUILD="20260601"
+MIG_TOOL_VERSION="1.2.8-beta"
+MIG_TOOL_BUILD="20260602"
 
 # Display professional welcome header
 cat << EOF
@@ -2177,6 +2177,67 @@ if [[ -f "$RUN_SIG_FILE" ]]; then
   LAST_SIG="$(cat "$RUN_SIG_FILE")"
 fi
 
+# Emit next-step guidance when the operator bails out of the interactive
+# assess->plan->run flow before the migration completes. $1 is the phase they
+# would continue *to* ("plan" after an assess stop, "run" after a plan stop).
+# The non-interactive example is shown only when a config was actually saved
+# this session (otherwise there's nothing on disk to resume from), and its
+# env-var prefix is included only when secrets were redacted out of that config.
+# Mirrors the env-prefix logic in the config-save hint block above.
+print_continue_hint() {
+  local next="$1"
+  local saved_lc pw_lc env_prefix=""
+  saved_lc="$(printf "%s" "${confirm_save:-n}" | tr '[:upper:]' '[:lower:]')"
+  pw_lc="$(printf "%s" "${save_with_passwords:-n}" | tr '[:upper:]' '[:lower:]')"
+
+  echo ""
+  if [[ "$next" == "run" ]]; then
+    # PHASE_MODE=run means the operator invoked --run directly, so no plan ran
+    # this session; don't claim plan artifacts exist. The all/assess_plan flows
+    # did just run plan, so point at $PLAN_DIR.
+    if [[ "$PHASE_MODE" == "run" ]]; then
+      echo "    To start the run phase later:"
+      echo "      ./mariadb-migrator --run                 # interactive"
+    else
+      echo "    Plan complete (artifacts in $PLAN_DIR). To continue with the run phase later:"
+      echo "      ./mariadb-migrator --run                 # interactive; skips re-running assess/plan"
+    fi
+  else
+    echo "    Assess complete (artifacts in $ASSESS_DIR). To continue later:"
+    echo "      ./mariadb-migrator                       # interactive; resumes from assess"
+    echo "      ./mariadb-migrator --plan                # plan phase only"
+  fi
+
+  if [[ "$saved_lc" == "y" ]]; then
+    if [[ "$pw_lc" != "y" ]]; then
+      # Redacted config: secrets must be supplied via the environment.
+      env_prefix="SRC_ADMIN_PASS='...'"
+      [[ "$MODE" != "inplace" ]] && env_prefix+=" TGT_ADMIN_PASS='...'"
+      [[ "$MODE" == "binlog" || "$MODE" == "replace_slave" ]] && env_prefix+=" REPL_PASS='...'"
+    fi
+    echo ""
+    echo "      # or, non-interactively:"
+    if [[ -n "$env_prefix" ]]; then
+      echo "      $env_prefix \\"
+      echo "          python3 -m orchestrator.migrationctl $next \\"
+    else
+      echo "      python3 -m orchestrator.migrationctl $next \\"
+    fi
+    echo "          --config config/migration.yaml --mode $MODE \\"
+    if [[ "$next" == "run" ]]; then
+      echo "          --out artifacts/run_${MODE}_\$(date +%Y%m%d_%H%M%S)"
+    else
+      echo "          --out artifacts/plan_\$(date +%Y%m%d_%H%M%S)"
+    fi
+  else
+    echo ""
+    echo "    (Inputs were not saved this session, so non-interactive resume is unavailable."
+    echo "     Re-run interactively, or save the config when prompted next time.)"
+  fi
+  echo "    (See docs/INVOCATION_REFERENCE.md for resume/run details.)"
+  echo ""
+}
+
 if [[ "$PHASE_MODE" == "assess" ]]; then
   if [[ -f "config/source.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
@@ -2201,9 +2262,7 @@ elif [[ "$PHASE_MODE" == "run" ]]; then
   # writes begin. Default 'y' so push-through-friendly: hit Enter to proceed.
   if ! confirm_proceed "Proceed to run phase now?"; then
     echo "==> Run phase cancelled."
-    echo "    Configuration is saved. To start the run later:"
-    echo "      ./mariadb-migrator --run"
-    echo "    (See docs/INVOCATION_REFERENCE.md for non-interactive options.)"
+    print_continue_hint run
     exit 0
   fi
   if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
@@ -2255,11 +2314,19 @@ elif [[ "$PHASE_MODE" == "assess_plan" ]]; then
   else
     if ! confirm_proceed "Proceed to plan phase now?"; then
       echo "Stopped after assess by user choice."
+      print_continue_hint plan
       exit 0
     fi
     echo "==> Planning: $MODE (out: $PLAN_DIR)"
     python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
     STATUS=$?
+    # assess_plan intentionally stops after plan with no run-confirm. Without a
+    # hint the operator is left at a dead end (the success summary below is
+    # suppressed for non-run phases), so surface the same continuation guidance
+    # the all-flow stop-after-plan path gives.
+    if [[ $STATUS -eq 0 ]]; then
+      print_continue_hint run
+    fi
   fi
 else
   if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
@@ -2292,6 +2359,7 @@ else
 
     if ! confirm_proceed "Proceed to plan phase now?"; then
       echo "Stopped after assess by user choice."
+      print_continue_hint plan
       exit 0
     fi
 
@@ -2300,6 +2368,7 @@ else
 
     if ! confirm_proceed "Proceed to run phase now?"; then
       echo "Stopped after plan by user choice."
+      print_continue_hint run
       exit 0
     fi
 
