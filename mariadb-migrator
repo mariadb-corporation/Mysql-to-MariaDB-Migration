@@ -1899,9 +1899,18 @@ save_config() {
   local mode_val="$MODE"
   local src_db_val=""
   local src_dbs_val=""
+  # Mirror the runtime export logic (SRC_DBS/SRC_DB block near the dispatch):
+  # always persist the database list to SRC_DBS, which is the uncommented key
+  # in the example template and the one migrationctl reads. For a single DB we
+  # also set SRC_DB so an operator who uncomments that key still gets a correct
+  # value; for a multi-DB list SRC_DB is cleared. Previously single-DB input
+  # was routed only to src_db_val -> the SRC_DB key, which ships commented out,
+  # so the replace-only awk skipped it and the database was never persisted.
   if [[ "$SRC_DBS_INPUT" == *","* ]]; then
     src_dbs_val="$SRC_DBS_INPUT"
+    src_db_val=""
   else
+    src_dbs_val="$SRC_DBS_INPUT"
     src_db_val="$SRC_DBS_INPUT"
   fi
 
@@ -2116,6 +2125,7 @@ fi
     fi
     echo ""
     echo "  # or, non-interactively (single phase at a time):"
+    [[ -f ".venv/bin/activate" ]] && echo "  source .venv/bin/activate && \\"
     echo "  python3 -m orchestrator.migrationctl $hint_subcmd \\"
     echo "      --config config/migration.yaml --mode $MODE \\"
     echo "      --out artifacts/${hint_outvar}_\$(date +%Y%m%d_%H%M%S)"
@@ -2147,6 +2157,7 @@ fi
     fi
     echo ""
     echo "  # or, non-interactively (passwords required via environment):"
+    [[ -f ".venv/bin/activate" ]] && echo "  source .venv/bin/activate && \\"
     echo "  $hint_env \\"
     echo "      python3 -m orchestrator.migrationctl $hint_subcmd \\"
     echo "        --config config/migration.yaml --mode $MODE \\"
@@ -2217,6 +2228,7 @@ print_continue_hint() {
     fi
     echo ""
     echo "      # or, non-interactively:"
+    [[ -f ".venv/bin/activate" ]] && echo "      source .venv/bin/activate && \\"
     if [[ -n "$env_prefix" ]]; then
       echo "      $env_prefix \\"
       echo "          python3 -m orchestrator.migrationctl $next \\"
