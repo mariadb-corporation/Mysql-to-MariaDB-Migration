@@ -332,7 +332,7 @@ def plan(
             ["SRC_ADMIN_USER", "SRC_ADMIN_PASS", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"],
             mode_value,
         )
-        install_target = str(env.get("INSTALL_TARGET_MARIADB", "1")).strip().lower() in ("1", "true", "yes", "y")
+        install_target = str(env.get("INSTALL_TARGET_MARIADB", "0")).strip().lower() in ("1", "true", "yes", "y")
         if mode_value in ("one_step", "two_step") and install_target:
             _require_env(env, ["TGT_SSH_HOST"], mode_value)
         if not (env.get("SRC_DB") or env.get("SRC_DBS")):
@@ -370,7 +370,7 @@ def plan(
                 )
         if staged_phase != "dump_only":
             _require_env(env, ["TGT_HOST", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"], mode_value)
-            install_target = str(env.get("INSTALL_TARGET_MARIADB", "1")).strip().lower() in ("1", "true", "yes", "y")
+            install_target = str(env.get("INSTALL_TARGET_MARIADB", "0")).strip().lower() in ("1", "true", "yes", "y")
             if install_target:
                 _require_env(env, ["TGT_SSH_HOST"], mode_value)
         if staged_phase == "load_only":
@@ -463,7 +463,7 @@ def run(
             ["SRC_ADMIN_USER", "SRC_ADMIN_PASS", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"],
             mode_value,
         )
-        install_target = str(env.get("INSTALL_TARGET_MARIADB", "1")).strip().lower() in ("1", "true", "yes", "y")
+        install_target = str(env.get("INSTALL_TARGET_MARIADB", "0")).strip().lower() in ("1", "true", "yes", "y")
         if mode_value in ("one_step", "two_step") and install_target:
             _require_env(env, ["TGT_SSH_HOST"], mode_value)
         if not (env.get("SRC_DB") or env.get("SRC_DBS")):
@@ -501,7 +501,7 @@ def run(
                 )
         if staged_phase != "dump_only":
             _require_env(env, ["TGT_HOST", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"], mode_value)
-            install_target = str(env.get("INSTALL_TARGET_MARIADB", "1")).strip().lower() in ("1", "true", "yes", "y")
+            install_target = str(env.get("INSTALL_TARGET_MARIADB", "0")).strip().lower() in ("1", "true", "yes", "y")
             if install_target:
                 _require_env(env, ["TGT_SSH_HOST"], mode_value)
         if staged_phase == "load_only":
