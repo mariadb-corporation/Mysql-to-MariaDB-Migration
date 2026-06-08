@@ -1,5 +1,75 @@
 # Changelog
 
+## [1.2.9-beta] — 2026-06-08
+
+Retires the experimental resumable load variant of Parallel Restartable
+Streaming Copy (`two_step`) now that chunked, parallel loading with in-run
+retries is native to SQLines Data, renames the mode to match, and settles on a
+simple restart model: an interrupted load is restarted by dropping the target
+and re-running, while SQLines Data self-heals transient errors within a run.
+
+### Parallel Restartable Streaming Copy — variant retired, mode renamed
+
+The `two_step` mode previously offered a `TWO_STEP_VARIANT` choice between
+`single_pass` and an EXPERIMENTAL `resumable` load. SQLines Data now provides
+restartable, chunked loading natively, so the variant has been removed and the
+mode renamed from **Parallel Streaming Copy** to **Parallel Restartable
+Streaming Copy** across the menu, `--help`, `mode_label()` banners, and the
+sqldata-not-found message.
+
+- The internal mode id `two_step` is unchanged — `config/migration.yaml`,
+  `--mode`, env vars, and `state.json` from earlier runs are unaffected.
+- Large tables (by default 1,000,000+ rows, set by `large_tables_rows`;
+  chunking requires an `AUTO_INCREMENT` column, so tables without one transfer
+  as a single stream) are loaded as parallel chunks, and transient errors are
+  retried automatically within a run (`restart_attempts`, default 10). On by
+  default, no extra arguments; defaults and tuning are documented in
+  `scripts/sqldata.cfg-example`.
+- `step_map.yaml` (`two_step_data`) now runs `scripts/12_two_step_sqldata.sh`
+  directly; the per-variant dispatcher is gone.
+
+### Restart model — drop and re-run, no cross-invocation resume
+
+SQLines Data does not resume a load across separate invocations. Rather than
+carry cross-run resume logic in the launcher, an interrupted or failed
+`two_step` run is restarted by dropping the target database(s) and re-running
+from a clean target.
+
+- The launcher always starts a fresh run for `two_step` (it is excluded from
+  the signature-match resume path), and the target-DB pre-existence check
+  always runs — so a leftover target database from an interrupted run is
+  reported as a conflict to drop. Resume behavior for `one_step`, `binlog`,
+  `replace_slave`, and `staged` is unchanged.
+- Within a single run, SQLines Data's own `restart_attempts` retry transient
+  errors (network blips, brief target restarts), so a run survives them
+  without operator action.
+
+### Removed
+
+- The `single_pass`/`resumable` variant added in v1.2.0-beta: the variant
+  sub-menu, the `TWO_STEP_VARIANT` prompt and run-signature entry, and the
+  resumable-variant resume detection in the launcher.
+- `scripts/12_two_step_dispatch.sh` and
+  `scripts/12_two_step_sqldata_resumable.sh` (no longer referenced).
+- The resumable-only `PRIMARY KEY` preflight check in
+  `scripts/00_preflight_two_step.sh` — the native loader does not require it.
+
+### Deprecated
+
+- `TWO_STEP_VARIANT` is accepted-but-ignored this release (a one-line notice is
+  printed if it is set); it will be removed in a future release. There is no
+  replacement — restartable, chunked loading is always on.
+
+### Compatibility notes
+
+- No configuration changes required. A stale `TWO_STEP_VARIANT` in env or
+  `config/migration.yaml` is ignored.
+- `large_tables_mb` (size-based large-table selection) is not yet supported for
+  MySQL sources; row-based selection (`large_tables_rows`) applies.
+- Verified end-to-end on a `two_step` migration from MySQL 8.4.7 to MariaDB
+  11.8.1. There is no cross-invocation resume for `two_step`; an interrupted
+  run is restarted by dropping the target and re-running.
+
 ## [1.2.6-beta] — 2026-06-01
 
 Adds an optional post-load ANALYZE TABLE phase so the target's optimizer

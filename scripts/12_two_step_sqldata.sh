@@ -136,13 +136,25 @@ else
 fi
 fi
 
-# Sqldata transfer-option behavior (-topt). Defaults to 'none' so the
-# schema produced by step 1 (11_two_step_schema.sh, via mariadb-dump --no-data)
-# is preserved as-is -- only row data is loaded. 
-# Sqldata's DEFAULT is 'recreate', which DROPs and re-CREATEs tables from MySQL 
-# source metadata,truncate was considered, but with parallelism, it fails FK checks. 
+# Sqldata transfer-option behavior (-topt=none). Step 1 (11_two_step_schema.sh,
+# via mariadb-dump --no-data) already created the target schema, so sqldata only
+# loads row data and leaves the schema as-is. (Sqldata's own default is
+# 'recreate', which DROP/CREATEs tables from MySQL source metadata and would
+# discard the step-1 schema, so it is not used. SQLDATA_TOPT can override.)
 SQLDATA_TOPT="${SQLDATA_TOPT:-none}"
 
+# Large-table chunking and transient-error retries are native to sqldata and
+# driven by sqldata.cfg defaults (see sqldata.cfg-example) — not by this script.
+# Large tables are transferred as parallel chunks (large_tables_parallel /
+# large_tables_rows); chunking requires an AUTO_INCREMENT column, so tables
+# without one transfer as a single stream. The size-based threshold
+# (large_tables_mb) is not yet supported for MySQL sources.
+#
+# sqldata does NOT resume across separate invocations: there is no cross-run
+# mid-table continue. Within a single run, transient errors are retried
+# automatically (restart_attempts). An interrupted two_step run is restarted by
+# dropping the target database(s) and re-running from a clean target (the
+# launcher's target pre-existence check enforces the clean-target requirement).
 for db in "${DB_LIST[@]}"; do
   db="${db// /}"
   [[ -z "$db" ]] && continue
