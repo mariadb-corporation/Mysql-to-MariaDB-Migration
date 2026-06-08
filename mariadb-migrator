@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.2.8-beta"
-MIG_TOOL_BUILD="20260602"
+MIG_TOOL_VERSION="1.2.9-beta"
+MIG_TOOL_BUILD="20260608"
 
 # Display professional welcome header
 cat << EOF
@@ -33,16 +33,20 @@ print_modes_briefing() {
 
 Select a migration mode:
 
-  1) Serial Streaming Copy (mariadb-dump)      [OFFLINE]
+  1) Serial Streaming Copy (mariadb-dump)          [OFFLINE]
        Tooling : mariadb-dump (schema + data, single pass)
        Pipeline: Piped end-to-end. No disk staging on either host.
 
-  2) Parallel Streaming Copy (sqldata)         [OFFLINE]
+  2) Parallel Restartable Streaming Copy (sqldata) [OFFLINE]
        Tooling : Step 1 (schema) - mariadb-dump
                  Step 2 (data)   - MariaDB Data migration tool (sqldata)
        Pipeline: Streaming end-to-end. No disk staging on either host.
+       Loading : Within a run, sqldata loads tables in parallel chunks and
+                 auto-retries transient errors. No mid-run resume: an
+                 interrupted run is restarted by dropping the target and
+                 re-running. No extra options.
 
-  3) Offline Copy (mariadb-dump)               [OFFLINE]
+  3) Offline Copy (mariadb-dump)                   [OFFLINE]
        Tooling : Phase 1 (dump) - mariadb-dump → file on disk (per database)
                  Phase 2 (load) - mariadb client < file
        Pipeline: Two-phase via on-disk dump file. Resumable load,
@@ -50,7 +54,7 @@ Select a migration mode:
                  network-reachable, or when you want a checkpoint between
                  phases for review or transfer.
 
-  4) Replication (binlog)                      [ONLINE]
+  4) Replication (binlog)                          [ONLINE]
        Tooling : mariadb-dump for initial snapshot, then MySQL binary log
                  replication into MariaDB to catch up ongoing changes.
 
@@ -65,24 +69,37 @@ print_modes_detailed() {
   cat <<'EOF'
 Migration modes:
 
-  1) Serial Streaming Copy (mariadb-dump)      [OFFLINE]   (internal id: one_step)
+  1) Serial Streaming Copy (mariadb-dump)          [OFFLINE]   (internal id: one_step)
       Tooling : mariadb-dump (schema + data, single pass)
       Pipeline: Piped end-to-end. No disk staging on either host.
       Caveat  : Writes to the source during migration may be lost. Stop
                 application traffic to the source for a consistent cutover.
 
-  2) Parallel Streaming Copy (sqldata)         [OFFLINE]   (internal id: two_step)
+  2) Parallel Restartable Streaming Copy (sqldata) [OFFLINE]   (internal id: two_step)
       Tooling : Step 1 (schema) - mariadb-dump
                 Step 2 (data)   - MariaDB Data migration tool (sqldata)
       Pipeline: Streaming end-to-end. No disk staging on either host.
       Caveat  : Writes to the source during migration may be lost. Stop
                 application traffic to the source for a consistent cutover.
-      Variant : Two variants are offered via menu prompt or TWO_STEP_VARIANT:
-                  single_pass (default) - one sqldata invocation per DB.
-                  resumable [EXPERIMENTAL] - batched with manifest; restart
-                                             from last completed batch.
+      Loading : Within a single run, sqldata loads large tables as parallel
+                chunks (by default 1,000,000+ rows, set by large_tables_rows;
+                requires an AUTO_INCREMENT column — tables without one transfer
+                as a single stream) and auto-retries transient errors
+                (restart_attempts, default 10). The size-based threshold
+                large_tables_mb is not yet supported for MySQL sources. These
+                defaults and tuning (large_tables_parallel,
+                large_tables_resources_pct, session count via -ss) are in
+                scripts/sqldata.cfg-example; no extra command arguments needed.
+      Restart : No mid-run resume. sqldata auto-retries transient errors
+                within a run; an interrupted or failed run is restarted by
+                dropping the target database(s) and re-running from a clean
+                target.
+      Progress: Two files track a running load, both under the run dir:
+                  run.log               - orchestrator step output
+                  sqldata/<out file>    - sqldata's own progress + manifest
+                Tail either to watch a long load.
 
-  3) Offline Copy (mariadb-dump)               [OFFLINE]   (internal id: staged)
+  3) Offline Copy (mariadb-dump)                   [OFFLINE]   (internal id: staged)
       Tooling : Phase 1 (dump) - mariadb-dump → file on disk (per database)
                 Phase 2 (load) - mariadb client < file
       Pipeline: Two-phase via on-disk dump file. Resumable load,
@@ -102,7 +119,7 @@ Migration modes:
       Parallel: STAGED_PARALLEL=4 by default — concurrent per-DB dumps
                 using a job pool. Set =1 for sequential with progress meter.
 
-  4) Replication (binlog)                      [ONLINE]    (internal id: binlog)
+  4) Replication (binlog)                          [ONLINE]    (internal id: binlog)
       Tooling : mariadb-dump for initial snapshot, then MySQL binary log
                 replication into MariaDB to catch up ongoing changes.
       Caveat  : The source's binary logging must be enabled (log_bin = ON,
@@ -245,7 +262,6 @@ run_signature() {
     "MODE=$MODE" \
     "STAGED_PHASE=${STAGED_PHASE:-}" \
     "STAGED_DUMP_DIR=${STAGED_DUMP_DIR:-}" \
-    "TWO_STEP_VARIANT=${TWO_STEP_VARIANT:-}" \
     "SRC_HOST=$SRC_HOST" \
     "SRC_PORT=$SRC_PORT" \
     "SRC_ADMIN_USER=$SRC_ADMIN_USER" \
@@ -308,7 +324,7 @@ confirm_proceed() {
 mode_label() {
   case "$1" in
     one_step)      printf "%s" "Serial Streaming Copy (mariadb-dump)" ;;
-    two_step)      printf "%s" "Parallel Streaming Copy (sqldata)" ;;
+    two_step)      printf "%s" "Parallel Restartable Streaming Copy (sqldata)" ;;
     staged)        printf "%s" "Offline Copy (mariadb-dump)" ;;
     binlog)        printf "%s" "Replication (binlog)" ;;
     inplace)       printf "%s" "In-place upgrade" ;;
@@ -348,43 +364,6 @@ EOF
   done
 }
 
-# Two_step variant sub-menu. Returns 0 with $TWO_STEP_VARIANT set, or 1 to
-# signal "back to top-level mode menu" (the outer loop continues). Exits on
-# 'q'. No default on bare Enter — variant choice is release-relevant given
-# the May 15 sqldata data-loss finding on the resumable path.
-prompt_two_step_variant() {
-  local choice
-  while true; do
-    cat <<'EOF'
-
-Parallel Streaming Copy (sqldata) — select variant:
-
-  1) Single-pass            One sqldata invocation per database. Fastest
-                            path. A failed load must restart from the
-                            beginning.
-
-  2) Resumable [EXPERIMENTAL]
-                            Tables loaded in batches with a manifest written
-                            after each batch. A failed load resumes from the
-                            last successful batch. Requires PRIMARY KEY on
-                            every table.
-
-  b) Back to mode selection
-  q) Quit
-
-EOF
-    read -r -p "Enter choice [1-2, b, q]: " choice
-    case "$choice" in
-      1)   TWO_STEP_VARIANT="single_pass"; return 0 ;;
-      2)   TWO_STEP_VARIANT="resumable";   return 0 ;;
-      b|B) return 1 ;;
-      q|Q) echo "Cancelled."; exit 0 ;;
-      "")  echo "Please enter a choice." ;;
-      *)   echo "Invalid choice: '$choice'. Please enter 1, 2, b, or q." ;;
-    esac
-  done
-}
-
 # Staged phase sub-menu. Returns 0 with $STAGED_PHASE set, or 1 to signal
 # "back to top-level mode menu". Exits on 'q'. Bare Enter accepts option 1
 # (dump_and_load) — the safe common case.
@@ -419,11 +398,11 @@ EOF
   done
 }
 
-# Mode selection with sub-menus for two_step variant and staged phase.
+# Mode selection with sub-menu for the staged phase.
 # 'b' from a sub-menu returns to the top-level so the operator can pick a
 # different top-level mode without restarting. Sets $MODE (and possibly
-# $TWO_STEP_VARIANT / $STAGED_PHASE). Used both at first invocation and on
-# re-prompt after a source-side compatibility check rejects the choice.
+# $STAGED_PHASE). Used both at first invocation and on re-prompt after a
+# source-side compatibility check rejects the choice.
 prompt_mode_with_submenus() {
   while true; do
     MODE_SELECT_BACK=0
@@ -437,11 +416,6 @@ prompt_mode_with_submenus() {
       continue
     fi
     case "$MODE" in
-      two_step)
-        if [[ -z "$TWO_STEP_VARIANT" ]]; then
-          if ! prompt_two_step_variant; then continue; fi
-        fi
-        break ;;
       staged)
         if [[ -z "$STAGED_PHASE" ]]; then
           if ! prompt_staged_phase; then continue; fi
@@ -461,6 +435,11 @@ print_progress_hint() {
   local run_dir="$1"
   local run_log="${run_dir}/run.log"
   echo "    Live progress: tail -f $run_log"
+  # two_step also writes sqldata's own progress + manifest under the run dir;
+  # it's a second live tracker, useful for watching batch/chunk progress.
+  if [[ "${MODE:-}" == "two_step" ]]; then
+    echo "    sqldata load progress + manifest: ${run_dir}/sqldata/"
+  fi
 }
 
 # Top-level action menu. Asks the operator what they want to do before any
@@ -1363,7 +1342,6 @@ migrate_mysql_config_file
 # Initialize sub-prompt vars from env first, so the menu and post-selection
 # code can use them consistently. Each defaults to empty (or its inherent
 # default) when not preset.
-TWO_STEP_VARIANT="${TWO_STEP_VARIANT:-}"
 STAGED_PHASE="${STAGED_PHASE:-}"
 STAGED_DUMP_DIR="${STAGED_DUMP_DIR:-}"
 STAGED_COMPRESS="${STAGED_COMPRESS:-1}"
@@ -1376,9 +1354,9 @@ STAGED_CONFIRM_OFFLINE="${STAGED_CONFIRM_OFFLINE:-}"
 #   (a) MODE preset in env → skip the interactive menu. This is how scripted
 #       runs work, and it's also how operators reach the hidden 'inplace' and
 #       'replace_slave' modes (not exposed in the menu).
-#   (b) MODE unset → interactive menu loop. Sub-menus for two_step variant
-#       and staged phase can return "back" via 'b', which loops here so the
-#       operator can pick a different top-level mode without restarting.
+#   (b) MODE unset → interactive menu loop. The staged-phase sub-menu can
+#       return "back" via 'b', which loops here so the operator can pick a
+#       different top-level mode without restarting.
 if [[ -n "${MODE:-}" ]]; then
   if [[ "$MODE" != "one_step" && "$MODE" != "two_step" && "$MODE" != "binlog" \
         && "$MODE" != "staged"   && "$MODE" != "inplace" && "$MODE" != "replace_slave" ]]; then
@@ -1403,7 +1381,7 @@ if [[ "$MODE" == "two_step" ]]; then
 
 ERROR: MariaDB Data migration tool (sqldata) not found.
 
-  Parallel Streaming Copy (sqldata) needs the 'sqldata' binary. Install it, then
+  Parallel Restartable Streaming Copy (sqldata) needs the 'sqldata' binary. Install it, then
   either put it on PATH or export SQLINESDATA_BIN=/path/to/sqldata before
   re-running:
 
@@ -1415,17 +1393,16 @@ EOF
   echo "==> MariaDB Data migration tool (sqldata) detected: $sqldata_bin"
   export SQLINESDATA_BIN="$sqldata_bin"
 
-  # Default variant for env-supplied MODE=two_step without a variant; the
-  # preflight script reads TWO_STEP_VARIANT and treats empty as single_pass,
-  # but we set it explicitly here so logs and state.json record the choice.
-  TWO_STEP_VARIANT="${TWO_STEP_VARIANT:-single_pass}"
-  if [[ "$TWO_STEP_VARIANT" != "single_pass" && "$TWO_STEP_VARIANT" != "resumable" ]]; then
-    echo "ERROR: TWO_STEP_VARIANT='$TWO_STEP_VARIANT' is not valid."
-    echo "       Valid values: single_pass, resumable"
-    exit 1
+  # The experimental single_pass/resumable variant was retired: resumable +
+  # chunked loading is now native to sqldata and on by default, so there is
+  # no variant to select. TWO_STEP_VARIANT is accepted-but-ignored for one
+  # release so a stale value in the environment or migration.yaml doesn't
+  # cause a surprise; it will be dropped entirely in a future release.
+  # (For a clean break with no deprecation window, delete this whole block.)
+  if [[ -n "${TWO_STEP_VARIANT:-}" ]]; then
+    echo "==> NOTE: TWO_STEP_VARIANT is deprecated and ignored. Resumable, chunked"
+    echo "          data loading is now native in sqldata and enabled by default."
   fi
-  export TWO_STEP_VARIANT
-  echo "==> two_step variant: $TWO_STEP_VARIANT"
 fi
 
 # --- Post-selection plumbing: staged ----------------------------------------
@@ -1579,7 +1556,6 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
       # Reset submenu state to empty (not unset) so prompt_mode_with_submenus
       # re-triggers the sub-menus on the next pick while keeping the variables
       # defined for downstream references under `set -u`.
-      TWO_STEP_VARIANT=""
       STAGED_PHASE=""
       prompt_mode_with_submenus
     done
@@ -1633,55 +1609,26 @@ TGT_PASS="$TGT_ADMIN_PASS"
 # For staged: only run for dump_and_load (we have SRC_DBS_INPUT here). For
 # load_only the DB list lives in the manifest and is checked by
 # 00_preflight_staged.sh; for dump_only there is no target.
-# Predicate: are we about to resume an existing resumable run? True only when:
-#   1. Mode is two_step and variant is resumable
-#   2. FORCE_NEW_RUN is not set (operator hasn't asked for a fresh run)
-#   3. .migration_last_run points at an existing run dir
-#   4. That run dir contains a manifest at sqldata/manifest.txt
-# When all four hold, the target DB is expected to exist (step 11's schema
-# from the previous run is what step 12 will reload into), so the pre-
-# existence check below is the wrong gate. If any condition fails the check
-# fires normally — including when the orchestrator later decides not to
-# actually resume (e.g. signature mismatch); in that edge case the resumable
-# script's own schema sanity check is the safety net.
-_resumable_resume_in_play() {
-  [[ "$MODE" == "two_step" && "${TWO_STEP_VARIANT:-}" == "resumable" ]] || return 1
-  [[ "${FORCE_NEW_RUN:-0}" != "1" ]] || return 1
-  [[ -f .migration_last_run ]] || return 1
-  local _prev
-  _prev="$(tr -d '\n\r' < .migration_last_run 2>/dev/null)"
-  [[ -n "$_prev" && -d "$_prev" ]] || return 1
-  [[ -f "${_prev}/sqldata/manifest.txt" ]] || return 1
-  return 0
-}
-
+#
+# two_step has no mid-run resume: sqldata auto-retries transient errors within
+# a run, but an interrupted run is restarted by dropping the target database(s)
+# and re-running. So this check always runs and a leftover target DB from an
+# interrupted run is reported as a conflict to drop.
 if [[ "$MODE" == "one_step" || "$MODE" == "two_step" || "$MODE" == "binlog" \
       || ( "$MODE" == "staged" && "$STAGED_PHASE" == "dump_and_load" ) ]]; then
-  if _resumable_resume_in_play; then
-    _prev_run_dir="$(tr -d '\n\r' < .migration_last_run 2>/dev/null)"
-    echo "==> Resumable resume detected (manifest: ${_prev_run_dir}/sqldata/manifest.txt)."
-    echo "    Skipping target-DB pre-existence check; the existing target schema"
-    echo "    is expected to be reused. The resumable script will verify the"
-    echo "    target tables match the manifest before loading."
-    unset _prev_run_dir
-    if needs_target_endpoint_preflight; then
-      print_target_ready_banner
+  while ! target_db_preexistence_check; do
+    echo ""
+    echo "You can drop the conflicting database(s) on the target in another"
+    echo "terminal and retry, or enter a different database name below."
+    echo "Press Ctrl-C to abort."
+    SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
+    if [[ -z "$SRC_DBS_INPUT" ]]; then
+      echo "ERROR: Database name is required for $MODE mode."
+      exit 1
     fi
-  else
-    while ! target_db_preexistence_check; do
-      echo ""
-      echo "You can drop the conflicting database(s) on the target in another"
-      echo "terminal and retry, or enter a different database name below."
-      echo "Press Ctrl-C to abort."
-      SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
-      if [[ -z "$SRC_DBS_INPUT" ]]; then
-        echo "ERROR: Database name is required for $MODE mode."
-        exit 1
-      fi
-    done
-    if needs_target_endpoint_preflight; then
-      print_target_ready_banner
-    fi
+  done
+  if needs_target_endpoint_preflight; then
+    print_target_ready_banner
   fi
 fi
 
@@ -1959,7 +1906,6 @@ save_config() {
       -v staged_compress="$(yaml_quote "${STAGED_COMPRESS:-1}")" \
       -v staged_pv="$(yaml_quote "${STAGED_PV:-1}")" \
       -v staged_parallel="$(yaml_quote "${STAGED_PARALLEL:-4}")" \
-      -v two_step_variant="$(yaml_quote "${TWO_STEP_VARIANT:-}")" \
       '
 BEGIN { in_env=0 }
 {
@@ -2018,9 +1964,6 @@ BEGIN { in_env=0 }
     if ($0 ~ /^  STAGED_COMPRESS:/) { print "  STAGED_COMPRESS: " staged_compress; next }
     if ($0 ~ /^  STAGED_PV:/) { print "  STAGED_PV: " staged_pv; next }
     if ($0 ~ /^  STAGED_PARALLEL:/) { print "  STAGED_PARALLEL: " staged_parallel; next }
-    # two_step variant. Like STAGED_PHASE, only persists if the key already
-    # exists in the YAML. Re-init from migration.yaml.example to pick it up.
-    if ($0 ~ /^  TWO_STEP_VARIANT:/) { print "  TWO_STEP_VARIANT: " two_step_variant; next }
   }
   print
 }
@@ -2282,7 +2225,7 @@ elif [[ "$PHASE_MODE" == "run" ]]; then
     print_progress_hint "$RUN_DIR"
     python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
     STATUS=$?
-  elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
+  elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" && "${FORCE_NEW_RUN:-0}" != "1" && "$MODE" != "two_step" ]]; then
     echo "==> Resuming: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
     python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
@@ -2291,7 +2234,12 @@ elif [[ "$PHASE_MODE" == "run" ]]; then
     if [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" == "1" ]]; then
       echo "==> FORCE_NEW_RUN=1 set; ignoring previous run and starting a new run directory."
     elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" ]]; then
-      echo "==> Previous run found, but inputs changed. Starting a new run directory."
+      if [[ "$MODE" == "two_step" ]]; then
+        echo "==> two_step does not resume a previous run; starting a fresh run."
+        echo "    If the target still holds the previous run's data, drop it and re-run."
+      else
+        echo "==> Previous run found, but inputs changed. Starting a new run directory."
+      fi
     fi
     rm -f "$RUN_DIR_FILE" "$RUN_SIG_FILE"
     RUN_DIR="artifacts/run_${MODE}_${TS}"
@@ -2346,7 +2294,7 @@ else
     print_progress_hint "$RUN_DIR"
     python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
     STATUS=$?
-  elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
+  elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" && "${FORCE_NEW_RUN:-0}" != "1" && "$MODE" != "two_step" ]]; then
     echo "==> Resuming: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
     python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
@@ -2355,7 +2303,12 @@ else
     if [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" == "1" ]]; then
       echo "==> FORCE_NEW_RUN=1 set; ignoring previous run and starting a new run directory."
     elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" ]]; then
-      echo "==> Previous run found, but inputs changed. Starting a new run directory."
+      if [[ "$MODE" == "two_step" ]]; then
+        echo "==> two_step does not resume a previous run; starting a fresh run."
+        echo "    If the target still holds the previous run's data, drop it and re-run."
+      else
+        echo "==> Previous run found, but inputs changed. Starting a new run directory."
+      fi
     fi
     # Drop stale resume pointers before a fresh assess/plan/run attempt.
     rm -f "$RUN_DIR_FILE" "$RUN_SIG_FILE"
@@ -2592,10 +2545,11 @@ What to do next:
          $src_connect
          $tgt_connect
 
-  3. For transient failures (network blip, target restart, etc.) you can
-     re-run this script — it will resume from the point of failure where
-     the orchestrator supports it (binlog, replace_slave), or start a new
-     run for one_step/two_step after fixing the underlying issue.
+  3. two_step has no mid-run resume. sqldata auto-retries transient errors
+     (network blips, brief target restarts) within a run; an interrupted or
+     failed run is restarted by dropping the target database(s) and re-running
+     from a clean target. binlog and replace_slave resume from their
+     checkpoints (re-run with the same config).
 
   4. If a pre-existing database on the target caused the failure, drop it
      on the target and re-run.

@@ -146,7 +146,7 @@ phases:
   two_step_data:
     - id: two_step_parallel_data
       name: Parallel data transfer with SQLines Data
-      script: scripts/12_two_step_dispatch.sh
+      script: scripts/12_two_step_sqldata.sh
       args: []
 
   two_step_finalize:
