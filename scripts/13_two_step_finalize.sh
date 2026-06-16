@@ -6,9 +6,7 @@ echo "==> Two-step migration: finalize schema (triggers, routines, events)"
 # This step consumes the per-DB schema_post.sql files produced by
 # 11_two_step_schema.sh and applies them to the target after the data load
 # in 12_two_step_sqldata.sh has completed. The deferral is what prevents
-# trigger-driven row duplication during the data load (sakila.film_text
-# is the canonical example: the AFTER INSERT trigger on film re-inserts
-# rows into film_text, which then collide with the direct film_text load).
+# trigger-driven row duplication during the data load 
 
 MARIADB_BIN="${MARIADB_BIN:-mariadb}"
 

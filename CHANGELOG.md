@@ -1,4 +1,16 @@
 # Changelog
+## [1.3.0-beta] - 2026-06-16
+### Added
+- Parallel Restartable Streaming Copy (`two_step`): post-load source/target row-count
+  validation. After a successful load, row counts are compared per database via
+  `sqldata -cmd=validate -vopt=rowcount`; results are appended to both the per-database
+  `sqldata.log` and the run `run.log`. Report-only — the transfer step remains the gate.
+  Skip with `MIGRATOR_SKIP_ROWCOUNT_VALIDATE=1`.
+### Changed
+- Install: use the release archive (`.tar.gz`/`.zip`) from the MariaDB downloads page
+  instead of `git clone`.
+- Docs: `mariadb-mtk` adopted as the primary name for the SQLines Data engine
+  (binary still invoked as `sqldata`).
 
 ## [1.2.9-beta] — 2026-06-08
 

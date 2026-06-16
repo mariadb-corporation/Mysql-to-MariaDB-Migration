@@ -177,3 +177,96 @@ for db in "${DB_LIST[@]}"; do
 done
 
 echo "SQLines Data transfer completed."
+
+# The data transfer is the hard gate. Under 'set -e', a failed sqldata load in
+# the loop above aborts this script before reaching this point, so getting here
+# means the transfer reported success for every selected database. Row-count
+# validation below runs only on that success and is a REPORT, not a gate -- it
+# never fails the run.
+transfer_ok=1
+
+# --- Row-count validation (source vs. target) -------------------------------
+# For each database, sqldata's own validate command (-cmd=validate
+# -vopt=rowcount) compares source vs. target row counts. The full per-db report
+# is appended to BOTH the per-db load log (sqldata/<db>/sqldata.log) and the run
+# log (run.log), and a concise verdict line is echoed for live feedback.
+# sqldata's own working/log files for the validate pass go to a throwaway temp
+# dir, so the only thing written under sqldata/ is the appended report itself.
+#
+#   MIGRATOR_SKIP_ROWCOUNT_VALIDATE=1  skip validation entirely
+#   RUN_LOG=<path>                     override run-log path (default: the run
+#                                      dir's run.log, i.e. the parent of the
+#                                      sqldata out dir)
+RUN_LOG="${RUN_LOG:-$(dirname "$SQLINES_OUT_DIR")/run.log}"
+
+if [[ "${transfer_ok:-0}" != "1" ]]; then
+  :   # transfer did not report success: nothing to validate
+elif [[ "${MIGRATOR_SKIP_ROWCOUNT_VALIDATE:-0}" == "1" ]]; then
+  echo "==> Row-count validation skipped (MIGRATOR_SKIP_ROWCOUNT_VALIDATE=1)"
+else
+  echo "==> Validating row counts (source vs. target); detail appended to per-db sqldata.log and $RUN_LOG"
+  validate_mismatches=0
+
+  for db in "${DB_LIST[@]}"; do
+    db="${db// /}"
+    [[ -z "$db" ]] && continue
+
+    db_out_dir="$SQLINES_OUT_DIR/$db"
+    db_log="$db_out_dir/sqldata.log"
+    mkdir -p "$db_out_dir"
+
+    vtmp="$(mktemp)"
+    vout="$(mktemp -d)"
+    rc=0
+    # Detail goes to a temp log (parsed, then folded into both logs); console
+    # output suppressed to avoid double-logging.
+    "$SQLINESDATA_BIN" \
+      "-sd=mysql,${SRC_USER}/${SRC_PASS}@${SRC_HOST}:${SRC_PORT}/${db}" \
+      "-td=mariadb,${TGT_USER}/${TGT_PASS}@${TGT_HOST}:${TGT_PORT}/${db}" \
+      "-smap=${db}:${db}" \
+      "-t=${db}.*" \
+      "-out=$vout" \
+      "-log=$vtmp" \
+      -cmd=validate \
+      -vopt=rowcount >/dev/null 2>&1 || rc=$?
+      # Session count intentionally omitted: sqldata uses the -ss default from
+      # sqldata.cfg (mirrors the load loop's commented-out -ss). Add "-ss=<n>"
+      # above to override per run.
+
+    # Parse sqldata's summary block rather than trusting rc alone:
+    #   Tables: N (N compared, N failed) / Equal tables: N / Different tables: N
+    different=$(grep -aE 'Different tables:' "$vtmp" 2>/dev/null | grep -oE '[0-9]+' | tail -n1 || true)
+    failed=$(grep -aE 'compared,' "$vtmp" 2>/dev/null | tail -n1 | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' || true)
+    different="${different:-0}"
+    failed="${failed:-0}"
+
+    if [[ "$rc" -ne 0 || "$different" -gt 0 || "$failed" -gt 0 ]]; then
+      result="ROW-COUNT MISMATCH (rc=$rc, different=$different, failed=$failed)"
+      validate_mismatches=$((validate_mismatches + 1))
+    else
+      equal_line=$(grep -aE 'Equal tables:' "$vtmp" 2>/dev/null | tail -n1 | tr -s ' ' | sed 's/^ *//' || true)
+      result="row counts OK (${equal_line:-all tables equal})"
+    fi
+
+    # Fold the full per-db report + verdict into BOTH the per-db sqldata.log
+    # (append, after the load log) and the run log. tee -a appends to the per-db
+    # log; its passthrough is appended to run.log.
+    {
+      echo ""
+      echo "===== row-count validation: ${db} ====="
+      cat "$vtmp" 2>/dev/null || true
+      echo "[${db}] ${result}"
+    } | tee -a "$db_log" >> "$RUN_LOG" 2>/dev/null \
+      || echo "WARNING: could not append validation report to $db_log and/or $RUN_LOG" >&2
+
+    echo "    [${db}] ${result}"
+    rm -rf "$vout"
+    rm -f "$vtmp"
+  done
+
+  if [[ "$validate_mismatches" -gt 0 ]]; then
+    echo "==> Row-count validation reported mismatches in ${validate_mismatches} database(s); see $RUN_LOG (transfer reported success; not gated here)"
+  else
+    echo "==> Row-count validation: all selected database(s) match"
+  fi
+fi
