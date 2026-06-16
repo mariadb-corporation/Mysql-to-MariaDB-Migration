@@ -4,6 +4,8 @@
 
 This tool is proprietary software developed and maintained by MariaDB plc. It is provided to customers and partners under approved usage terms.
 
+> **Note on naming:** `mariadb-mtk` and `sqldata` refer to the same component — the SQLines Data transfer engine used by Parallel Restartable Streaming Copy. `mariadb-mtk` is the MariaDB product name and is used as the primary name throughout this document; the binary is currently distributed and invoked as `sqldata` (aka), and its path is configured via `SQLINESDATA_BIN`.
+
 ## Purpose
 Private repository to design, execute, and validate end-to-end MySQL to MariaDB migrations in a repeatable and auditable manner.
 
@@ -30,11 +32,11 @@ The interactive launcher presents these as a numbered menu (1–4). Internal ide
 | # | Mode | Internal id | Type | Best for | Tooling |
 |---|---|---|---|---|---|
 | 1 | Serial Streaming Copy (mariadb-dump) | `one_step` | Offline | Smaller databases, standard maintenance windows | `mariadb-dump` piped to target `mariadb`; single pipe, tables transferred sequentially |
-| 2 | Parallel Restartable Streaming Copy (sqldata) | `two_step` | Offline | Larger datasets needing schema-then-parallel-data | `mariadb-dump` (schema) + SQLines Data (multiple concurrent sessions per database) |
+| 2 | Parallel Restartable Streaming Copy (sqldata) | `two_step` | Offline | Larger datasets needing schema-then-parallel-data | `mariadb-dump` (schema) + `mariadb-mtk` (multiple concurrent sessions per database) |
 | 3 | Offline Copy (mariadb-dump) | `staged` | Offline | Source/target not network-reachable; deferred or two-host load | `mariadb-dump` → on-disk file (per-DB, compressed) → `mariadb` client |
 | 4 | Replication (binlog) | `binlog` | Online | Low-downtime cutover, ongoing replication | `mariadb-dump` snapshot + MySQL binlog replication into MariaDB |
 
-The two streaming modes differ in their transfer topology: **Serial Streaming Copy** uses a single `mariadb-dump | mariadb` pipe and migrates tables sequentially, while **Parallel Restartable Streaming Copy** uses SQLines Data with multiple concurrent worker sessions per database (controlled by sqldata's `-ss` parameter).
+The two streaming modes differ in their transfer topology: **Serial Streaming Copy** uses a single `mariadb-dump | mariadb` pipe and migrates tables sequentially, while **Parallel Restartable Streaming Copy** uses `mariadb-mtk` (the SQLines Data engine) with multiple concurrent worker sessions per database (controlled by the `-ss` parameter).
 
 ## Top-level menu
 
@@ -58,8 +60,8 @@ The same phases are reachable non-interactively via `--assess`, `--plan`, `--run
 - For Replication (`binlog`): MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
 - Python 3.9+ is required on the orchestrator host. On first run the launcher creates a project-local virtual environment (`.venv`) and installs the Python dependencies into it automatically — no manual `pip install` step is needed. On Debian/Ubuntu, install the venv module first: `sudo apt-get install -y python3-venv`.
 - The `mariadb` client must be available on the orchestrator host (used for connectivity, version, and database checks). If it is missing, the launcher detects your platform and offers to install it on first run; you can also install it manually (`dnf install mariadb`, `apt-get install mariadb-client`, `zypper install mariadb-client`, or `brew install mariadb`).
-- For Parallel Restartable Streaming Copy (`two_step`), SQLines Data (`sqldata`) must be pre-installed and available on `PATH` (or set via `SQLINESDATA_BIN`).
-- SQLines Data may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
+- For Parallel Restartable Streaming Copy (`two_step`), `mariadb-mtk` — the MariaDB-packaged SQLines Data engine, invoked as `sqldata` — must be installed. It is available from the MariaDB downloads page (https://mariadb.com/downloads/, Enterprise Tooling). The launcher auto-detects a `sqldata` (or `sqlinesdata`) binary on `PATH`; if it is installed under a different name or location, point `SQLINESDATA_BIN` at its full path.
+- `mariadb-mtk` may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
 - Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB. (Exception: Offline Copy (`staged`) in `dump_only` or `load_only` phase only needs connectivity to one side.)
 - The orchestrator can run on a third host; SSH access to the target is only required for the deprecated install path and for `replace_slave` mode.
 - The tool prompts for required inputs if not provided in config/env.
@@ -153,7 +155,7 @@ Behavior and controls:
 - A report is written to `artifacts/run_<mode>_<ts>/analyze_target_report.txt` listing the tables analyzed, status counts, and any per-table errors.
 
 ## Status
-Beta. All four modes have been exercised end-to-end against representative source/target pairs. Offline Copy (`staged`) has been validated against AWS RDS sources and MariaDB Cloud targets. In v1.2.0-beta, mode selection moved from a free-text prompt to a numbered interactive menu. Restartable, chunked loading is now native to SQLines Data, so the earlier experimental resumable load variant has been retired (v1.2.9-beta).
+Beta. All four modes have been exercised end-to-end against representative source/target pairs. Offline Copy (`staged`) has been validated against AWS RDS sources and MariaDB Cloud targets. In v1.2.0-beta, mode selection moved from a free-text prompt to a numbered interactive menu. Restartable, chunked loading is now native to `mariadb-mtk`, so the earlier experimental resumable load variant has been retired (v1.2.9-beta).
 
 ## Migration playbooks
 
@@ -167,16 +169,26 @@ Best for smaller databases and standard maintenance windows.
 
 ### Parallel Restartable Streaming Copy (`two_step`)
 Best for larger datasets or tighter windows.
-- Schema-only dump first, then parallel data load via SQLines Data, then finalize objects (triggers, routines, events).
-- SQLines Data uses multiple concurrent worker sessions per database for the data phase.
-- Assumes SQLines Data is installed and available on `PATH` as `sqldata`, or set `SQLINESDATA_BIN`.
+- Schema-only dump first, then parallel data load via `mariadb-mtk` (with a post-load source/target row-count validation), then finalize objects (triggers, routines, events).
+- `mariadb-mtk` uses multiple concurrent worker sessions per database for the data phase.
+- Assumes `mariadb-mtk` is installed; the launcher auto-detects a `sqldata` (or `sqlinesdata`) binary on `PATH`, or set `SQLINESDATA_BIN` to its full path.
 - Requires admin users (`SRC_ADMIN_USER`/`TGT_ADMIN_USER`); preflight fails fast if those logins are not ready.
 
 #### Restart behavior
 
-Restartable, chunked loading is native to SQLines Data and on by default — there is no variant to select. Large tables (by default 1,000,000+ rows, set by `large_tables_rows`; chunking requires an `AUTO_INCREMENT` column, so tables without one transfer as a single stream) are loaded as parallel chunks, and transient errors are retried automatically within a run (`restart_attempts`, default 10). Defaults and tuning live in `scripts/sqldata.cfg-example`; no extra options are needed.
+Restartable, chunked loading is native to `mariadb-mtk` and on by default — there is no variant to select. Large tables (by default 1,000,000+ rows, set by `large_tables_rows`; chunking requires an `AUTO_INCREMENT` column, so tables without one transfer as a single stream) are loaded as parallel chunks, and transient errors are retried automatically within a run (`restart_attempts`, default 10). Defaults and tuning live in `sqldata.cfg-example`; no extra options are needed.
 
-SQLines Data does not resume a load across separate invocations. An interrupted or failed `two_step` run is restarted by dropping the target database(s) and re-running from a clean target — the launcher always starts a fresh run for this mode and reports a leftover target database as a conflict to drop.
+`mariadb-mtk` does not resume a load across separate invocations. An interrupted or failed `two_step` run is restarted by dropping the target database(s) and re-running from a clean target — the launcher always starts a fresh run for this mode and reports a leftover target database as a conflict to drop.
+
+#### Row-count validation
+
+After the parallel data load completes successfully, the tool validates row counts between source and target for each migrated database, using `mariadb-mtk`'s own validate command (`-cmd=validate -vopt=rowcount`). It runs once per database (looping the same `SRC_DB`/`SRC_DBS` list used for the load).
+
+This is a post-load **report, not a gate**. The data transfer is the gate: a failed load stops the run before validation is reached, so reaching validation means every database transferred successfully. A row-count mismatch is recorded and surfaced but does **not** fail the migration.
+
+Each database's per-table comparison and `Equal/Different tables` summary are appended to **both** the per-database load log (`<run>/sqldata/<db>/sqldata.log`) and the run log (`<run>/run.log`), under a `===== row-count validation: <db> =====` header. A concise `row counts OK` / `ROW-COUNT MISMATCH` verdict per database is also echoed to the console.
+
+The check runs with `mariadb-mtk`'s configured session count (the `-ss` default from `sqldata.cfg`), matching the data load. Set `MIGRATOR_SKIP_ROWCOUNT_VALIDATE=1` to skip it entirely.
 
 ### Replication (`binlog`)
 Best for low-downtime cutover.
@@ -205,13 +217,19 @@ Best when source and target are not directly network-reachable, or when a checkp
 
 ## Installation and first run
 
-The launcher bootstraps its own Python environment, so there is no manual setup beyond the prerequisites above.
+The toolkit is distributed as a release archive (`.tar.gz` or `.zip`) from the MariaDB downloads page at https://mariadb.com/downloads/ under **Enterprise Tooling**. Download the latest version (e.g. `v1.2.9-beta`), extract it, and run the launcher — it bootstraps its own Python environment, so there is no manual setup beyond the prerequisites above.
 
 ```bash
-git clone <repo-url>
-cd Mysql-to-MariaDB-Migration
+# Download the release archive from https://mariadb.com/downloads/
+# (Enterprise Tooling), then extract and run. Example for v1.2.9-beta:
+tar -xzf Mysql-to-MariaDB-Migration-1.2.9-beta.tar.gz
+cd Mysql-to-MariaDB-Migration-1.2.9-beta
 ./mariadb-migrator
 ```
+
+The `.zip` archive is equivalent (`unzip Mysql-to-MariaDB-Migration-1.2.9-beta.zip`, then `cd` into the extracted directory). The version embedded in the archive and directory names matches the release you download.
+
+The data-transfer engine used by Parallel Restartable Streaming Copy — **`mariadb-mtk`** (the MariaDB-packaged SQLines Data engine, invoked as `sqldata`) — is available from the same downloads page. Put it on `PATH` (as `sqldata`/`sqlinesdata`) or point `SQLINESDATA_BIN` at its full path (see Prerequisites).
 
 On first run the launcher will:
 
@@ -295,7 +313,7 @@ The orchestrator captures all script output to `run.log` rather than streaming i
 ```
 
 Notes:
-- `./mariadb-migrator` runs assess → plan → run, and resumes a failed run automatically for `one_step`, `binlog`, `replace_slave`, and `staged`. `two_step` does not resume — it always starts a fresh run, since SQLines Data has no cross-invocation resume (drop the target and re-run to restart).
+- `./mariadb-migrator` runs assess → plan → run, and resumes a failed run automatically for `one_step`, `binlog`, `replace_slave`, and `staged`. `two_step` does not resume — it always starts a fresh run, since `mariadb-mtk` has no cross-invocation resume (drop the target and re-run to restart).
 - To force a fresh run instead of resuming, set `FORCE_NEW_RUN=1`. The launcher prints a clear banner distinguishing "FORCE_NEW_RUN=1 set; ignoring previous run" from "inputs changed since last run".
 - `./mariadb-migrator` asks for source/target admin credentials at runtime; root is blocked by default unless `ALLOW_ROOT_USERS=1`.
 - Saving `config/migration.yaml` is optional and defaults to `No`; if saved, passwords are redacted by default.
@@ -327,7 +345,8 @@ Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
 
 Optional:
-- `SQLINESDATA_BIN` (auto-detected from `sqldata` on `PATH`)
+- `SQLINESDATA_BIN` (full path to the `mariadb-mtk` binary; auto-detected from a `sqldata`/`sqlinesdata` on `PATH`)
+- `MIGRATOR_SKIP_ROWCOUNT_VALIDATE` (set to `1` to skip the post-load source/target row-count validation; see the Parallel Restartable Streaming Copy playbook)
 
 ## Binlog required envs (config/migration.yaml)
 Source:

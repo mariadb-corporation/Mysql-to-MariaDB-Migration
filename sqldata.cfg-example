@@ -63,6 +63,20 @@
 -- The maximum number of rows in read/write batch, by default it is defined by the buffer size divided by the table row size
 -batch_max_rows=10000
 
+-- Enable concurrent transfer within a single table or partition for large tables (intra-table and intra-partition parallelism)
+-large_tables_parallel=yes
+
+-- The number of rows when a non-partitioned table or partition is considered large and transferred in multiple concurrent sessions
+-- The option defines the estimated chunk size in rows. The actual number of concurrent sessions is determined by the -ss option
+-large_tables_rows=1000000
+
+-- The table size in MB (megabytes) when a non-partitioned table or partition is considered large and transferred in multiple concurrent sessions
+-- The option defines the estimated chunk size in MB. The actual number of concurrent sessions is determined by the -ss option 
+-large_tables_mb=100
+
+-- Percentage of resources to allocate for large table transfers. Large tables are selected first within allocated resources. 
+-large_tables_resources_pct=70
+
 -- Fixed-size buffer (in bytes) for reading LOB values. Increase the buffer size if truncation errors occur on LOB columns, 
 -- or set it to 0 to read each LOB value using a separate API call
 -lob_bind_buffer=10000000
@@ -78,6 +92,10 @@
 -- Set year value YYYY (4 digits) to convert DATETIME values to NULL if their year is less or equal to the specified value. 
 -- For example, set -datetime_year_lte_to_null=0002 to convert all DATETIME values like '0001-01-01 00:00:00' or '0002-01-01 00:00:00' to NULL
 -datetime_year_lte_to_null=
+
+-- The number of restart attempts for data transfer and DDL statements that failed with a transient error (e.g., timeout, lost connection).
+-- Default value is 10. Set -restart_attempts=0 to disable restarts.
+-restart_attempts=
 
 -- MariaDB options
 ------------------
@@ -114,6 +132,10 @@
 -- Use this option when you receive 'MySQL has gone away' error during the data load
 -mariadb_max_allowed_packet=
 
+-- Disable or enable server certificate verification (MYSQL_OPT_SSL_VERIFY_SERVER_CERT option), possible values: 
+-- 0 (disabled, default) and 1 (enabled)
+-mariadb_ssl_verify_server_cert=0
+
 -- MySQL options
 ----------------
 
@@ -139,13 +161,18 @@
 -- Set the collation for the connection and the tables that are created (latin1_bin, utf8mb4_bin e.g.) 
 -mysql_set_collation=utf8mb4_bin
 
--- Set the character set for LOAD DATA INFILE command
+-- Set the character set for the LOAD DATA INFILE command
 -mysql_load_data_character_set=binary
 
 -- Define how to handle duplicate rows (based on PRIMARY KEY or UNIQUE constraints). If REPLACE is specified, the new rows replace the existing
 -- rows with the same key value. If IGNORE is specified, new rows with duplicate keys are ignored.
 -- By default, an error occurs when a duplicate key value is found.
 -mysql_load_data_duplicates=
+
+-- By default, data is loaded in a single transaction. However, when binary logging is enabled or a Galera cluster is used, 
+-- large imports can trigger 'Maximum writeset size exceeded' errors. Use this option to split the import into multiple chunks 
+-- by specifying the data size (in MB) per LOAD DATA INFILE command.
+-mysql_load_data_chunks_mb=
 
 -- The size of VARCHAR columns when they are mapped to TEXT instead of VARCHAR(size) 
 -- This helps prevent errors:
@@ -216,7 +243,7 @@
 -- See also https://www.sqlines.com/sqldata_oracle_connection
 -oci_lib=
 
--- NLS_LANG setting to use for Oracle connection i.e. AMERICAN_AMERICA.WE8MSWIN1252, AMERICAN_AMERICA.AL32UTF8 etc.
+-- NLS_LANG setting to use for Oracle connection e.g. AMERICAN_AMERICA.WE8MSWIN1252, AMERICAN_AMERICA.AL32UTF8, AMERICAN_AMERICA.WE8ISO8859P1 etc.
 -oracle_nls_lang=
 
 -- Set to yes to use the Oracle SQL*Loader OCI in-memory API for direct path loading, improving load performance into Oracle 
@@ -275,10 +302,16 @@
 -- Important: TRUNCATE CASCADE causes deletion of rows (!), not the removal of constraints, in child tables
 -pg_truncate=
 
+-- Specifies the fillfactor option used in the generated CREATE TABLE statements
+-pg_tab_fillfactor=
+
+-- Specifies the fillfactor option used in the generated CREATE INDEX statements
+-pg_idx_fillfactor=
+
 -- IBM DB2 options
 ------------------
 
--- Codepage (you can also set the DB2CODEPAGE environment variable i.e. 1208 for UTF-8)
+-- Codepage (you can also set the DB2CODEPAGE environment variable e.g. 1208 for UTF-8)
 -db2_codepage=
 
 -- Sybase ASE options

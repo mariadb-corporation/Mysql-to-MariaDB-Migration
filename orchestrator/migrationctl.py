@@ -362,6 +362,9 @@ def plan(
                 f"Invalid STAGED_PHASE='{staged_phase}'. "
                 "Must be one of: dump_and_load, dump_only, load_only"
             )
+        # Make the resolved phase explicit so the plan reflects the value the
+        # run phase will actually use (keeps plan/run defaults in lockstep).
+        env["STAGED_PHASE"] = staged_phase
         if staged_phase != "load_only":
             _require_env(env, ["SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS"], mode_value)
             if not (env.get("SRC_DB") or env.get("SRC_DBS")):
@@ -452,6 +455,20 @@ def run(
         env.setdefault("TGT_PASS", env["TGT_ADMIN_PASS"])
     _prompt_required_env(env, mode_value, non_interactive)
 
+    # Added 12Jun: direct `migrationctl run` invocations must provide the same
+    # env contract as the launcher, which exports RUN_DIR before invoking
+    # phase scripts. Scripts like 00_preflight_staged.sh default
+    # STAGED_DUMP_DIR to RUN_DIR/dumps; without this, a direct run fails at
+    # preflight ("STAGED_DUMP_DIR is not set and RUN_DIR is not set").
+    # setdefault preserves a launcher-set RUN_DIR if one is already exported;
+    # --out is authoritative only when RUN_DIR is absent.
+    env.setdefault("RUN_DIR", str(out.resolve()))
+    if env["RUN_DIR"] != str(out.resolve()):
+        report.log(
+            f"NOTE: RUN_DIR ({env['RUN_DIR']}) differs from --out ({out}); "
+            "honoring RUN_DIR from environment (launcher-set)."
+        )
+
     if mode_value in ("one_step", "two_step", "binlog", "replace_slave"):
         _require_env(
             env,
@@ -493,6 +510,12 @@ def run(
                 f"Invalid STAGED_PHASE='{staged_phase}'. "
                 "Must be one of: dump_and_load, dump_only, load_only"
             )
+        # Added 12Jun: pass the resolved phase to the phase scripts explicitly,
+        # so the subprocess env doesn't depend on the operator (or launcher)
+        # having exported STAGED_PHASE. Keeps migrationctl's validation and
+        # 00_preflight_staged.sh's defaulting in lockstep rather than agreeing
+        # by coincidence on 'dump_and_load'.
+        env["STAGED_PHASE"] = staged_phase
         if staged_phase != "load_only":
             _require_env(env, ["SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS"], mode_value)
             if not (env.get("SRC_DB") or env.get("SRC_DBS")):
