@@ -18,7 +18,7 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 
 ## Supported Versions
 - MySQL: 8.0, 8.4 (mode-dependent)
-- MariaDB: 11.x (LTS)
+- MariaDB: Supported Enterprise and Community editions
 - MariaDB Cloud as a target (validated for Offline Copy (`staged`), Parallel Restartable Streaming Copy (`two_step`), and Serial Streaming Copy (`one_step`))
 
 Mode-specific notes:
