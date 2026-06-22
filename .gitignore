@@ -21,3 +21,4 @@ mariadb-migrator-*
 scripts/*-[0-9]*May
 scripts/*-before_*
 scripts/*-working_*
+config/sqldata_failed_tables_validation.txt
