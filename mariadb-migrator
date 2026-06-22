@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.3.0-beta"
-MIG_TOOL_BUILD="20260616"
+MIG_TOOL_VERSION="1.3.1-beta"
+MIG_TOOL_BUILD="20260622"
 
 # Display professional welcome header
 cat << EOF
@@ -1541,23 +1541,37 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
     done
     print_source_ready_banner
 
-    # Source-side compatibility checks (mode-aware). On failure, re-enter
-    # the mode selection menu so the operator can pick a compatible mode
-    # without re-entering source connection info. Env-set MODE cannot
-    # interactively change, so we hard-exit in that path instead.
+    # Source-side compatibility checks (mode-aware). On failure, re-prompt the
+    # database name(s) so the operator can drop the offending database (e.g. one
+    # carrying JSON columns under replication) and retry the same mode. The
+    # newly entered list is re-validated for existence before the compat check
+    # re-runs. Env-set MODE/DBs cannot be changed interactively, so that path
+    # hard-exits instead.
     while ! run_source_side_compatibility_checks; do
       if [[ "${MODE_FROM_ENV:-0}" == "1" ]]; then
         echo "MODE was set in the environment; cannot interactively re-select."
-        echo "Re-run with a compatible MODE (e.g. one_step, two_step, or staged)."
+        echo "Re-run with a compatible MODE (e.g. one_step, two_step, or staged),"
+        echo "or with a database list that excludes the incompatible database(s)."
         exit 1
       fi
-      echo "Returning to mode selection (source connection info is preserved)."
-      echo ""
-      # Reset submenu state to empty (not unset) so prompt_mode_with_submenus
-      # re-triggers the sub-menus on the next pick while keeping the variables
-      # defined for downstream references under `set -u`.
-      STAGED_PHASE=""
-      prompt_mode_with_submenus
+      echo "Re-enter the database name(s) to retry $MODE mode (or Ctrl-C to abort)."
+      SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
+      if [[ -z "$SRC_DBS_INPUT" ]]; then
+        echo "ERROR: Database name is required for $MODE mode."
+        exit 1
+      fi
+      # Re-validate the new list exists on source before re-running the
+      # compat check (which the enclosing `while` does on the next iteration).
+      while ! source_dbs_exist_check; do
+        echo ""
+        echo "Re-enter the database name(s) (or Ctrl-C to abort)."
+        SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
+        if [[ -z "$SRC_DBS_INPUT" ]]; then
+          echo "ERROR: Database name is required for $MODE mode."
+          exit 1
+        fi
+      done
+      print_source_ready_banner
     done
   fi
 fi
