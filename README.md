@@ -20,6 +20,7 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - MySQL: 8.0, 8.4 (mode-dependent)
 - MariaDB: Supported Enterprise and Community editions
 - MariaDB Cloud as a target (validated for Offline Copy (`staged`), Parallel Restartable Streaming Copy (`two_step`), and Serial Streaming Copy (`one_step`))
+- mariadb-migrator: Tested and built for linux on x86-64 and ARM64 
 
 Mode-specific notes:
 - MySQL 8.0 / 8.4 migrations are supported via any of the four modes.
