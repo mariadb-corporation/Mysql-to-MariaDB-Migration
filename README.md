@@ -17,14 +17,14 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - Validation & rollback planning
 
 ## Supported Versions
-- MySQL: 8.0, 8.4 (mode-dependent)
+- MySQL: 5.7(experimeental) 8.0, 8.4 (mode-dependent)
 - MariaDB: Supported Enterprise and Community editions
 - MariaDB Cloud as a target (validated for Offline Copy (`staged`), Parallel Restartable Streaming Copy (`two_step`), and Serial Streaming Copy (`one_step`))
 - mariadb-migrator: Tested and built for linux on x86-64 and ARM64 
 
 Mode-specific notes:
 - MySQL 8.0 / 8.4 migrations are supported via any of the four modes.
-- **Replication (`binlog`) requires `binlog_format=ROW` on the source and does not support schemas containing JSON columns.** Both conditions are enforced at three layers (launcher, assessment, preflight) as of v1.2.1-beta — operators with either configuration are blocked upfront and routed to one of the offline modes (Serial Streaming Copy `one_step`, Parallel Restartable Streaming Copy `two_step`, or Offline Copy `staged`), which are unaffected by either limitation. To use Replication mode, set `binlog_format = ROW` under `[mysqld]` in the source `my.cnf` and restart the source MySQL server.
+- **Replication (`binlog`) requires `binlog_format=ROW` on the source and does not support schemas containing JSON columns.** Both conditions are enforced at three layers (launcher, assessment, preflight) — operators with either configuration are blocked upfront and routed to one of the offline modes (Serial Streaming Copy `one_step`, Parallel Restartable Streaming Copy `two_step`, or Offline Copy `staged`), which are unaffected by either limitation. To use Replication mode, set `binlog_format = ROW` under `[mysqld]` in the source `my.cnf` and restart the source MySQL server.
 
 ## Migration modes at a glance
 
