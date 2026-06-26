@@ -7,7 +7,6 @@ MIG_TOOL_BUILD="20260622"
 
 # Display professional welcome header
 cat << EOF
-
 ---------------------------------------------------------------------
  Welcome to the MySQL to MariaDB Migration Tool
  Tool Version: $MIG_TOOL_VERSION (Build $MIG_TOOL_BUILD)
@@ -16,9 +15,14 @@ cat << EOF
  Copyright (c) 2026, MariaDB Plc. All rights reserved.
  This software is distributed free of charge and is provided "as is".
 
- Full Legal Terms: https://mariadb.com/legal/
----------------------------------------------------------------------
+ MariaDB Software License Terms apply to all MariaDB Software unless
+ otherwise stated. They do not alter the license terms of any free and
+ open-source software (FOSS) or software subject to the Business Source
+ License (BSL) (see Section 7 of the MariaDB Software License Terms).
 
+ License Terms: https://legal.mariadb.com/agreements/enterprise/MariaDB_Software_License_Terms_2026-05-15.pdf
+ Additional Terms: https://mariadb.com/terms/
+---------------------------------------------------------------------
 Type '--help' for usage instructions.
 EOF
 
