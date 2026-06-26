@@ -428,3 +428,14 @@ tests/test_staged_phase_matrix.sh
 - `pv` fallback in Serial Streaming Copy (`one_step`) is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in Offline Copy (`staged`) where the dump is on disk.
 - Target-side TLS verification is not yet configurable. Connections to TLS-required targets (e.g. MariaDB Cloud) are encrypted but not server-verified. Source-side TLS works as expected via `SRC_SSL_MODE`.
 - Client-tool noise (the `mysql: Deprecated program name` banner and the `--ssl-verify-server-cert is disabled` warning) has been removed from the Serial Streaming Copy (`one_step`) run path as of 1.2.6-beta, except for one source-side check in its preflight. The other modes' preflight and phase scripts still emit these cosmetic lines; full cleanup is planned for a later release. They are presentation-only and do not affect migration correctness.
+
+## Feedback
+
+Join the [MariaDB Community on Slack, Zulip chat](https://mariadb.com/docs/general-resources/community/joining-the-community) to share your feedback.
+
+
+## License
+
+[MariaDB Software License Terms](https://legal.mariadb.com/agreements/enterprise/MariaDB_Software_License_Terms_2026-05-15.pdf) apply to all MariaDB Software unless otherwise stated. They do not alter the license terms of any free and open-source software (FOSS) or software subject to the Business Source License (BSL) (see Section 7 of the MariaDB Software License Terms).
+
+For additional legal information, see [MariaDB Terms](https://mariadb.com/terms/).
