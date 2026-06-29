@@ -2,7 +2,7 @@
 
 © 2026 MariaDB plc. All rights reserved.
 
-This tool is proprietary software developed and maintained by MariaDB plc. It is provided to customers and partners for free under approved usage terms.
+This tool is proprietary software developed and maintained by MariaDB plc. It is provided to customers and partners for free under [MariaDB terms](https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration#license).
 
 > **Note on naming:** `mariadb-mtk` and `sqldata` refer to the same component — the SQLines Data transfer engine used by Parallel Restartable Streaming Copy. `mariadb-mtk` is the MariaDB product name and is used as the primary name throughout this document; the binary is currently distributed and invoked as `sqldata` (aka), and its path is configured via `SQLINESDATA_BIN`.
 
