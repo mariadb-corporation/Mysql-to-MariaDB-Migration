@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Define tool versioning
 MIG_TOOL_VERSION="1.3.2-beta"
-MIG_TOOL_BUILD="20260712"
+MIG_TOOL_BUILD="20260714"
 
 # Display professional welcome header
 cat << EOF
