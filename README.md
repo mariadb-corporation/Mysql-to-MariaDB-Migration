@@ -4,7 +4,7 @@
 
 This tool is proprietary software developed and maintained by MariaDB plc. It is provided to customers and partners for free under [MariaDB terms](https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration#license).
 
-> **Note on naming:** `mariadb-mtk` and `sqldata` refer to the same component — the SQLines Data transfer engine used by Parallel Restartable Streaming Copy. `mariadb-mtk` is the MariaDB product name and is used as the primary name throughout this document; the binary is currently distributed and invoked as `sqldata` (aka), and its path is configured via `SQLINESDATA_BIN`.
+> **Note on naming:** `mariadb-mtk` is the data-transfer engine used by Parallel Restartable Streaming Copy (the MariaDB-packaged SQLines Data engine). It was previously distributed as `sqldata`; that name is the legacy binary name and is still auto-detected as a fallback, but `mariadb-mtk` is the current name and is used throughout this document. Its path can be set explicitly via `SQLINESDATA_BIN`.
 
 ## Purpose
 Private repository to design, execute, and validate end-to-end MySQL to MariaDB migrations in a repeatable and auditable manner.
@@ -61,7 +61,7 @@ The same phases are reachable non-interactively via `--assess`, `--plan`, `--run
 - For Replication (`binlog`): MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
 - Python 3.9+ is required on the orchestrator host. On first run the launcher creates a project-local virtual environment (`.venv`) and installs the Python dependencies into it automatically — no manual `pip install` step is needed. On Debian/Ubuntu, install the venv module first: `sudo apt-get install -y python3-venv`.
 - The `mariadb` client must be available on the orchestrator host (used for connectivity, version, and database checks). If it is missing, the launcher detects your platform and offers to install it on first run; you can also install it manually (`dnf install mariadb`, `apt-get install mariadb-client`, `zypper install mariadb-client`, or `brew install mariadb`).
-- For Parallel Restartable Streaming Copy (`two_step`), `mariadb-mtk` — the MariaDB-packaged SQLines Data engine, invoked as `sqldata` — must be installed. It is available from the [MariaDB community page](https://mariadb.com/downloads/community/). The launcher auto-detects a `sqldata` (or `sqlinesdata`) binary on `PATH`; if it is installed under a different name or location, point `SQLINESDATA_BIN` at its full path.
+- For Parallel Restartable Streaming Copy (`two_step`), `mariadb-mtk` — the MariaDB-packaged SQLines Data engine — must be installed. It is available from the [MariaDB community page](https://mariadb.com/downloads/community/). The launcher auto-detects a `mariadb-mtk` binary on `PATH` (falling back to the legacy `sqldata` name); if it is installed under a different name or location, point `SQLINESDATA_BIN` at its full path.
 - `mariadb-mtk` may provide a temporary/default license for evaluation; use a proper production license before production migration runs.
 - Ensure network connectivity from the orchestrator host to both source MySQL and target MariaDB. (Exception: Offline Copy (`staged`) in `dump_only` or `load_only` phase only needs connectivity to one side.)
 - The orchestrator can run on a third host; SSH access to the target is only required for the deprecated install path and for `replace_slave` mode.
@@ -172,7 +172,7 @@ Best for smaller databases and standard maintenance windows.
 Best for larger datasets or tighter windows.
 - Schema-only dump first, then parallel data load via `mariadb-mtk` (with a post-load source/target row-count validation), then finalize objects (triggers, routines, events).
 - `mariadb-mtk` uses multiple concurrent worker sessions per database for the data phase.
-- Assumes `mariadb-mtk` is installed; the launcher auto-detects a `sqldata` (or `sqlinesdata`) binary on `PATH`, or set `SQLINESDATA_BIN` to its full path.
+- Assumes `mariadb-mtk` is installed; the launcher auto-detects a `mariadb-mtk` binary on `PATH` (falling back to the legacy `sqldata` name), or set `SQLINESDATA_BIN` to its full path.
 - Requires admin users (`SRC_ADMIN_USER`/`TGT_ADMIN_USER`); preflight fails fast if those logins are not ready.
 
 #### Restart behavior
@@ -218,19 +218,19 @@ Best when source and target are not directly network-reachable, or when a checkp
 
 ## Installation and first run
 
-The toolkit is distributed as a release archive (`.tar.gz` or `.zip`) from the [MariaDB community page](https://mariadb.com/downloads/community/) or [MariaDB Enterprise GIT](https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration/releases). Download the latest version (e.g. `v1.3.1-beta`), extract it, and run the launcher — it bootstraps its own Python environment, so there is no manual setup beyond the prerequisites above.
+The MySQL to MariaDB Migrator is distributed as a release archive (`.tar.gz` or `.zip`) from the [MariaDB community downloads page](https://mariadb.com/downloads/community/) or [MariaDB Enterprise GIT](https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration/releases). Download the latest version (e.g. `v1.3.2-beta`), extract it, and run the launcher — it bootstraps its own Python environment, so there is no manual setup beyond the prerequisites above.
 
 ```bash
 # Download the release archive from https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration/releases
-# Extract and run. Example for v1.3.1-beta:
-tar -xzf Mysql-to-MariaDB-Migration-1.3.1-beta.tar.gz
-cd Mysql-to-MariaDB-Migration-1.3.1-beta
+# Extract and run (replace <version> with the release you downloaded, e.g. v1.3.2-beta):
+tar -xzf Mysql-to-MariaDB-Migration-<version>.tar.gz
+cd Mysql-to-MariaDB-Migration-<version>
 ./mariadb-migrator
 ```
 
-The `.zip` archive is equivalent (`unzip Mysql-to-MariaDB-Migration-1.3.1-beta.zip`, then `cd` into the extracted directory). The version embedded in the archive and directory names matches the release you download.
+The `.zip` archive is equivalent (`unzip Mysql-to-MariaDB-Migration-<version>.zip`, then `cd` into the extracted directory). The version embedded in the archive and directory names matches the release you download.
 
-The data-transfer engine used by Parallel Restartable Streaming Copy — **`mariadb-mtk`** (the MariaDB-packaged SQLines Data engine, invoked as `sqldata`) — is available from the same downloads page. Put it on `PATH` (as `sqldata`/`sqlinesdata`) or point `SQLINESDATA_BIN` at its full path (see Prerequisites).
+The data-transfer engine used by Parallel Restartable Streaming Copy — **`mariadb-mtk`** (the MariaDB-packaged SQLines Data engine) — is available from the same downloads page. Put it on `PATH` as `mariadb-mtk` (the legacy `sqldata` name is also detected) or point `SQLINESDATA_BIN` at its full path (see [Prerequisites](#prerequisites-required) above).
 
 On first run the launcher will:
 
@@ -346,7 +346,7 @@ Target:
 - `TGT_HOST`, `TGT_PORT`, `TGT_ADMIN_USER`, `TGT_ADMIN_PASS`
 
 Optional:
-- `SQLINESDATA_BIN` (full path to the `mariadb-mtk` binary; auto-detected from a `sqldata`/`sqlinesdata` on `PATH`)
+- `SQLINESDATA_BIN` (full path to the `mariadb-mtk` binary; auto-detected from a `mariadb-mtk` on `PATH`, falling back to the legacy `sqldata` name)
 - `MIGRATOR_SKIP_ROWCOUNT_VALIDATE` (set to `1` to skip the post-load source/target row-count validation; see the Parallel Restartable Streaming Copy playbook)
 
 ## Binlog required envs (config/migration.yaml)
@@ -431,7 +431,7 @@ tests/test_staged_phase_matrix.sh
 
 ## Feedback
 
-Join the [MariaDB Community on Slack](https://mariadb.com/docs/general-resources/community/joining-the-community) to share your feedback.
+Join the [MariaDB Community on Slack](https://mariadb.com/docs/general-resources/community/joining-the-community) to share your feedback. Once you're in, the [#migration channel](https://mariadb-community.slack.com/archives/C0BEPVC8PC6) is the best place for questions and feedback about the MySQL to MariaDB Migrator.
 
 
 ## License

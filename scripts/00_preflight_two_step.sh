@@ -184,10 +184,12 @@ if [[ -n "$SQLINESDATA_BIN" ]]; then
     exit 4
   fi
 else
-  if command -v sqldata >/dev/null 2>&1; then
+  if command -v mariadb-mtk >/dev/null 2>&1; then
+    echo "mariadb-mtk found in PATH (OK)."
+  elif command -v sqldata >/dev/null 2>&1; then
     echo "sqldata found in PATH (OK)."
   else
-    echo "ERROR: SQLINESDATA_BIN not set and sqldata not found in PATH."
+    echo "ERROR: mariadb-mtk not found in PATH (SQLINESDATA_BIN unset)."
     exit 5
   fi
 fi
