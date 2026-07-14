@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.3.1-beta"
-MIG_TOOL_BUILD="20260622"
+MIG_TOOL_VERSION="1.3.2-beta"
+MIG_TOOL_BUILD="20260714"
 
 # Display professional welcome header
 cat << EOF
@@ -1531,6 +1531,10 @@ SRC_PASS="$SRC_ADMIN_PASS"
 SRC_DBS_INPUT=""
 if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
   SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "")"
+  while [[ -z "$(printf "%s" "$SRC_DBS_INPUT" | xargs)" ]]; do
+    echo "ERROR: Database name is required for $MODE mode."
+    SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "")"
+  done
 
   # Verify DBs exist on source; loop on missing. Then print the full Source ready banner.
   if needs_source_endpoint_preflight; then

@@ -61,14 +61,14 @@ TGT_USER="${TGT_ADMIN_USER:-${TGT_USER:-}}"
 TGT_PASS="${TGT_ADMIN_PASS:-${TGT_PASS:-}}"
 
 if [[ -z "$SQLINESDATA_BIN" ]]; then
-  if command -v sqldata >/dev/null 2>&1; then
+  if command -v mariadb-mtk >/dev/null 2>&1; then
+    SQLINESDATA_BIN="mariadb-mtk"
+  elif command -v sqldata >/dev/null 2>&1; then
     SQLINESDATA_BIN="sqldata"
-  elif command -v sqlinesdata >/dev/null 2>&1; then
-    SQLINESDATA_BIN="sqlinesdata"
   fi
 fi
 if [[ -z "$SQLINESDATA_BIN" ]] || ! command -v "$SQLINESDATA_BIN" >/dev/null 2>&1; then
-  echo "ERROR: sqldata binary not found (SQLINESDATA_BIN=$SQLINESDATA_BIN)."
+  echo "ERROR: mariadb-mtk binary not found (SQLINESDATA_BIN=$SQLINESDATA_BIN)."
   exit 1
 fi
 

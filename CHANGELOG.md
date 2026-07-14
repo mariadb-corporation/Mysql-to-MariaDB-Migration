@@ -1,4 +1,26 @@
 # Changelog
+## [1.3.2-beta] - 2026-07-14
+### Changed
+- Parallel Restartable Streaming Copy (`two_step`): binary detection now looks for
+  `mariadb-mtk` first, matching the rename of the SQLines Data engine from `sqldata`
+  to `mariadb-mtk`. The legacy `sqldata` name is retained as a fallback probe, so
+  hosts still carrying the old binary name continue to work. Applies to both
+  `scripts/12_two_step_sqldata.sh` and `scripts/00_preflight_two_step.sh`.
+- Docs (`README.md`): `mariadb-mtk` is now described as the current binary name
+  (renamed from `sqldata`), with `sqldata` documented as the legacy fallback.
+### Removed
+- Dead `sqlinesdata` fallback probe in `scripts/12_two_step_sqldata.sh` — no binary
+  by that name has ever been distributed in this toolchain.
+### Fixed
+- Operator-facing "binary not found" message now names `mariadb-mtk`.
+- Assessment no longer continues when the source database list is left empty.
+  The first database-name prompt now requires at least one name and re-prompts
+  on a blank entry, instead of silently proceeding to a later failure.
+### Compatibility notes
+- No configuration changes required. `sqldata.cfg` and the `sqldata`-named artifact
+  paths and logs are unchanged. An explicitly set `SQLINESDATA_BIN` is honored as
+  before, regardless of the binary's name.
+
 ## [1.3.0-beta] - 2026-06-16
 ### Added
 - Parallel Restartable Streaming Copy (`two_step`): post-load source/target row-count
