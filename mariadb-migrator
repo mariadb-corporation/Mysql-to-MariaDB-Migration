@@ -1656,15 +1656,23 @@ fi
 
 MIGRATE_APP_USERS="0"
 APP_USER_DEFAULT_PASSWORD=""
+APP_USER_PWD_EXPIRE="1"
 if [[ "$MODE" != "inplace" ]]; then
   MIGRATE_APP_USERS="$(prompt "Migrate application users? (y/n)" "n")"
   if [[ "$(printf "%s" "$MIGRATE_APP_USERS" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
     MIGRATE_APP_USERS="1"
     APP_USER_DEFAULT_PASSWORD="$(prompt_secret "Default password for app users")"
+    APP_USER_PWD_EXPIRE="$(prompt "Expire the default password on first login? (only users given the default password; hash-ported users are unaffected) (y/n)" "y")"
+    if [[ "$(printf "%s" "$APP_USER_PWD_EXPIRE" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
+      APP_USER_PWD_EXPIRE="1"
+    else
+      APP_USER_PWD_EXPIRE="0"
+    fi
     echo ""
   else
     MIGRATE_APP_USERS="0"
     APP_USER_DEFAULT_PASSWORD=""
+    APP_USER_PWD_EXPIRE="1"
   fi
 fi
 
@@ -1902,6 +1910,7 @@ save_config() {
       -v tgt_ssh_user="$(yaml_quote "$TGT_SSH_USER")" \
       -v tgt_ssh_opts="$(yaml_quote "$TGT_SSH_OPTS")" \
       -v mig_app_users="$(yaml_quote "$MIGRATE_APP_USERS")" \
+      -v app_user_pwd_expire="$(yaml_quote "$APP_USER_PWD_EXPIRE")" \
       -v analyze_target="$(yaml_quote "$ANALYZE_TARGET")" \
       -v install_target_mariadb="$(yaml_quote "$INSTALL_TARGET_MARIADB")" \
       -v target_install_os="$(yaml_quote "$TARGET_INSTALL_OS")" \
@@ -1953,6 +1962,7 @@ BEGIN { in_env=0 }
     if ($0 ~ /^  TGT_SSH_USER:/) { print "  TGT_SSH_USER: " tgt_ssh_user; next }
     if ($0 ~ /^  TGT_SSH_OPTS:/) { print "  TGT_SSH_OPTS: " tgt_ssh_opts; next }
     if ($0 ~ /^  MIGRATE_APP_USERS:/) { print "  MIGRATE_APP_USERS: " mig_app_users; next }
+    if ($0 ~ /^  APP_USER_PWD_EXPIRE:/) { print "  APP_USER_PWD_EXPIRE: " app_user_pwd_expire; next }
     if ($0 ~ /^  ANALYZE_TARGET:/) { print "  ANALYZE_TARGET: " analyze_target; next }
     if ($0 ~ /^  INSTALL_TARGET_MARIADB:/) { print "  INSTALL_TARGET_MARIADB: " install_target_mariadb; next }
     if ($0 ~ /^  TARGET_INSTALL_OS:/) { print "  TARGET_INSTALL_OS: " target_install_os; next }
@@ -2001,7 +2011,7 @@ BEGIN { in_env=0 }
 
 export SRC_HOST SRC_PORT SRC_USER SRC_PASS SRC_ADMIN_USER SRC_ADMIN_PASS
 export TGT_HOST TGT_PORT TGT_USER TGT_PASS TGT_ADMIN_USER TGT_ADMIN_PASS
-export MIGRATE_APP_USERS APP_USER_DEFAULT_PASSWORD ANALYZE_TARGET
+export MIGRATE_APP_USERS APP_USER_DEFAULT_PASSWORD APP_USER_PWD_EXPIRE ANALYZE_TARGET
 export INSTALL_TARGET_MARIADB TARGET_INSTALL_OS TARGET_MARIADB_VERSION
 if [[ -n "${REPL_USER:-}" ]]; then export REPL_USER; fi
 if [[ -n "${REPL_PASS:-}" ]]; then export REPL_PASS; fi

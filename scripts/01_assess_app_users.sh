@@ -56,6 +56,11 @@ SRC_ADMIN_USER="$(trim_ws "${SRC_ADMIN_USER:-}")"
 SRC_ADMIN_PASS="$(trim_ws "${SRC_ADMIN_PASS:-}")"
 ALLOW_ROOT_USERS="${ALLOW_ROOT_USERS:-0}"
 APP_USER_DEFAULT_PASSWORD="$(trim_ws "${APP_USER_DEFAULT_PASSWORD:-Str0ngChangeMe!2026}")"
+# Mirrors the run-phase flag so the preview reflects the operator's choice.
+# 1 = default-password users would be expired on first login (historical
+# default); 0 = no expiry. Only affects report wording here — this phase
+# performs no writes.
+APP_USER_PWD_EXPIRE="${APP_USER_PWD_EXPIRE:-1}"
 
 if [[ -z "$SRC_HOST" || -z "$SRC_ADMIN_USER" || -z "$SRC_ADMIN_PASS" ]]; then
   echo "ERROR: Missing source envs. Set SRC_HOST, SRC_ADMIN_USER, SRC_ADMIN_PASS."
@@ -199,13 +204,21 @@ n_preserve=$(count_lines "$users_would_preserve")
 n_default=$(count_lines "$users_would_default")
 n_skip=$(count_lines "$users_would_skip")
 
+if [[ "$APP_USER_PWD_EXPIRE" == "1" ]]; then
+  default_pwd_note="would set default + PASSWORD EXPIRE"
+  default_pwd_hdr="PASSWORD EXPIRE"
+else
+  default_pwd_note="would set default, no expiry"
+  default_pwd_hdr="no expiry"
+fi
+
 report=$(cat <<EOF
 ================================================================================
 Application user assessment (no writes performed)
 ================================================================================
 Roles found on source                : ${n_roles}    (would CREATE ROLE on target)
 Users with portable native password  : ${n_preserve} (would preserve via IDENTIFIED VIA)
-Users requiring default password     : ${n_default}  (would set default + PASSWORD EXPIRE)
+Users requiring default password     : ${n_default}  (${default_pwd_note})
 Users that would be SKIPPED          : ${n_skip}     (non-password auth plugin)
 Grants found across all users        : ${grants_total} (replay outcome unknown until run)
 
@@ -224,7 +237,7 @@ if [[ -n "$users_would_preserve" ]]; then
   report+=$'\n--- Users that would migrate with original password ---\n'"$users_would_preserve"
 fi
 if [[ -n "$users_would_default" ]]; then
-  report+=$'\n--- Users that would migrate with default password (PASSWORD EXPIRE) ---\n'"$users_would_default"
+  report+=$'\n--- Users that would migrate with default password ('"$default_pwd_hdr"$') ---\n'"$users_would_default"
   report+=$'    Default password value: '"$APP_USER_DEFAULT_PASSWORD"$'\n'
 fi
 if [[ -n "$users_would_skip" ]]; then

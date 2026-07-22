@@ -75,6 +75,18 @@ TGT_ADMIN_SSH_OPTS="${TGT_ADMIN_SSH_OPTS:-${TGT_SSH_OPTS:-}}"
 ALLOW_ROOT_USERS="${ALLOW_ROOT_USERS:-0}"
 APP_USER_DEFAULT_PASSWORD="$(trim_ws "${APP_USER_DEFAULT_PASSWORD:-Str0ngChangeMe!2026}")"
 
+# Whether users given the default password are forced to change it on first
+# login. 1 = PASSWORD EXPIRE (historical default), 0 = no expiry (default
+# password is usable immediately). Only affects the default-password bucket
+# (native-without-hash and sha2 plugins); hash-ported users keep their
+# original password and are never expired regardless of this setting.
+APP_USER_PWD_EXPIRE="${APP_USER_PWD_EXPIRE:-1}"
+if [[ "$APP_USER_PWD_EXPIRE" == "1" ]]; then
+  PWD_EXPIRE_CLAUSE=" PASSWORD EXPIRE"
+else
+  PWD_EXPIRE_CLAUSE=""
+fi
+
 if [[ -z "$SRC_HOST" || -z "$SRC_ADMIN_USER" || -z "$SRC_ADMIN_PASS" ]]; then
   echo "ERROR: Missing source envs. Set SRC_HOST, SRC_ADMIN_USER, SRC_ADMIN_PASS."
   exit 1
@@ -251,7 +263,7 @@ is_role_row() {
 # -----------------------------------------------------------------------------
 # User migration loop.
 # -----------------------------------------------------------------------------
-echo "Migrating application users to target (plugin-aware: native users keep their hash; sha2 users get default + expire; non-password plugins are skipped)"
+echo "Migrating application users to target (plugin-aware: native users keep their hash; sha2/no-hash users get the default password [expire=${APP_USER_PWD_EXPIRE}]; non-password plugins are skipped)"
 
 user_rows=$(run_source_admin_sql "
   SELECT user, host, plugin, IFNULL(authentication_string,'')
@@ -298,8 +310,8 @@ while IFS=$'\t' read -r u h p auth_str; do
           continue
         fi
       else
-        if run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}' PASSWORD EXPIRE;" >/dev/null 2>&1 \
-           && run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}' PASSWORD EXPIRE;" >/dev/null 2>&1; then
+        if run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}'${PWD_EXPIRE_CLAUSE};" >/dev/null 2>&1 \
+           && run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}'${PWD_EXPIRE_CLAUSE};" >/dev/null 2>&1; then
           users_default_password+="'${u}'@'${h}' (source plugin: ${p}, no source hash)"$'\n'
         else
           users_failed+="'${u}'@'${h}' (CREATE/ALTER USER failed)"$'\n'
@@ -308,8 +320,8 @@ while IFS=$'\t' read -r u h p auth_str; do
       fi
       ;;
     caching_sha2_password|sha256_password)
-      if run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}' PASSWORD EXPIRE;" >/dev/null 2>&1 \
-         && run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}' PASSWORD EXPIRE;" >/dev/null 2>&1; then
+      if run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}'${PWD_EXPIRE_CLAUSE};" >/dev/null 2>&1 \
+         && run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}'${PWD_EXPIRE_CLAUSE};" >/dev/null 2>&1; then
         users_default_password+="'${u}'@'${h}' (source plugin: ${p})"$'\n'
       else
         users_failed+="'${u}'@'${h}' (CREATE/ALTER USER failed)"$'\n'
@@ -355,13 +367,19 @@ n_skipped=$(count_lines "$users_skipped")
 n_failed=$(count_lines "$users_failed")
 n_grants_dropped=$(count_lines "$grants_dropped")
 
+if [[ "$APP_USER_PWD_EXPIRE" == "1" ]]; then
+  default_pwd_label="PASSWORD EXPIRE set"
+else
+  default_pwd_label="no expiry (usable as-is)"
+fi
+
 report=$(cat <<EOF
 ================================================================================
 Application user migration summary
 ================================================================================
 Roles created on target              : ${n_roles}
 Users migrated with original password: ${n_preserved}
-Users migrated with default password : ${n_default}  <- PASSWORD EXPIRE set
+Users migrated with default password : ${n_default}  <- ${default_pwd_label}
 Users skipped (non-password plugin)  : ${n_skipped}  <- manual handling
 Users that failed to migrate         : ${n_failed}
 Grants attempted                     : ${grants_total}
@@ -378,9 +396,15 @@ if [[ -n "$users_preserved" ]]; then
   report+=$'\n--- Users with original password preserved ---\n'"$users_preserved"
 fi
 if [[ -n "$users_default_password" ]]; then
-  report+=$'\n--- Users with password reset to default (PASSWORD EXPIRE set) ---\n'"$users_default_password"
-  report+=$'    Default password value: '"$APP_USER_DEFAULT_PASSWORD"$'\n'
-  report+=$'    Note: Users will be prompted to set a new password on first login.\n'
+  if [[ "$APP_USER_PWD_EXPIRE" == "1" ]]; then
+    report+=$'\n--- Users with password reset to default (PASSWORD EXPIRE set) ---\n'"$users_default_password"
+    report+=$'    Default password value: '"$APP_USER_DEFAULT_PASSWORD"$'\n'
+    report+=$'    Note: Users will be prompted to set a new password on first login.\n'
+  else
+    report+=$'\n--- Users with password reset to default (no expiry) ---\n'"$users_default_password"
+    report+=$'    Default password value: '"$APP_USER_DEFAULT_PASSWORD"$'\n'
+    report+=$'    Note: The default password is usable immediately; users are NOT forced to change it on first login.\n'
+  fi
 fi
 if [[ -n "$users_skipped" ]]; then
   report+=$'\n--- Users SKIPPED (non-password authentication plugin) ---\n'"$users_skipped"
