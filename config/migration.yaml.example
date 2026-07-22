@@ -22,6 +22,7 @@ env:
   TGT_SSH_OPTS: "-o StrictHostKeyChecking=no"
   # User migration
   MIGRATE_APP_USERS: "0"
+  APP_USER_PWD_EXPIRE: "1"
   ANALYZE_TARGET: "1"
   APP_USER_DEFAULT_PASSWORD: ""
   # Replication (binlog / replace_slave)

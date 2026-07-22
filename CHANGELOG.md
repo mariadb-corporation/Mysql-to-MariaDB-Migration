@@ -1,6 +1,13 @@
 # Changelog
 ## [1.3.2-beta] - 2026-07-14
 ### Changed
+- Application user migration: operators can now choose whether users who
+  receive the default password are required to change it on first login.
+  Previously these users were always forced to reset on first login; the
+  interactive flow now asks, and non-interactive runs control it via the
+  APP_USER_PWD_EXPIRE option in migration.yaml (default: required, matching
+  prior behavior). Users whose original password is carried over are
+  unaffected.
 - Parallel Restartable Streaming Copy (`two_step`): binary detection now looks for
   `mariadb-mtk` first, matching the rename of the SQLines Data engine from `sqldata`
   to `mariadb-mtk`. The legacy `sqldata` name is retained as a fallback probe, so
