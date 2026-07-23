@@ -17,14 +17,15 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - Validation & rollback planning
 
 ## Supported Versions
-- MySQL: 5.7(experimental), 8.0, 8.4 
+- MySQL: 5.7, 8.0, 8.4
 - MariaDB: Supported Enterprise and Community editions
 - MariaDB Cloud as a target (validated for Offline Copy (`staged`), Parallel Restartable Streaming Copy (`two_step`), and Serial Streaming Copy (`one_step`))
 - mariadb-migrator: Tested and built for linux on x86-64 and ARM64 
 
 Mode-specific notes:
 - MySQL 8.0 / 8.4 migrations are supported via any of the four modes.
-- **Replication (`binlog`) requires `binlog_format=ROW` on the source and does not support schemas containing JSON columns.** Both conditions are enforced at three layers (launcher, assessment, preflight) — operators with either configuration are blocked upfront and routed to one of the offline modes (Serial Streaming Copy `one_step`, Parallel Restartable Streaming Copy `two_step`, or Offline Copy `staged`), which are unaffected by either limitation. To use Replication mode, set `binlog_format = ROW` under `[mysqld]` in the source `my.cnf` and restart the source MySQL server.
+- **MySQL 5.7 is supported for the three offline data-movement modes** — Serial Streaming Copy (`one_step`), Parallel Restartable Streaming Copy (`two_step`), and Offline Copy (`staged`) — validated 5.7 → MariaDB 11.8, 12.3, and 13.1. Replication (`binlog`) is **not** supported from a 5.7 source (see below). The assessment prechecks recognize 5.7: checks that inspect 8.0-only catalog objects (functional indexes, CHECK constraints, partial revokes, column-level SRIDs, resource groups, roles) detect their absence on 5.7 and report "not present" rather than erroring, so assessment completes normally. Note that 5.7 parses but does not enforce CHECK constraints; the definition is carried forward on migration.
+- **Replication (`binlog`) requires a MySQL 8.0+ source, requires `binlog_format=ROW`, and does not support schemas containing JSON columns.** A pre-8.0 source (e.g. 5.7) is categorically ineligible and is blocked by a source-version gate that is evaluated before the JSON and `binlog_format` checks — a 5.7 source is refused with a clear "requires a MySQL 8.0+ source" message and routed to an offline mode. All three conditions (source version, `binlog_format=ROW`, no JSON columns) are enforced at three layers (launcher, assessment, preflight). To use Replication mode from an 8.0+ source, set `binlog_format = ROW` under `[mysqld]` in the source `my.cnf` and restart the source MySQL server.
 
 ## Migration modes at a glance
 
@@ -193,6 +194,7 @@ The check runs with `mariadb-mtk`'s configured session count (the `-ss` default 
 
 ### Replication (`binlog`)
 Best for low-downtime cutover.
+- Requires a **MySQL 8.0+ source**. A pre-8.0 source (e.g. 5.7) is blocked upfront by a source-version gate — replication into MariaDB is not reliable from these versions, and the block is categorical (independent of schema). Use one of the offline modes for a 5.7 source.
 - Seeds target from a consistent dump snapshot with embedded binlog coordinates.
 - Starts MariaDB replication from MySQL binlog using `REPL_USER`/`REPL_PASS`.
 - Verifies replication thread health and lag after start.
@@ -423,7 +425,9 @@ tests/test_staged_phase_matrix.sh
 - Platform coverage note: this tool has been tested primarily on Ubuntu and Rocky Linux. Support hooks are included for additional Linux flavors, but validate in your target environment before production use.
 
 ## Known limitations
+- **Replication (`binlog`) is not supported from a MySQL 5.7 (pre-8.0) source.** A source-version gate blocks this upfront at all three layers (launcher, assessment, preflight), evaluated ahead of the JSON and `binlog_format` checks, and routes the operator to an offline mode. The three offline modes are fully supported from 5.7. See Supported Versions.
 - **Replication (`binlog`) does not support schemas containing JSON columns** when the source uses `binlog_format=MIXED` (the MySQL default since 8.0). This is detected and blocked upfront at three layers (launcher, assessment, preflight) as of v1.2.1-beta — the operator is refused with a clear message and routed to an offline mode rather than hitting a runtime replication failure. See Supported Versions for the full explanation.
+- MySQL 5.7 CHECK constraints are parsed but not enforced by the 5.7 server. On migration to MariaDB (which does enforce them) the constraint definition is carried forward; there is no pre-existing enforced state on the 5.7 source to preserve. Validate constraint-sensitive data after migration if the source relied on application-level enforcement.
 - Offline Copy (`staged`) per-DB load resume is not supported in v1. If a load fails partway through a multi-DB run, drop the partially-loaded databases on the target and re-run with `STAGED_PHASE=load_only`.
 - `pv` fallback in Serial Streaming Copy (`one_step`) is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in Offline Copy (`staged`) where the dump is on disk.
 - Target-side TLS verification is not yet configurable. Connections to TLS-required targets (e.g. MariaDB Cloud) are encrypted but not server-verified. Source-side TLS works as expected via `SRC_SSL_MODE`.
