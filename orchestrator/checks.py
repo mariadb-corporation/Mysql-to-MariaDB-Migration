@@ -276,6 +276,55 @@ def _binlog_source_compatibility_gate(
         # No schemas in scope; cannot evaluate. Don't emit a gate.
         return None
 
+    # Shared source-connection setup, used by both the version gate below and
+    # the binlog_format sub-check further down.
+    client = cfg.get("client", {}) or {}
+    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", "mysql")))
+    host = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
+    port = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
+    user, password, _ = _select_source_credentials(cfg, env_cfg)
+    env = dict(os.environ)
+    if password:
+        env["MYSQL_PWD"] = password
+    elif "MYSQL_PWD" in env:
+        del env["MYSQL_PWD"]
+
+    # Version gate (categorical, evaluated FIRST). Replication-based migration
+    # requires a MySQL 8.0+ source; MySQL < 8.0 (5.7, 5.6, ...) cannot be a
+    # reliable binlog/GTID replication source for MariaDB. This disqualifies the
+    # source regardless of schema, so short-circuit here BEFORE the JSON and
+    # binlog_format sub-checks — a pre-8.0 source reports only source_version,
+    # not incidental JSON/format failures, and a JSON-free 5.7 source is still
+    # blocked rather than slipping through to a downstream binlog failure.
+    if user:
+        try:
+            pv = subprocess.run(
+                [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
+                 "--batch", "--skip-column-names",
+                 "-e", "SELECT VERSION();"],
+                capture_output=True, text=True, env=env,
+            )
+            if pv.returncode == 0:
+                ver_lines = (pv.stdout or "").strip().splitlines()[:1]
+                if ver_lines:
+                    ver = ver_lines[0].strip()
+                    # VERSION() may return e.g. "5.7.44-log"; take leading major.
+                    major_str = ver.split(".", 1)[0]
+                    if major_str.isdigit() and int(major_str) < 8:
+                        return Gate(
+                            "binlog_source_compatibility",
+                            GateStatus.FAIL,
+                            {
+                                "mode": mode,
+                                "selected_schemas": selected,
+                                "failures": {"source_version": ver},
+                            },
+                        )
+        except FileNotFoundError:
+            # mysql client missing; the source_databases_exist gate will
+            # have already failed for the same reason. Skip silently.
+            pass
+
     failures: Dict[str, Any] = {}
 
     # JSON sub-check
@@ -289,17 +338,7 @@ def _binlog_source_compatibility_gate(
         failures["json_columns"] = offenders
 
     # binlog_format sub-check (inline query, no precheck TSV dependency)
-    client = cfg.get("client", {}) or {}
-    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", "mysql")))
-    host = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
-    port = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
-    user, password, _ = _select_source_credentials(cfg, env_cfg)
     if user:
-        env = dict(os.environ)
-        if password:
-            env["MYSQL_PWD"] = password
-        elif "MYSQL_PWD" in env:
-            del env["MYSQL_PWD"]
         try:
             p = subprocess.run(
                 [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",

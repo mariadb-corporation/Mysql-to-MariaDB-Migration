@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "==> Two-step migration: parallel data transfer (SQLines Data)"
+echo "==> Two-step migration: parallel data transfer (mariadb-mtk)"
 
 SQLINESDATA_BIN="${SQLINESDATA_BIN:-}"
 MARIADB_BIN="${MARIADB_BIN:-mariadb}"
@@ -18,17 +18,17 @@ MARIADB_BIN="${MARIADB_BIN:-mariadb}"
 # alongside the rest of the run, and stops new runs from overwriting prior ones.
 if [[ -z "${SQLINES_OUT_DIR:-}" ]]; then
   if [[ -n "${RUN_DIR:-}" ]]; then
-    SQLINES_OUT_DIR="${RUN_DIR}/sqldata"
+    SQLINES_OUT_DIR="${RUN_DIR}/mariadb-mtk"
   elif [[ -f .migration_last_run ]]; then
     _run_dir_from_file="$(tr -d '\n\r' < .migration_last_run 2>/dev/null || true)"
     if [[ -n "$_run_dir_from_file" && -d "$_run_dir_from_file" ]]; then
-      SQLINES_OUT_DIR="${_run_dir_from_file}/sqldata"
+      SQLINES_OUT_DIR="${_run_dir_from_file}/mariadb-mtk"
     else
-      SQLINES_OUT_DIR="artifacts/sqldata"
+      SQLINES_OUT_DIR="artifacts/mariadb-mtk"
     fi
     unset _run_dir_from_file
   else
-    SQLINES_OUT_DIR="artifacts/sqldata"
+    SQLINES_OUT_DIR="artifacts/mariadb-mtk"
   fi
 fi
 
@@ -82,7 +82,7 @@ if [[ -z "$SRC_DB" && -z "$SRC_DBS" ]]; then
   missing+=("SRC_DB_or_SRC_DBS")
 fi
 if [[ "${#missing[@]}" -gt 0 ]]; then
-  echo "ERROR: Missing env vars for sqldata transfer: ${missing[*]}"
+  echo "ERROR: Missing env vars for mariadb-mtk transfer: ${missing[*]}"
   exit 1
 fi
 
@@ -93,7 +93,7 @@ else
 fi
 
 mkdir -p "$SQLINES_OUT_DIR"
-echo "==> sqldata output: $SQLINES_OUT_DIR"
+echo "==> mariadb-mtk output: $SQLINES_OUT_DIR"
 
 # Helper: run a one-shot SQL statement on the target as the admin user.
 # Mirrors the connection style used in 11_two_step_schema.sh.
@@ -166,7 +166,7 @@ for db in "${DB_LIST[@]}"; do
     "-td=mariadb,${TGT_USER}/${TGT_PASS}@${TGT_HOST}:${TGT_PORT}/${db}" \
     "-smap=${db}:${db}" \
     "-out=$db_out_dir" \
-    "-log=$db_out_dir/sqldata.log" \
+    "-log=$db_out_dir/mariadb-mtk.log" \
     "-t=${db}.*" \
     "-topt=${SQLDATA_TOPT}" \
     -constraints=no \
@@ -178,7 +178,7 @@ done
 
 echo "SQLines Data transfer completed."
 
-# The data transfer is the hard gate. Under 'set -e', a failed sqldata load in
+# The data transfer is the hard gate. Under 'set -e', a failed mariadb-mtk load in
 # the loop above aborts this script before reaching this point, so getting here
 # means the transfer reported success for every selected database. Row-count
 # validation below runs only on that success and is a REPORT, not a gate -- it
@@ -188,7 +188,7 @@ transfer_ok=1
 # --- Row-count validation (source vs. target) -------------------------------
 # For each database, sqldata's own validate command (-cmd=validate
 # -vopt=rowcount) compares source vs. target row counts. The full per-db report
-# is appended to BOTH the per-db load log (sqldata/<db>/sqldata.log) and the run
+# is appended to BOTH the per-db load log (sqldata/<db>/mariadb-mtk.log) and the run
 # log (run.log), and a concise verdict line is echoed for live feedback.
 # sqldata's own working/log files for the validate pass go to a throwaway temp
 # dir, so the only thing written under sqldata/ is the appended report itself.
@@ -204,7 +204,7 @@ if [[ "${transfer_ok:-0}" != "1" ]]; then
 elif [[ "${MIGRATOR_SKIP_ROWCOUNT_VALIDATE:-0}" == "1" ]]; then
   echo "==> Row-count validation skipped (MIGRATOR_SKIP_ROWCOUNT_VALIDATE=1)"
 else
-  echo "==> Validating row counts (source vs. target); detail appended to per-db sqldata.log and $RUN_LOG"
+  echo "==> Validating row counts (source vs. target); detail appended to per-db mariadb-mtk.log and $RUN_LOG"
   validate_mismatches=0
 
   for db in "${DB_LIST[@]}"; do
@@ -212,7 +212,7 @@ else
     [[ -z "$db" ]] && continue
 
     db_out_dir="$SQLINES_OUT_DIR/$db"
-    db_log="$db_out_dir/sqldata.log"
+    db_log="$db_out_dir/mariadb-mtk.log"
     mkdir -p "$db_out_dir"
 
     vtmp="$(mktemp)"
@@ -248,7 +248,7 @@ else
       result="row counts OK (${equal_line:-all tables equal})"
     fi
 
-    # Fold the full per-db report + verdict into BOTH the per-db sqldata.log
+    # Fold the full per-db report + verdict into BOTH the per-db mariadb-mtk.log
     # (append, after the load log) and the run log. tee -a appends to the per-db
     # log; its passthrough is appended to run.log.
     {

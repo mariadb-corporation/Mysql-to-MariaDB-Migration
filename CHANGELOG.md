@@ -1,4 +1,76 @@
 # Changelog
+## [Unreleased]
+### Added
+- **MySQL 5.7 source support for the offline data-movement modes.** Serial
+  Streaming Copy (`one_step`), Parallel Restartable Streaming Copy (`two_step`),
+  and Offline Copy (`staged`) are now validated end-to-end from a MySQL 5.7
+  source into MariaDB. Migrations were exercised 5.7 → MariaDB 11.8, 12.3, and
+  13.1 with per-table `COUNT(*)` parity confirmed on the target. JSON columns,
+  which cannot replicate via binlog, transfer correctly through all three
+  offline modes.
+- Replication (`binlog`) is explicitly **not** supported from a MySQL 5.7
+  source. A pre-8.0 source is now blocked by a dedicated source-version gate
+  (see below) rather than failing later in binlog setup.
+
+### Changed
+- **Assessment prechecks now guard for 8.0-only catalog objects and degrade
+  gracefully on pre-8.0 sources.** Several precheck queries referenced
+  `INFORMATION_SCHEMA`/`mysql` columns and tables that do not exist before
+  MySQL 8.0. Against a 5.7 source these raised `ERROR 1054` (unknown column) or
+  `ERROR 1109`/`1146` (unknown table) and aborted the entire assessment
+  (`precheck failed rc=3`). Each affected check now probes for the object's
+  existence first (via `INFORMATION_SCHEMA.COLUMNS`/`.TABLES`) and runs its real
+  query only when the object is present; otherwise it returns an empty result of
+  the same shape, so the check reports "not present" (correct for 5.7) and the
+  assessment continues. Metadata objects absent before 8.0 and now guarded:
+
+  | Check (`sql/checks/…`) | 8.0-only object referenced | Kind |
+  |---|---|---|
+  | `functional_indexes.sql` | `INFORMATION_SCHEMA.STATISTICS.EXPRESSION` | column (8.0+) |
+  | `check_constraints.sql` | `INFORMATION_SCHEMA.CHECK_CONSTRAINTS` | table (8.0.16+) |
+  | `partial_revokes.sql` | `mysql.user.User_attributes` | column (8.0+) |
+  | `gis_srid_usage.sql` | `INFORMATION_SCHEMA.COLUMNS.SRS_ID` | column (8.0+) |
+  | `resource_groups.sql` | `INFORMATION_SCHEMA.RESOURCE_GROUPS` | table (8.0+) |
+  | `mysql_roles.sql` | `mysql.role_edges` | table (8.0+) |
+
+  The probes are version-agnostic: on an 8.0/8.4 source each object is present
+  and the original query runs unchanged, so existing behavior for 8.x sources is
+  preserved.
+- Replication source-compatibility now checks source version **first**, ahead of
+  the JSON-column and `binlog_format` sub-checks. Because a pre-8.0 source is
+  categorically ineligible for replication regardless of schema, the version
+  gate short-circuits and reports only the version failure — a 5.7 source no
+  longer produces a misleading "remove your JSON columns" message, and a
+  JSON-free 5.7 source (previously ungated) is now blocked at this point instead
+  of failing downstream in binlog setup. The gate is enforced at all three
+  layers (launcher, assessment, preflight), matching the existing JSON and
+  `binlog_format` gates.
+
+### Fixed
+- Resource-group precheck no longer false-positives on 8.0 sources. The query
+  now excludes the two built-in default groups (`USR_default`, `SYS_default`),
+  which are always present, so `resource_groups_in_use` warns only on
+  user-defined resource groups — the actual migration concern.
+- Interactive replication-compatibility loop no longer exits silently on a
+  compatibility failure. Under `set -e`, a non-zero return from the compat check
+  was terminating the launcher before it could branch, so neither the
+  version-gate advisory nor the JSON re-prompt was reached. The check's return
+  code is now captured explicitly; a categorical version failure prints its
+  advisory and stops (re-entering a database name cannot help a 5.7 source),
+  while a recoverable JSON-column failure re-prompts for the database list so
+  the operator can drop the offending database and retry the same mode.
+- Corrected the mode name printed in the replication-incompatibility advisory
+  from "Parallel Streaming Copy" to "Parallel Restartable Streaming Copy"
+  (launcher, assessment, and preflight paths).
+
+### Compatibility notes
+- No configuration changes required. Behavior for MySQL 8.0 and 8.4 sources is
+  unchanged across all modes; the precheck probes and the version gate are
+  no-ops on 8.0+ sources.
+- MySQL 5.7 CHECK constraints are parsed but not enforced by the 5.7 server; a
+  5.7 → MariaDB migration therefore carries the constraint definition forward
+  without any pre-existing enforced state to preserve.
+
 ## [1.3.2-beta] - 2026-07-14
 ### Changed
 - Application user migration: operators can now choose whether users who

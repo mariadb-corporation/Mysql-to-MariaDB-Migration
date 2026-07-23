@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.3.2-beta"
-MIG_TOOL_BUILD="20260714"
+MIG_TOOL_VERSION="1.4.0-beta"
+MIG_TOOL_BUILD="20260724"
 
 # Display professional welcome header
 cat << EOF
@@ -28,7 +28,7 @@ EOF
 
 print_modes_briefing() {
   # Numbered listing for the top-level menu. Set A labels are chosen to make
-  # the mechanism (streaming vs. offline; mariadb-dump vs. sqldata vs. binlog)
+  # the mechanism (streaming vs. offline; mariadb-dump vs. mariadb-mtk vs. binlog)
   # visible at a glance — operators making release-relevant decisions need to
   # know which tool the data path runs through. Full caveats/disk requirements
   # live in --help (print_modes_detailed) and are reachable from the menu
@@ -41,11 +41,11 @@ Select a migration mode:
        Tooling : mariadb-dump (schema + data, single pass)
        Pipeline: Piped end-to-end. No disk staging on either host.
 
-  2) Parallel Restartable Streaming Copy (sqldata) [OFFLINE]
+  2) Parallel Restartable Streaming Copy (mariadb-mtk) [OFFLINE]
        Tooling : Step 1 (schema) - mariadb-dump
-                 Step 2 (data)   - MariaDB Data migration tool (sqldata)
+                 Step 2 (data)   - MariaDB Data migration tool (mariadb-mtk)
        Pipeline: Streaming end-to-end. No disk staging on either host.
-       Loading : Within a run, sqldata loads tables in parallel chunks and
+       Loading : Within a run, mariadb-mtk loads tables in parallel chunks and
                  auto-retries transient errors. No mid-run resume: an
                  interrupted run is restarted by dropping the target and
                  re-running. No extra options.
@@ -79,13 +79,13 @@ Migration modes:
       Caveat  : Writes to the source during migration may be lost. Stop
                 application traffic to the source for a consistent cutover.
 
-  2) Parallel Restartable Streaming Copy (sqldata) [OFFLINE]   (internal id: two_step)
+  2) Parallel Restartable Streaming Copy (mariadb-mtk) [OFFLINE]   (internal id: two_step)
       Tooling : Step 1 (schema) - mariadb-dump
-                Step 2 (data)   - MariaDB Data migration tool (sqldata)
+                Step 2 (data)   - MariaDB Data migration tool (mariadb-mtk)
       Pipeline: Streaming end-to-end. No disk staging on either host.
       Caveat  : Writes to the source during migration may be lost. Stop
                 application traffic to the source for a consistent cutover.
-      Loading : Within a single run, sqldata loads large tables as parallel
+      Loading : Within a single run, mariadb-mtk loads large tables as parallel
                 chunks (by default 1,000,000+ rows, set by large_tables_rows;
                 requires an AUTO_INCREMENT column — tables without one transfer
                 as a single stream) and auto-retries transient errors
@@ -94,13 +94,13 @@ Migration modes:
                 defaults and tuning (large_tables_parallel,
                 large_tables_resources_pct, session count via -ss) are in
                 scripts/sqldata.cfg-example; no extra command arguments needed.
-      Restart : No mid-run resume. sqldata auto-retries transient errors
+      Restart : No mid-run resume. mariadb-mtk auto-retries transient errors
                 within a run; an interrupted or failed run is restarted by
                 dropping the target database(s) and re-running from a clean
                 target.
       Progress: Two files track a running load, both under the run dir:
                   run.log               - orchestrator step output
-                  sqldata/<out file>    - sqldata's own progress + manifest
+                  mariadb-mtk/<out file>    - mariadb-mtk's own progress + manifest
                 Tail either to watch a long load.
 
   3) Offline Copy (mariadb-dump)                   [OFFLINE]   (internal id: staged)
@@ -328,7 +328,7 @@ confirm_proceed() {
 mode_label() {
   case "$1" in
     one_step)      printf "%s" "Serial Streaming Copy (mariadb-dump)" ;;
-    two_step)      printf "%s" "Parallel Restartable Streaming Copy (sqldata)" ;;
+    two_step)      printf "%s" "Parallel Restartable Streaming Copy (mariadb-mtk)" ;;
     staged)        printf "%s" "Offline Copy (mariadb-dump)" ;;
     binlog)        printf "%s" "Replication (binlog)" ;;
     inplace)       printf "%s" "In-place upgrade" ;;
@@ -439,10 +439,10 @@ print_progress_hint() {
   local run_dir="$1"
   local run_log="${run_dir}/run.log"
   echo "    Live progress: tail -f $run_log"
-  # two_step also writes sqldata's own progress + manifest under the run dir;
+  # two_step also writes mariadb-mtk's own progress + manifest under the run dir;
   # it's a second live tracker, useful for watching batch/chunk progress.
   if [[ "${MODE:-}" == "two_step" ]]; then
-    echo "    sqldata load progress + manifest: ${run_dir}/sqldata/"
+    echo "    mariadb-mtk load progress + manifest: ${run_dir}/mariadb-mtk/"
   fi
 }
 
@@ -1011,6 +1011,23 @@ check_binlog_source_compat() {
   local json_offenders=""
   local bad_fmt=""
 
+  # --- Version gate (categorical, checked FIRST) ---
+  # Replication requires an 8.0+ source; MySQL < 8.0 (5.7, 5.6, ...) cannot be replicated
+  local src_major="${SRC_VERSION_SHORT%%.*}"
+  if [[ "$src_major" =~ ^[0-9]+$ && "$src_major" -lt 8 ]]; then
+    echo ""
+    echo "ERROR: Replication mode is not supported from MySQL ${SRC_VERSION_SHORT} sources."
+    echo "Replication-based migration requires a MySQL 8.0+ source."
+    echo ""
+    echo "For a MySQL ${SRC_VERSION_SHORT} source, use one of the offline migration modes:"
+    echo ""
+    echo "  - Serial Streaming Copy"
+    echo "  - Parallel Restartable Streaming Copy"
+    echo "  - Offline Copy"
+    echo ""
+    return 2
+  fi
+
   # --- JSON column sub-check ---
   if [[ ! -r "$json_sql_file" ]]; then
     echo "WARNING: cannot read $json_sql_file; skipping early JSON-column check."
@@ -1075,7 +1092,7 @@ check_binlog_source_compat() {
     echo "Please use one of the offline migration modes:"
     echo ""
     echo "  - Serial Streaming Copy"
-    echo "  - Parallel Streaming Copy"
+    echo "  - Parallel Restartable Streaming Copy"
     echo "  - Offline Copy"
     echo ""
   fi
@@ -1376,36 +1393,36 @@ else
 fi
 
 # --- Post-selection plumbing: two_step --------------------------------------
-# Runs regardless of how $MODE was set (menu or env), so sqldata detection
+# Runs regardless of how $MODE was set (menu or env), so mariadb-mtk detection
 # and variant validation are consistent across both entry paths.
 if [[ "$MODE" == "two_step" ]]; then
   sqldata_bin="${SQLINESDATA_BIN:-$(command -v sqldata 2>/dev/null || true)}"
   if [[ -z "$sqldata_bin" || ! -x "$sqldata_bin" ]]; then
     cat <<'EOF'
 
-ERROR: MariaDB Data migration tool (sqldata) not found.
+ERROR: MariaDB Data migration tool (mariadb-mtk) not found.
 
-  Parallel Restartable Streaming Copy (sqldata) needs the 'sqldata' binary. Install it, then
-  either put it on PATH or export SQLINESDATA_BIN=/path/to/sqldata before
+  Parallel Restartable Streaming Copy (mariadb-mtk) needs the 'mariadb-mtk' binary. Install it, then
+  either put it on PATH or export SQLINESDATA_BIN=/path/to/mariadb-mtk before
   re-running:
 
-      export SQLINESDATA_BIN=/opt/sqldata/sqldata
-      sqldata -? | head -1     # verify
+      export SQLINESDATA_BIN=/opt/sqldata/mariadb-mtk
+      mariadb-mtk -? | head -1     # verify
 EOF
     exit 1
   fi
-  echo "==> MariaDB Data migration tool (sqldata) detected: $sqldata_bin"
+  echo "==> MariaDB Data migration tool (mariadb-mtk) detected: $sqldata_bin"
   export SQLINESDATA_BIN="$sqldata_bin"
 
   # The experimental single_pass/resumable variant was retired: resumable +
-  # chunked loading is now native to sqldata and on by default, so there is
+  # chunked loading is now native to mariadb-mtk and on by default, so there is
   # no variant to select. TWO_STEP_VARIANT is accepted-but-ignored for one
   # release so a stale value in the environment or migration.yaml doesn't
   # cause a surprise; it will be dropped entirely in a future release.
   # (For a clean break with no deprecation window, delete this whole block.)
   if [[ -n "${TWO_STEP_VARIANT:-}" ]]; then
     echo "==> NOTE: TWO_STEP_VARIANT is deprecated and ignored. Resumable, chunked"
-    echo "          data loading is now native in sqldata and enabled by default."
+    echo "          data loading is now native in mariadb-mtk and enabled by default."
   fi
 fi
 
@@ -1555,7 +1572,22 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
     # newly entered list is re-validated for existence before the compat check
     # re-runs. Env-set MODE/DBs cannot be changed interactively, so that path
     # hard-exits instead.
-    while ! run_source_side_compatibility_checks; do
+    while true; do
+      _compat_rc=0
+      run_source_side_compatibility_checks || _compat_rc=$?
+      if [[ "$_compat_rc" -eq 0 ]]; then
+        break
+      fi
+      if [[ "$_compat_rc" -eq 2 ]]; then
+        # Categorical failure (e.g. source version too old for this mode).
+        # Re-entering the database name cannot help, so stop here rather than
+        # looping the DB prompt. The advisory above names the compatible modes.
+        echo "Cannot continue with $MODE mode for this source. Re-run and choose"
+        echo "one of the offline modes listed above."
+        exit 1
+      fi
+      # rc == 1: recoverable failure (e.g. a JSON-bearing database under
+      # replication). Re-prompt so the operator can drop the offending DB.
       if [[ "${MODE_FROM_ENV:-0}" == "1" ]]; then
         echo "MODE was set in the environment; cannot interactively re-select."
         echo "Re-run with a compatible MODE (e.g. one_step, two_step, or staged),"
@@ -1569,7 +1601,7 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
         exit 1
       fi
       # Re-validate the new list exists on source before re-running the
-      # compat check (which the enclosing `while` does on the next iteration).
+      # compat check on the next iteration.
       while ! source_dbs_exist_check; do
         echo ""
         echo "Re-enter the database name(s) (or Ctrl-C to abort)."
@@ -1632,7 +1664,7 @@ TGT_PASS="$TGT_ADMIN_PASS"
 # load_only the DB list lives in the manifest and is checked by
 # 00_preflight_staged.sh; for dump_only there is no target.
 #
-# two_step has no mid-run resume: sqldata auto-retries transient errors within
+# two_step has no mid-run resume: mariadb-mtk auto-retries transient errors within
 # a run, but an interrupted run is restarted by dropping the target database(s)
 # and re-running. So this check always runs and a leftover target DB from an
 # interrupted run is reported as a conflict to drop.
@@ -2577,7 +2609,7 @@ What to do next:
          $src_connect
          $tgt_connect
 
-  3. two_step has no mid-run resume. sqldata auto-retries transient errors
+  3. two_step has no mid-run resume. mariadb-mtk auto-retries transient errors
      (network blips, brief target restarts) within a run; an interrupted or
      failed run is restarted by dropping the target database(s) and re-running
      from a clean target. binlog and replace_slave resume from their

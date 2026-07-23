@@ -243,7 +243,22 @@ def assess(
                 failures = (g.details or {}).get("failures") or {}
                 json_cols = failures.get("json_columns") or []
                 bad_fmt = failures.get("binlog_format")
-
+                src_ver = failures.get("source_version")
+                if src_ver:
+                    # Categorical version failure: the gate short-circuits on
+                    # a pre-8.0 source, so this is the only failure present.
+                    # Render its own message, not the JSON/format advisory.
+                    typer.echo("")
+                    typer.echo(f"ERROR: Replication mode is not supported from MySQL {src_ver} sources.")
+                    typer.echo("Replication-based migration requires a MySQL 8.0+ source.")
+                    typer.echo("")
+                    typer.echo(f"For a MySQL {src_ver} source, use one of the offline migration modes:")
+                    typer.echo("")
+                    typer.echo("  - Serial Streaming Copy")
+                    typer.echo("  - Parallel Restartable Streaming Copy")
+                    typer.echo("  - Offline Copy")
+                    typer.echo("")
+                    break
                 typer.echo("")
                 typer.echo("ERROR: Source is not compatible with replication mode.")
                 typer.echo("")

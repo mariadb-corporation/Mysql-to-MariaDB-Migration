@@ -92,6 +92,23 @@ fi
 echo "Source MySQL: $src_version_full (using: $SHOW_BINLOG_STATUS_SQL)"
 export SHOW_BINLOG_STATUS_SQL
 
+# Version gate: replication-based migration requires an 8.0+ source.
+# MySQL < 8.0 (5.7, 5.6, ...) cannot be a reliable replication source for
+# MariaDB (binlog/GTID divergence), so block here — categorically, before any
+# schema-specific check (JSON, binlog_format) — rather than failing later in
+# binlog setup. Numeric major-version comparison, not a 5.7 string match, so
+# any pre-8.0 flavor is caught.
+if [[ "$src_major" -lt 8 ]]; then
+  echo "ERROR: Replication mode is not supported from MySQL ${src_version_num} sources."
+  echo "Replication-based migration requires a MySQL 8.0+ source."
+  echo "For a MySQL ${src_version_num} source, use one of the offline migration modes:"
+  echo "  - Serial Streaming Copy"
+  echo "  - Parallel Restartable Streaming Copy"
+  echo "  - Offline Copy"
+  exit 11   
+fi
+export SHOW_BINLOG_STATUS_SQL
+
 echo "Checking source database(s) exist..."
 if [[ -n "$SRC_DBS" ]]; then
   IFS=',' read -r -a DB_LIST <<< "$SRC_DBS"
