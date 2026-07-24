@@ -4,10 +4,9 @@
 - **MySQL 5.7 source support for the offline data-movement modes.** Serial
   Streaming Copy (`one_step`), Parallel Restartable Streaming Copy (`two_step`),
   and Offline Copy (`staged`) are now validated end-to-end from a MySQL 5.7
-  source into MariaDB. Migrations were exercised 5.7 → MariaDB 11.8, 12.3, and
-  13.1 with per-table `COUNT(*)` parity confirmed on the target. JSON columns,
-  which cannot replicate via binlog, transfer correctly through all three
-  offline modes.
+  source into MariaDB. Migrations were exercised 5.7 → MariaDB 11.8, 12.3`
+  parity confirmed on the target. JSON columns,which cannot replicate via binlog,
+  transfer correctly through all three offline modes.
 - Replication (`binlog`) is explicitly **not** supported from a MySQL 5.7
   source. A pre-8.0 source is now blocked by a dedicated source-version gate
   (see below) rather than failing later in binlog setup.
