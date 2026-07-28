@@ -74,9 +74,7 @@ Restart MariaDB. A `server_id` of `0`, or one that matches the source, will make
 
 The replica connects **from** the target, so the user must exist for the address
 the source sees. Create it for every form the target might present — wildcard,
-IP, and hostname — and use `mysql_native_password`: `caching_sha2_password`
-requires TLS or an RSA key exchange and otherwise surfaces as a generic
-access-denied even when the password is correct.
+IP, and hostname — and use `mysql_native_password`.
 
 ```sql example
 CREATE USER IF NOT EXISTS 'repl_user'@'%'            IDENTIFIED WITH 'mysql_native_password' BY 'Migration101$';
@@ -232,8 +230,8 @@ SHOW REPLICAS;            -- 8.4+ (SHOW SLAVE HOSTS on 8.0)
 |---|---|---|
 | `[ERROR] In RBR mode, Slave received unknown table event` | MySQL 8.0.2+ writes extra column metadata (`binlog_row_metadata`) that MariaDB's SQL thread can't parse | On the source set `binlog_row_metadata = MINIMAL` (and `binlog_row_value_options = ""`), restart, re-seed. This is the fix for **non-JSON** ROW replication. |
 | `[ERROR] In RBR mode, Slave received unknown field type field 245 for column …activity_data` | The value is a native MySQL **JSON** column (type 245); MariaDB's replication layer does not understand it | No fix — JSON is not supported over MySQL→MariaDB replication. Use an offline mode. Preflight should have blocked this; check whether a JSON column was added after preflight. |
-| Replica runs fine on ad-hoc statements, then `Slave_SQL_Running: No` after a stored procedure or bulk job | Under MIXED, DML inside a stored procedure/function/trigger — and any non-deterministic construct (`RAND()`, `UUID()`, `ORDER BY RAND()`) — is logged as ROW, which re-hits the JSON/type-245 wall | MIXED is **not** a workaround for JSON. If the schema has JSON, use an offline mode. |
-| `Slave_IO_Running: Connecting`, generic access-denied for `repl_user` | `caching_sha2_password` over a non-TLS link, the wrong host in the grant, or the plugin not active | Recreate the user `IDENTIFIED WITH 'mysql_native_password'` for the target's `%`/IP/hostname, or connect with `MASTER_SSL=1`. Re-check with the step-4 login. |
+| Replica stops (`Slave_SQL_Running: No`) after a stored procedure or bulk job | `binlog_format` is not `ROW` | Set `binlog_format = ROW` on the source, as the prerequisites require. ROW is the only supported format for this migration path. |
+| `Slave_IO_Running: Connecting`, generic access-denied for `repl_user` | Wrong host in the grant, or the `mysql_native_password` plugin not active | Recreate the user `IDENTIFIED WITH 'mysql_native_password'` for the target's `%`/IP/hostname. Re-check with the step-4 login. |
 | Was replicating, then `Slave_IO_Running: No` with "could not find first log file" / purged-log error | The source purged the binlog the seed was anchored to before catch-up finished | Retention too short. Raise `binlog_expire_logs_seconds`, then re-seed from a fresh snapshot. |
 | Duplicate-key or missing rows right after `START SLAVE` | Seed coordinate and start position don't line up | Re-seed; the `MASTER_LOG_FILE`/`POS` must come from the same snapshot that was loaded. Don't hand-edit the coordinate. |
 | `CHANGE MASTER TO` refused / replica won't start | Target `server_id = 0`, or source and target share a `server_id` | Set a unique non-zero `server_id` on the target (in `my.cnf` and `SET GLOBAL server_id=…`). |
