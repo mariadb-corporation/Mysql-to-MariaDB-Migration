@@ -78,7 +78,7 @@ IP, and hostname — and use `mysql_native_password`: `caching_sha2_password`
 requires TLS or an RSA key exchange and otherwise surfaces as a generic
 access-denied even when the password is correct.
 
-```sql
+```sql example
 CREATE USER IF NOT EXISTS 'repl_user'@'%'            IDENTIFIED WITH 'mysql_native_password' BY 'Migration101$';
 CREATE USER IF NOT EXISTS 'repl_user'@'192.168.1.20' IDENTIFIED WITH 'mysql_native_password' BY 'Migration101$';
 CREATE USER IF NOT EXISTS 'repl_user'@'mariadb-tgt'  IDENTIFIED WITH 'mysql_native_password' BY 'Migration101$';
