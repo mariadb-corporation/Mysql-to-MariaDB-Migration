@@ -22,3 +22,12 @@ scripts/*-[0-9]*May
 scripts/*-before_*
 scripts/*-working_*
 config/sqldata_failed_tables_validation.txt
+
+# Agent tooling (local-only, never committed)
+.serena/
+.claude/
+graphify-out/
+orchestrator-tui-proposal.html
+*.plan.md
+tui-phase0-design.md
+.tui.lock
