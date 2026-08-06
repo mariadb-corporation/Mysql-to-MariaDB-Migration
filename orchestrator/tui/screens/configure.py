@@ -1,9 +1,8 @@
-"""ConfigureScreen(Screen[ConfigDraft]) per design doc §4.4 -- Part A.
+"""ConfigureScreen(Screen[ConfigDraft]) per design doc §4.4.
 
-Part A only: layout, field groups, and mode-based visibility. Validation-
-on-confirm, root-user blocking, and the save/secrets flow are Part B, a
-separate follow-up -- this screen intentionally has no ``confirm`` binding
-yet.
+Part A: layout, field groups, and mode-based visibility.
+Part B (this revision): validation-on-confirm, root-user blocking, and the
+save/secrets flow.
 """
 
 from __future__ import annotations
@@ -11,10 +10,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Collapsible, Footer, Header, Label
+from textual.widgets import Button, Collapsible, Footer, Header, Label
 
+from orchestrator.tui.configio import draft_to_yaml
+from orchestrator.tui.modals.confirm import ConfirmModal
+from orchestrator.tui.modals.root_user import RootUserBlockModal
+from orchestrator.tui.modals.save_secrets import SaveSecretsModal
 from orchestrator.tui.models import ConfigDraft, ModeInfo
 from orchestrator.tui.widgets.field_row import LabeledField
 
@@ -64,7 +68,50 @@ def _sw(value: str, fallback: bool = False) -> bool:
     return value == "1" if value else fallback
 
 
+def _required_keys(mode: str, phase: str | None, install_on: bool) -> frozenset[str]:
+    """Ground-truthed against migrationctl.py's real _require_env calls
+    (lines 338-420) -- includes a real asymmetry: TGT_SSH_USER is required
+    only for replace_slave, never one_step/two_step/staged, even when the
+    #tgtssh group is visible there too."""
+    if mode in ("one_step", "two_step", "binlog", "replace_slave"):
+        keys = {
+            "SRC_HOST", "TGT_HOST",
+            "SRC_ADMIN_USER", "SRC_ADMIN_PASS",
+            "TGT_ADMIN_USER", "TGT_ADMIN_PASS",
+            "SRC_DBS_INPUT",
+        }
+        if mode in ("one_step", "two_step") and install_on:
+            keys.add("TGT_SSH_HOST")
+        if mode in ("binlog", "replace_slave"):
+            keys.update({"REPL_USER", "REPL_PASS"})
+        if mode == "replace_slave":
+            keys.update({"TGT_SSH_HOST", "TGT_SSH_USER", "REPLACE_TARGET_OS", "REPLACE_MARIADB_VERSION"})
+        return frozenset(keys)
+    if mode == "staged":
+        keys = set()
+        if phase != "load_only":
+            keys.update({"SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS", "SRC_DBS_INPUT"})
+        if phase != "dump_only":
+            keys.update({"TGT_HOST", "TGT_ADMIN_USER", "TGT_ADMIN_PASS"})
+            if install_on:
+                keys.add("TGT_SSH_HOST")
+        if phase == "load_only":
+            keys.add("STAGED_DUMP_DIR")
+        return frozenset(keys)
+    if mode == "inplace":
+        return frozenset({
+            "SRC_HOST", "SRC_ADMIN_USER", "SRC_ADMIN_PASS",
+            "INPLACE_BACKUP_DIR", "INPLACE_TARGET_OS", "INPLACE_MARIADB_VERSION",
+        })
+    return frozenset()
+
+
 class ConfigureScreen(Screen[ConfigDraft]):
+    BINDINGS = [
+        Binding("escape", "go_back", "back", show=True),
+        Binding("ctrl+s", "quick_save", "quick save", show=True),
+    ]
+
     def __init__(
         self,
         mode: ModeInfo,
@@ -328,6 +375,7 @@ class ConfigureScreen(Screen[ConfigDraft]):
                 title="Staged offline copy",
                 id="staged",
             )
+        yield Button("Confirm", id="confirm-btn")
         yield Footer()
 
     def _static_visibility(self) -> dict[str, bool]:
@@ -362,6 +410,7 @@ class ConfigureScreen(Screen[ConfigDraft]):
         install_field = self.query_one("#install", Collapsible).query_one(LabeledField)
         install_on = bool(install_field.value)
         self.query_one("#tgtssh", Collapsible).display = self._tgtssh_visible(install_on)
+        self._apply_required_flags(install_on)
 
     def on_labeled_field_changed(self, message: LabeledField.Changed) -> None:
         if message.key != "INSTALL_TARGET_MARIADB":
@@ -369,3 +418,81 @@ class ConfigureScreen(Screen[ConfigDraft]):
         self.query_one("#tgtssh", Collapsible).display = self._tgtssh_visible(
             bool(message.value)
         )
+        self._apply_required_flags(bool(message.value))
+
+    def _apply_required_flags(self, install_on: bool) -> None:
+        required = _required_keys(self.mode.key, self.staged_phase, install_on)
+        for field in self.query(LabeledField):
+            field.required = field.key in required
+            field.refresh_mark()
+
+    def _visible_fields(self) -> list[LabeledField]:
+        group_ids = _STATIC_GROUP_IDS + ("tgtssh",)
+        fields: list[LabeledField] = []
+        for group_id in group_ids:
+            group = self.query_one(f"#{group_id}", Collapsible)
+            if group.display:
+                fields.extend(group.query(LabeledField))
+        return fields
+
+    def _sync_draft_from_fields(self) -> None:
+        for field in self.query(LabeledField):
+            value = field.value
+            if isinstance(value, bool):
+                value = "1" if value else "0"
+            setattr(self.draft, field.key, value)
+
+    async def action_confirm(self) -> None:
+        invalid = [f for f in self._visible_fields() if not f.is_valid]
+        if invalid:
+            self.notify("Fix the highlighted fields before continuing.", severity="warning")
+            return
+        self._sync_draft_from_fields()
+        draft = self.draft
+        draft.SRC_USER = draft.SRC_ADMIN_USER
+        draft.TGT_USER = draft.TGT_ADMIN_USER
+        if draft.ALLOW_ROOT_USERS != "1" and (
+            draft.SRC_ADMIN_USER == "root" or draft.TGT_ADMIN_USER == "root"
+        ):
+            override = await self.app.push_screen_wait(RootUserBlockModal())
+            if not override:
+                return
+            draft.ALLOW_ROOT_USERS = "1"
+        should_save = await self.app.push_screen_wait(
+            ConfirmModal("Save inputs to config/migration.yaml?", default=False)
+        )
+        if should_save:
+            include_secrets = await self.app.push_screen_wait(SaveSecretsModal())
+            self._write_config(include_secrets)
+        self.dismiss(draft)
+
+    def _write_config(self, include_secrets: bool) -> None:
+        config_dir = self.repo_root / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / "migration.yaml").write_text(
+            draft_to_yaml(self.draft, include_secrets=include_secrets)
+        )
+
+    def action_quick_save(self) -> None:
+        # Binding dispatch (Textual's App._dispatch_action) awaits this
+        # action directly in the app's own task, not inside a worker --
+        # but push_screen_wait requires get_current_worker() to succeed
+        # (textual/app.py raises NoActiveWorker otherwise). Confirmed
+        # empirically: an async action_quick_save calling push_screen_wait
+        # directly crashes when triggered via the ctrl+s binding. run_worker
+        # here gives the awaited flow its own worker context, same as the
+        # confirm-button handler below does for action_confirm.
+        self.run_worker(self._quick_save_flow())
+
+    async def _quick_save_flow(self) -> None:
+        self._sync_draft_from_fields()
+        include_secrets = await self.app.push_screen_wait(SaveSecretsModal())
+        self._write_config(include_secrets)
+        self.notify("Saved to config/migration.yaml")
+
+    def action_go_back(self) -> None:
+        self.app.pop_screen()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "confirm-btn":
+            self.run_worker(self.action_confirm())
