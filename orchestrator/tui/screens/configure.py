@@ -53,14 +53,21 @@ def _autodetect_staged_dump_dir(repo_root: Path) -> str:
     directory without ``manifest.txt`` means the dump never finished, so it
     is skipped in favor of an older-but-complete one.
     """
-    candidates = sorted(
-        repo_root.glob("artifacts/run_staged_*/dumps"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    for candidate in candidates:
-        if (candidate / "manifest.txt").is_file():
-            return str(candidate.relative_to(repo_root))
+    try:
+        candidates = sorted(
+            repo_root.glob("artifacts/run_staged_*/dumps"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for candidate in candidates:
+            if (candidate / "manifest.txt").is_file():
+                return str(candidate.relative_to(repo_root))
+    except OSError:
+        # A directory removed by a concurrent cleanup between glob() and
+        # stat(), or a dangling symlink, must not take the whole screen down
+        # during compose() -- the bash equivalent silences this the same
+        # way (`ls -1dt ... 2>/dev/null`).
+        return ""
     return ""
 
 
@@ -68,6 +75,15 @@ def _sw(value: str, fallback: bool = False) -> bool:
     """Switch default: prefer the draft's own "0"/"1" convention over a
     hardcoded fallback, but only when the draft actually has a value."""
     return value == "1" if value else fallback
+
+
+def _valid_dbs_input(value: str) -> bool:
+    # mariadb-migrator rejects a database list that is blank after trimming
+    # (`while [[ -z "$(printf "%s" "$SRC_DBS_INPUT" | xargs)" ]]`, :1552) --
+    # extended here to reject any individual blank component too (a bare
+    # "," or a dangling trailing comma), which would otherwise silently
+    # become a garbage entry when split on "," downstream.
+    return all(part.strip() for part in value.split(","))
 
 
 def _required_keys(mode: str, phase: str | None, install_on: bool) -> frozenset[str]:
@@ -166,6 +182,7 @@ class ConfigureScreen(Screen[ConfigDraft]):
                     "SRC_DBS_INPUT",
                     "Database(s) (comma-separated)",
                     default=draft.SRC_DBS_INPUT,
+                    validator=_valid_dbs_input,
                 ),
                 title="Source database(s)",
                 id="srcdb",
@@ -512,19 +529,29 @@ class ConfigureScreen(Screen[ConfigDraft]):
             draft.ALLOW_ROOT_USERS = "1"
         return True
 
-    def _write_config(self, include_secrets: bool) -> None:
+    def _write_config(self, include_secrets: bool) -> bool:
+        # run_worker defaults to exit_on_error=True, which would tear down
+        # the whole app on an unhandled exception here (read-only checkout,
+        # full disk, "config" existing as a plain file, ...) -- a save
+        # hiccup must surface as a notification, matching the wizard's own
+        # "print an error and keep going" behavior, not crash the TUI.
         config_dir = self.repo_root / "config"
-        config_dir.mkdir(parents=True, exist_ok=True)
         target = config_dir / "migration.yaml"
-        # Back up before overwriting -- this file can hold plaintext DB
-        # passwords, so losing the previous version to a bad write is worse
-        # than for an ordinary config file.
-        if target.exists():
-            shutil.copy2(target, config_dir / "migration.yaml.bak")
         tmp = config_dir / "migration.yaml.tmp"
-        tmp.write_text(draft_to_yaml(self.draft, include_secrets=include_secrets))
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, target)  # atomic on POSIX -- no half-written file is ever visible
+        try:
+            config_dir.mkdir(parents=True, exist_ok=True)
+            # Back up before overwriting -- this file can hold plaintext DB
+            # passwords, so losing the previous version to a bad write is
+            # worse than for an ordinary config file.
+            if target.exists():
+                shutil.copy2(target, config_dir / "migration.yaml.bak")
+            tmp.write_text(draft_to_yaml(self.draft, include_secrets=include_secrets))
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, target)  # atomic on POSIX -- no half-written file is ever visible
+        except OSError as exc:
+            self.notify(f"Failed to save config/migration.yaml: {exc}", severity="error")
+            return False
+        return True
 
     def action_quick_save(self) -> None:
         # Binding dispatch (Textual's App._dispatch_action) awaits this
@@ -547,8 +574,8 @@ class ConfigureScreen(Screen[ConfigDraft]):
             if not await self._finalize_draft():
                 return
             include_secrets = await self.app.push_screen_wait(SaveSecretsModal())
-            self._write_config(include_secrets)
-            self.notify("Saved to config/migration.yaml")
+            if self._write_config(include_secrets):
+                self.notify("Saved to config/migration.yaml")
         finally:
             self._busy = False
 

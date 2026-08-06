@@ -142,6 +142,17 @@ def test_secret_field_repr_never_contains_value():
 
 
 @pytest.mark.asyncio
+async def test_value_strips_leading_and_trailing_whitespace():
+    app = _FieldApp(key="SRC_ADMIN_PASS", label="Source admin password", secret=True)
+    async with app.run_test() as pilot:
+        control = pilot.app.query_one("#control", Input)
+        control.value = "  hunter2  "
+        await pilot.pause()
+        field = pilot.app.query_one(LabeledField)
+        assert field.value == "hunter2"
+
+
+@pytest.mark.asyncio
 async def test_is_valid_matches_mark_state():
     app = _FieldApp(key="SRC_HOST", label="Source host", required=True)
     async with app.run_test() as pilot:

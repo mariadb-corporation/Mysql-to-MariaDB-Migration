@@ -606,3 +606,31 @@ async def test_sync_draft_forces_install_target_mariadb_off_when_group_hidden(
         screen = pilot.app.screen
         screen._sync_draft_from_fields()
         assert screen.draft.INSTALL_TARGET_MARIADB == "0"
+
+
+@pytest.mark.asyncio
+async def test_dbs_input_rejects_blank_component(tmp_path):
+    app = _ConfigureApp(_mode("one_step"), ConfigDraft(), repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+        field = _field(screen, "SRC_DBS_INPUT")
+        _set_value(screen, "SRC_DBS_INPUT", "db1,,db2")
+        await pilot.pause()
+        assert field.is_valid is False
+        _set_value(screen, "SRC_DBS_INPUT", "db1,db2")
+        await pilot.pause()
+        assert field.is_valid is True
+
+
+@pytest.mark.asyncio
+async def test_write_config_notifies_on_failure_instead_of_crashing(tmp_path):
+    # config_dir.mkdir() raises FileExistsError (an OSError) when a plain
+    # file already occupies that path -- a clean way to trigger the write
+    # failure branch without monkeypatching.
+    (tmp_path / "config").write_text("not a directory")
+    app = _ConfigureApp(_mode("one_step"), ConfigDraft(), repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+        assert screen._write_config(False) is False

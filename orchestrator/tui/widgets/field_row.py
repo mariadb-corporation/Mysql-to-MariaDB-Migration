@@ -77,7 +77,12 @@ class LabeledField(Widget):
             return control.value
         if isinstance(control, Select):
             return "" if control.value == Select.NULL else control.value
-        return control.value
+        # mariadb-migrator strips leading/trailing whitespace from every
+        # password it prompts for (e.g. :1512-1513, :1631-1632, :1775-1776)
+        # before both use and save -- a pasted trailing space here would
+        # otherwise be stored verbatim and cause an auth failure that looks
+        # like a wrong password.
+        return control.value.strip()
 
     @property
     def is_valid(self) -> bool:
