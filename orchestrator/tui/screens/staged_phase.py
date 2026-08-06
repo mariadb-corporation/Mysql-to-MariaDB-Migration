@@ -90,15 +90,18 @@ class StagedPhaseScreen(Screen[str]):
                     self.dismiss(phase)
                 else:
                     # Nav graph §5.10: OfflineAckModal --No--> ModeSelectScreen,
-                    # i.e. pop past this screen too, not just the modal.
-                    # Screen.dismiss() calls this callback *before* its own
-                    # trailing self.app.pop_screen() that removes the modal --
-                    # so the pop_screen() here removes the modal (still on
-                    # stack at this point) and dismiss()'s own pop then
-                    # removes this StagedPhaseScreen, landing one level back
-                    # on ModeSelectScreen. Verified empirically: without this
-                    # call, decline would incorrectly leave StagedPhaseScreen
-                    # on top.
+                    # i.e. pop past this screen too, not just the modal. Two
+                    # pops happen in total -- this one, plus the modal's own
+                    # dismiss() -- and together they always land one level
+                    # back on ModeSelectScreen regardless of which of the two
+                    # actually executes first (textual 8.2.8's ResultCallback
+                    # defers the callback via call_next while dismiss()'s own
+                    # pop_screen() is synchronous, so in practice this call
+                    # ends up popping StagedPhaseScreen itself, and dismiss()'s
+                    # already-run pop removed the modal -- but the code here
+                    # does not depend on that ordering). Verified empirically:
+                    # without this call, decline would incorrectly leave
+                    # StagedPhaseScreen on top.
                     self.app.pop_screen()
 
             self.app.push_screen(OfflineAckModal(), _callback)
