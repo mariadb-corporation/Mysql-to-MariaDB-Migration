@@ -79,7 +79,8 @@ class LabeledField(Widget):
             return "" if control.value == Select.NULL else control.value
         return control.value
 
-    def _is_valid(self) -> bool:
+    @property
+    def is_valid(self) -> bool:
         value = self.value
         if self.field_type == "switch":
             return True

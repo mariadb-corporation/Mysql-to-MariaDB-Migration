@@ -139,3 +139,17 @@ def test_secret_field_repr_never_contains_value():
     rendered = repr(field)
     assert "hunter2" not in rendered
     assert "secret=True" in rendered
+
+
+@pytest.mark.asyncio
+async def test_is_valid_matches_mark_state():
+    app = _FieldApp(key="SRC_HOST", label="Source host", required=True)
+    async with app.run_test() as pilot:
+        field = pilot.app.query_one(LabeledField)
+        assert field.is_valid is False
+        control = pilot.app.query_one("#control", Input)
+        control.focus()
+        await pilot.pause()
+        await pilot.press(*"host1")
+        await pilot.pause()
+        assert field.is_valid is True
