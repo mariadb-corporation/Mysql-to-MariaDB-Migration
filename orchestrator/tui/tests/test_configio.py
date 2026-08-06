@@ -338,3 +338,40 @@ def test_comment_group_headers_present_in_order() -> None:
     headers = [header for header, _ in GROUP_HEADERS_AND_KEYS]
     positions = [text.index(header) for header in headers]
     assert positions == sorted(positions)
+
+
+# --- ALLOW_ROOT_USERS override (design doc Sec 5.2) -----------------------
+#
+# Not in config/migration.yaml.example's key list and not part of _GROUPS,
+# so it must be emitted conditionally, only when actually set.
+
+
+def test_allow_root_users_blank_omits_overrides_section() -> None:
+    draft = _sample_draft(ALLOW_ROOT_USERS="")
+    text = draft_to_yaml(draft, include_secrets=True)
+
+    assert "Overrides" not in text
+    assert "ALLOW_ROOT_USERS" not in text
+
+
+def test_allow_root_users_set_emits_overrides_section() -> None:
+    draft = _sample_draft(ALLOW_ROOT_USERS="1")
+    text = draft_to_yaml(draft, include_secrets=True)
+
+    assert "  # Overrides\n  ALLOW_ROOT_USERS: \"1\"\n" in text
+
+
+def test_allow_root_users_round_trip_when_set() -> None:
+    draft = _sample_draft(ALLOW_ROOT_USERS="1")
+    text = draft_to_yaml(draft, include_secrets=True)
+    restored = yaml_to_draft(text)
+
+    assert restored.ALLOW_ROOT_USERS == "1"
+
+
+def test_allow_root_users_round_trip_when_blank() -> None:
+    draft = _sample_draft(ALLOW_ROOT_USERS="")
+    text = draft_to_yaml(draft, include_secrets=True)
+    restored = yaml_to_draft(text)
+
+    assert restored.ALLOW_ROOT_USERS == ""

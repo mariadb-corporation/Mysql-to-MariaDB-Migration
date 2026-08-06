@@ -32,6 +32,9 @@ SECRET_KEYS: frozenset[str] = frozenset(
 # (mode is handled separately; SRC_DBS_INPUT, INSTALL_TARGET_MARIADB,
 # TARGET_INSTALL_OS, TARGET_MARIADB_VERSION, STAGED_DUMP_DIR) are
 # TUI-session-only or legacy-only and are never written by this module.
+# ALLOW_ROOT_USERS is a third case: not in this table (and not in
+# config/migration.yaml.example), but conditionally written by
+# draft_to_yaml -- see the "Overrides" block below.
 _GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "# Source",
@@ -176,6 +179,14 @@ def draft_to_yaml(draft: ConfigDraft, *, include_secrets: bool) -> str:
 
             lines.append(f"  {key}: {_quote(value)}")
 
+    # ALLOW_ROOT_USERS is not in config/migration.yaml.example's key list
+    # (design doc Sec 5.2) -- it is only ever written when the operator has
+    # actually overridden the root-user block, unlike every _GROUPS key,
+    # which is always emitted (blank or not).
+    if draft.ALLOW_ROOT_USERS:
+        lines.append("  # Overrides")
+        lines.append(f"  ALLOW_ROOT_USERS: {_quote(draft.ALLOW_ROOT_USERS)}")
+
     return "\n".join(lines) + "\n"
 
 
@@ -214,6 +225,10 @@ def yaml_to_draft(text: str) -> ConfigDraft:
     kwargs["INSTALL_TARGET_MARIADB"] = str(env.get("INSTALL_TARGET_MARIADB") or "0")
     kwargs["TARGET_INSTALL_OS"] = str(env.get("TARGET_INSTALL_OS", ""))
     kwargs["TARGET_MARIADB_VERSION"] = str(env.get("TARGET_MARIADB_VERSION", ""))
+
+    # ALLOW_ROOT_USERS is conditionally written (never via _ENV_KEY_ORDER --
+    # see draft_to_yaml), so it needs its own explicit read-back here too.
+    kwargs["ALLOW_ROOT_USERS"] = str(env.get("ALLOW_ROOT_USERS", ""))
 
     return ConfigDraft(mode=str(parsed.get("mode", "")), **kwargs)
 

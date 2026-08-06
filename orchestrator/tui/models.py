@@ -191,6 +191,11 @@ class ConfigDraft:
 
     mode: str = ""
 
+    # Cross-cutting override, not part of any labeled group. Not in
+    # config/migration.yaml.example's key list -- configio.draft_to_yaml
+    # only emits it (in an "Overrides" group) when set.
+    ALLOW_ROOT_USERS: str = ""
+
     # Source connection
     SRC_HOST: str = ""
     SRC_PORT: str = ""
