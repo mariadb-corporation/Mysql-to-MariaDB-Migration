@@ -156,3 +156,16 @@ async def test_declining_offline_ack_pops_back_past_staged_phase():
         assert pilot.app.result == "unset"
         assert isinstance(pilot.app.screen, _StubModeSelectScreen)
         assert len(pilot.app.screen_stack) == 2
+
+
+@pytest.mark.asyncio
+async def test_go_back_dismisses_with_none():
+    # App.pop_screen() drops the registered result callback entirely, so a
+    # future push_screen_wait(StagedPhaseScreen()) caller would hang forever
+    # on back-navigation unless this goes through dismiss(None) instead.
+    app = _StagedPhaseApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+        assert pilot.app.result is None

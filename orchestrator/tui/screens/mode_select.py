@@ -101,7 +101,7 @@ class ModeSelectScreen(Screen[ModeInfo]):
             details.update("")
 
     def action_go_back(self) -> None:
-        self.app.pop_screen()
+        self.dismiss(None)
 
     def action_quit_app(self) -> None:
         self.app.exit()

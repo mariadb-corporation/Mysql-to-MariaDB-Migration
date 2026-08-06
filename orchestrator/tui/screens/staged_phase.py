@@ -106,4 +106,4 @@ class StagedPhaseScreen(Screen[str]):
             self.dismiss(phase)
 
     def action_go_back(self) -> None:
-        self.app.pop_screen()
+        self.dismiss(None)

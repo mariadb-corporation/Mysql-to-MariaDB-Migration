@@ -7,6 +7,8 @@ save/secrets flow.
 
 from __future__ import annotations
 
+import os
+import shutil
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -58,7 +60,7 @@ def _autodetect_staged_dump_dir(repo_root: Path) -> str:
     )
     for candidate in candidates:
         if (candidate / "manifest.txt").is_file():
-            return str(candidate)
+            return str(candidate.relative_to(repo_root))
     return ""
 
 
@@ -126,6 +128,9 @@ class ConfigureScreen(Screen[ConfigDraft]):
         self.draft = draft
         self.staged_phase = staged_phase
         self.repo_root = repo_root if repo_root is not None else Path.cwd()
+        # Shared by action_confirm and _quick_save_flow -- they can't sensibly
+        # run concurrently with each other either, so one flag guards both.
+        self._busy = False
 
     def compose(self) -> ComposeResult:
         draft = self.draft
@@ -351,7 +356,11 @@ class ConfigureScreen(Screen[ConfigDraft]):
                 id="replace",
             )
             staged_dump_dir_default = draft.STAGED_DUMP_DIR
-            if self.mode.key == "staged" and not staged_dump_dir_default:
+            if (
+                self.mode.key == "staged"
+                and self.staged_phase == "load_only"
+                and not staged_dump_dir_default
+            ):
                 staged_dump_dir_default = _autodetect_staged_dump_dir(self.repo_root)
             yield Collapsible(
                 LabeledField(
@@ -408,7 +417,11 @@ class ConfigureScreen(Screen[ConfigDraft]):
         for group_id in _STATIC_GROUP_IDS:
             self.query_one(f"#{group_id}", Collapsible).display = visibility[group_id]
         install_field = self.query_one("#install", Collapsible).query_one(LabeledField)
-        install_on = bool(install_field.value)
+        # If #install itself isn't visible, INSTALL_TARGET_MARIADB is forced
+        # to "0" (see _sync_draft_from_fields) -- treat install_on as False
+        # from the start so #tgtssh and the required-flags computation agree
+        # with that invariant even before the first sync happens.
+        install_on = visibility["install"] and bool(install_field.value)
         self.query_one("#tgtssh", Collapsible).display = self._tgtssh_visible(install_on)
         self._apply_required_flags(install_on)
 
@@ -441,12 +454,51 @@ class ConfigureScreen(Screen[ConfigDraft]):
             if isinstance(value, bool):
                 value = "1" if value else "0"
             setattr(self.draft, field.key, value)
+        # mariadb-migrator:1724 (and the redundant :1497 force for
+        # staged/dump_only) pins this to "0" whenever #install isn't
+        # applicable, regardless of the hidden switch's own value -- a
+        # resume-signature key (#15), so a stale "1" here would silently
+        # break resume parity with the wizard.
+        if not self._static_visibility()["install"]:
+            self.draft.INSTALL_TARGET_MARIADB = "0"
 
     async def action_confirm(self) -> None:
-        invalid = [f for f in self._visible_fields() if not f.is_valid]
-        if invalid:
-            self.notify("Fix the highlighted fields before continuing.", severity="warning")
+        # Guards against a double button-press/trigger starting two
+        # concurrent push_screen_wait chains (two stacked modals, two
+        # dismiss(draft) calls). Set synchronously before the first await
+        # below, so a second call arriving while this one is still running
+        # sees it and returns immediately instead of racing it.
+        if self._busy:
             return
+        self._busy = True
+        try:
+            invalid = [f for f in self._visible_fields() if not f.is_valid]
+            if invalid:
+                self.notify("Fix the highlighted fields before continuing.", severity="warning")
+                return
+            if not await self._finalize_draft():
+                return
+            draft = self.draft
+            should_save = await self.app.push_screen_wait(
+                ConfirmModal("Save inputs to config/migration.yaml?", default=False)
+            )
+            if should_save:
+                include_secrets = await self.app.push_screen_wait(SaveSecretsModal())
+                self._write_config(include_secrets)
+            self.dismiss(draft)
+        finally:
+            self._busy = False
+
+    async def _finalize_draft(self) -> bool:
+        """Sync fields, mirror admin users, and enforce the root-user block.
+
+        Returns False if the operator declined a root-user override (caller
+        should abort without saving or dismissing). Mirroring must happen
+        BEFORE the root-user check: a stale SRC_USER="root" left over from a
+        previously-loaded config must be overwritten by the current
+        SRC_ADMIN_USER before the check runs, or it would falsely trip on a
+        non-root admin user.
+        """
         self._sync_draft_from_fields()
         draft = self.draft
         draft.SRC_USER = draft.SRC_ADMIN_USER
@@ -456,22 +508,23 @@ class ConfigureScreen(Screen[ConfigDraft]):
         ):
             override = await self.app.push_screen_wait(RootUserBlockModal())
             if not override:
-                return
+                return False
             draft.ALLOW_ROOT_USERS = "1"
-        should_save = await self.app.push_screen_wait(
-            ConfirmModal("Save inputs to config/migration.yaml?", default=False)
-        )
-        if should_save:
-            include_secrets = await self.app.push_screen_wait(SaveSecretsModal())
-            self._write_config(include_secrets)
-        self.dismiss(draft)
+        return True
 
     def _write_config(self, include_secrets: bool) -> None:
         config_dir = self.repo_root / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
-        (config_dir / "migration.yaml").write_text(
-            draft_to_yaml(self.draft, include_secrets=include_secrets)
-        )
+        target = config_dir / "migration.yaml"
+        # Back up before overwriting -- this file can hold plaintext DB
+        # passwords, so losing the previous version to a bad write is worse
+        # than for an ordinary config file.
+        if target.exists():
+            shutil.copy2(target, config_dir / "migration.yaml.bak")
+        tmp = config_dir / "migration.yaml.tmp"
+        tmp.write_text(draft_to_yaml(self.draft, include_secrets=include_secrets))
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, target)  # atomic on POSIX -- no half-written file is ever visible
 
     def action_quick_save(self) -> None:
         # Binding dispatch (Textual's App._dispatch_action) awaits this
@@ -485,13 +538,22 @@ class ConfigureScreen(Screen[ConfigDraft]):
         self.run_worker(self._quick_save_flow())
 
     async def _quick_save_flow(self) -> None:
-        self._sync_draft_from_fields()
-        include_secrets = await self.app.push_screen_wait(SaveSecretsModal())
-        self._write_config(include_secrets)
-        self.notify("Saved to config/migration.yaml")
+        # Shares _busy with action_confirm -- the two flows can't sensibly
+        # run concurrently with each other either.
+        if self._busy:
+            return
+        self._busy = True
+        try:
+            if not await self._finalize_draft():
+                return
+            include_secrets = await self.app.push_screen_wait(SaveSecretsModal())
+            self._write_config(include_secrets)
+            self.notify("Saved to config/migration.yaml")
+        finally:
+            self._busy = False
 
     def action_go_back(self) -> None:
-        self.app.pop_screen()
+        self.dismiss(None)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "confirm-btn":

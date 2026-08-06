@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from textual.app import App, ComposeResult
 from textual.widgets import Button, Collapsible, Switch
@@ -184,7 +186,33 @@ async def test_staged_dump_dir_autodetect_picks_newest_manifest_dir(tmp_path):
         screen = pilot.app.screen
         field = screen.query_one("#staged", Collapsible).query(LabeledField).first()
         assert field.key == "STAGED_DUMP_DIR"
-        assert field.value == str(newer)
+        # Repo-relative, not absolute -- STAGED_DUMP_DIR is resume-signature
+        # key #3, and a wizard-run and TUI-run signature must byte-match
+        # regardless of checkout path.
+        assert field.value == "artifacts/run_staged_20260102_000000/dumps"
+        assert not Path(field.value).is_absolute()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("phase", ["dump_and_load", "dump_only"])
+async def test_staged_dump_dir_autodetect_skipped_for_non_load_only_phases(
+    phase, tmp_path
+):
+    # Ground truth mariadb-migrator:1470-1480 only autodetects for
+    # STAGED_PHASE=load_only -- for dump phases the field must stay blank so
+    # scripts/25_staged_dump.sh derives its own ${RUN_DIR}/dumps path.
+    run_dir = tmp_path / "artifacts" / "run_staged_20260102_000000" / "dumps"
+    run_dir.mkdir(parents=True)
+    (run_dir / "manifest.txt").write_text("new")
+
+    draft = ConfigDraft(STAGED_DUMP_DIR="")
+    app = _ConfigureApp(_mode("staged"), draft, staged_phase=phase, repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+        field = screen.query_one("#staged", Collapsible).query(LabeledField).first()
+        assert field.key == "STAGED_DUMP_DIR"
+        assert field.value == ""
 
 
 # ---------------------------------------------------------------------------
@@ -451,3 +479,130 @@ async def test_ctrl_s_quick_save_skips_confirm_gate_and_stays_on_screen(tmp_path
         assert config_path.is_file()
         loaded = configio.yaml_to_draft(config_path.read_text())
         assert loaded.SRC_HOST == "quicksavehost"
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for opus-reviewer batch pass (items 7-9).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_action_go_back_dismisses_with_none(tmp_path):
+    app = _ConfigureApp(_mode("one_step"), ConfigDraft(), repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+        screen.action_go_back()
+        await _drain(pilot)
+        assert pilot.app.result is None
+
+
+@pytest.mark.asyncio
+async def test_double_confirm_press_guarded_against_reentrancy(tmp_path):
+    app = _ConfigureApp(_mode("one_step"), ConfigDraft(), repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+        _fill_one_step_happy(screen)
+        confirm_btn = screen.query_one("#confirm-btn", Button)
+        confirm_btn.press()
+        confirm_btn.press()
+        await _drain(pilot)
+
+        # Only one ConfirmModal stacked -- the second press was a no-op,
+        # guarded by _busy, not a second concurrent push_screen_wait chain.
+        assert len(pilot.app.screen_stack) == 3
+        save_modal = pilot.app.screen_stack[-1]
+        assert type(save_modal) is ConfirmModal
+
+        save_modal.query_one("#no", Button).press()
+        await _drain(pilot)
+
+        assert isinstance(pilot.app.result, ConfigDraft)
+        assert len(pilot.app.screen_stack) == 1
+
+
+@pytest.mark.asyncio
+async def test_write_config_backs_up_atomically_writes_and_restricts_permissions(
+    tmp_path,
+):
+    app = _ConfigureApp(_mode("one_step"), ConfigDraft(), repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+
+        screen.draft.SRC_HOST = "firstwrite"
+        screen._write_config(include_secrets=False)
+
+        config_dir = tmp_path / "config"
+        config_path = config_dir / "migration.yaml"
+        assert config_path.is_file()
+        assert not (config_dir / "migration.yaml.tmp").exists()
+        assert not (config_dir / "migration.yaml.bak").exists()
+        assert config_path.stat().st_mode & 0o777 == 0o600
+        first_content = config_path.read_text()
+
+        screen.draft.SRC_HOST = "secondwrite"
+        screen._write_config(include_secrets=False)
+
+        bak_path = config_dir / "migration.yaml.bak"
+        assert bak_path.is_file()
+        assert bak_path.read_text() == first_content
+        assert not (config_dir / "migration.yaml.tmp").exists()
+        assert config_path.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.asyncio
+async def test_quick_save_blocks_on_root_user(tmp_path):
+    app = _ConfigureApp(_mode("one_step"), ConfigDraft(), repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+        _set_value(screen, "SRC_ADMIN_USER", "root")
+
+        await pilot.press("ctrl+s")
+        await _drain(pilot)
+
+        block_modal = pilot.app.screen_stack[-1]
+        assert isinstance(block_modal, RootUserBlockModal)
+        block_modal.query_one("#no", Button).press()
+        await _drain(pilot)
+
+        # Declined -- quick-save must abort without writing.
+        assert not (tmp_path / "config" / "migration.yaml").exists()
+        assert pilot.app.screen_stack[-1] is screen
+
+
+@pytest.mark.asyncio
+async def test_quick_save_mirrors_src_user_from_admin_user(tmp_path):
+    app = _ConfigureApp(_mode("one_step"), ConfigDraft(), repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+        _set_value(screen, "SRC_ADMIN_USER", "someadmin")
+
+        await pilot.press("ctrl+s")
+        await _drain(pilot)
+
+        secrets_modal = pilot.app.screen_stack[-1]
+        assert isinstance(secrets_modal, SaveSecretsModal)
+        secrets_modal.query_one("#no", Button).press()
+        await _drain(pilot)
+
+        assert screen.draft.SRC_USER == screen.draft.SRC_ADMIN_USER == "someadmin"
+
+
+@pytest.mark.asyncio
+async def test_sync_draft_forces_install_target_mariadb_off_when_group_hidden(
+    tmp_path,
+):
+    # binlog mode: #install is not in the static-visible set at all, so a
+    # stale INSTALL_TARGET_MARIADB="1" (e.g. from a loaded config) must be
+    # forced back to "0" -- it's resume-signature key #15.
+    draft = ConfigDraft(INSTALL_TARGET_MARIADB="1")
+    app = _ConfigureApp(_mode("binlog"), draft, repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = pilot.app.screen
+        screen._sync_draft_from_fields()
+        assert screen.draft.INSTALL_TARGET_MARIADB == "0"

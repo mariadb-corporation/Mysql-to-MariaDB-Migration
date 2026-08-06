@@ -127,3 +127,17 @@ async def test_declining_advanced_modal_stays_on_mode_select():
         await pilot.pause()
         assert pilot.app.result == "unset"
         assert isinstance(pilot.app.screen, ModeSelectScreen)
+
+
+@pytest.mark.asyncio
+async def test_go_back_dismisses_with_none():
+    # App.pop_screen() drops the registered result callback entirely
+    # (_pop_result_callback never invokes it) -- a future
+    # push_screen_wait(ModeSelectScreen()) caller would hang forever on
+    # back-navigation unless this goes through dismiss(None) instead.
+    app = _ModeSelectApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("b")
+        await pilot.pause()
+        assert pilot.app.result is None
