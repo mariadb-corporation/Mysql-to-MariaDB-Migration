@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from orchestrator.tui.modes import expected_skips, resolve_steps
+from orchestrator.tui.modes import MODE_CATALOG, expected_skips, resolve_steps
 
 STEP_MAP_PATH = Path(__file__).resolve().parents[2] / "step_map.yaml"
 
@@ -323,3 +323,36 @@ def test_expected_skips_one_step_never_leaks_replace_slave_install() -> None:
         result = expected_skips("one_step", env)
         assert "install_target_mariadb" in result
         assert "replace_slave_install_mariadb" not in result
+
+
+# --- MODE_CATALOG ------------------------------------------------------------
+
+
+def test_mode_catalog_has_six_entries_in_key_order() -> None:
+    assert [m.key for m in MODE_CATALOG] == [
+        "one_step",
+        "two_step",
+        "staged",
+        "binlog",
+        "inplace",
+        "replace_slave",
+    ]
+
+
+def test_mode_catalog_keys_match_step_map_modes(step_map: dict) -> None:
+    assert {m.key for m in MODE_CATALOG} == set(step_map["modes"].keys())
+
+
+def test_mode_catalog_advanced_flags() -> None:
+    advanced = [m for m in MODE_CATALOG if m.advanced]
+    assert {m.key for m in advanced} == {"inplace", "replace_slave"}
+    for m in advanced:
+        assert m.doc_anchor is None
+
+
+def test_mode_catalog_non_advanced_have_doc_anchors() -> None:
+    non_advanced = [m for m in MODE_CATALOG if not m.advanced]
+    assert len(non_advanced) == 4
+    for m in non_advanced:
+        assert isinstance(m.doc_anchor, str)
+        assert m.doc_anchor

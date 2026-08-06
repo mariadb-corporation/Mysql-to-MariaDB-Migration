@@ -15,7 +15,58 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Mapping
 
-from orchestrator.tui.models import StepSpec
+from orchestrator.tui.models import ModeInfo, StepSpec
+
+MODE_CATALOG: tuple[ModeInfo, ...] = (
+    ModeInfo(
+        "one_step",
+        "Serial Streaming Copy (mariadb-dump)",
+        "mariadb-dump, piped end-to-end · no disk staging",
+        "OFFLINE",
+        False,
+        "docs/mode1-serial-streaming-copy-guide.md",
+    ),
+    ModeInfo(
+        "two_step",
+        "Parallel Restartable Streaming Copy (mariadb-mtk)",
+        "mariadb-dump (schema) + mariadb-mtk (data) · parallel, auto-retry",
+        "OFFLINE",
+        False,
+        "docs/mode2-parallel-restartable-streaming-guide.md",
+    ),
+    ModeInfo(
+        "staged",
+        "Offline Copy (mariadb-dump)",
+        "two-phase dump/load via on-disk files · resumable, inspectable",
+        "OFFLINE",
+        False,
+        "docs/mode3-offline-copy-guide.md",
+    ),
+    ModeInfo(
+        "binlog",
+        "Replication (binlog)",
+        "mariadb-dump snapshot + binlog replication catch-up",
+        "ONLINE",
+        False,
+        "docs/mode4-replication-binlog-guide.md",
+    ),
+    ModeInfo(
+        "inplace",
+        "In-place upgrade",
+        "upgrade MySQL to MariaDB in place, same host",
+        "ADVANCED",
+        True,
+        None,
+    ),
+    ModeInfo(
+        "replace_slave",
+        "Replace MySQL slave",
+        "replace a MySQL replica with a MariaDB target",
+        "ADVANCED",
+        True,
+        None,
+    ),
+)
 
 
 def resolve_steps(step_map: dict, mode: str) -> tuple[StepSpec, ...]:
