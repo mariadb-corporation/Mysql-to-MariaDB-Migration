@@ -68,7 +68,7 @@ class LabeledField(Widget):
         yield Static("", id="mark")
 
     def on_mount(self) -> None:
-        self._refresh_mark()
+        self.refresh_mark()
 
     @property
     def value(self) -> str | bool:
@@ -90,7 +90,11 @@ class LabeledField(Widget):
             return False
         return True
 
-    def _refresh_mark(self) -> None:
+    def refresh_mark(self) -> None:
+        # Public: a caller that mutates `.required`/`.validator` after mount
+        # (e.g. a screen applying per-mode required rules) must be able to
+        # force the mark to recompute immediately, not just wait for the
+        # next Changed event.
         mark = self.query_one("#mark", Static)
         value = self.value
         if self.field_type == "switch":
@@ -108,7 +112,7 @@ class LabeledField(Widget):
         mark.update("")
 
     def _emit_changed(self) -> None:
-        self._refresh_mark()
+        self.refresh_mark()
         self.post_message(self.Changed(self, self.key, self.value))
 
     def on_input_changed(self, event: Input.Changed) -> None:
