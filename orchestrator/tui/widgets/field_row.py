@@ -104,17 +104,22 @@ class LabeledField(Widget):
         value = self.value
         if self.field_type == "switch":
             mark.update("✓")
+            mark.set_classes("ok")
             return
         if self.required and not value:
             mark.update("✗")
+            mark.set_classes("bad")
             return
         if self.validator is not None and value and not self.validator(value):
             mark.update("✗")
+            mark.set_classes("bad")
             return
         if value:
             mark.update("✓")
+            mark.set_classes("ok")
             return
         mark.update("")
+        mark.set_classes("")
 
     def _emit_changed(self) -> None:
         self.refresh_mark()

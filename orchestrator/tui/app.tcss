@@ -1,6 +1,79 @@
 /* MigrationApp global stylesheet.
  *
- * Deliberately minimal for Phase 1 -- every screen so far relies on
- * Textual's default widget styling. Per-screen visual polish is out of
- * scope for this build item; add rules here as real styling needs come up.
+ * Baseline styling pass: the app-wide color theme lives in
+ * app.py's MIGRATIONCTL_THEME (registered + applied in on_mount), so most
+ * widgets already pick up the dark/teal palette for free via Textual's
+ * theme variables ($primary, $accent, $surface, ...). The rules below cover
+ * what a theme alone can't: layout/sizing for our own composite widgets,
+ * and a few widgets (dialog cards) that need an explicit size to read as
+ * deliberate rather than default-Widget-sized.
  */
+
+/* LabeledField(Widget) has no layout of its own -- without an explicit
+ * height, a plain Widget's auto-height children collapse to zero, which is
+ * why every Configure screen field used to render invisibly. One row:
+ * label, control, trailing validity mark. */
+LabeledField {
+    layout: horizontal;
+    height: 3;
+    margin-bottom: 1;
+}
+
+LabeledField > Label {
+    width: 30;
+    height: 3;
+    content-align: left middle;
+    color: $text-muted;
+}
+
+LabeledField > Input,
+LabeledField > Switch,
+LabeledField > Select {
+    width: 1fr;
+}
+
+LabeledField > #mark {
+    width: 3;
+    height: 3;
+    content-align: center middle;
+}
+
+LabeledField > #mark.ok {
+    color: $success;
+    text-style: bold;
+}
+
+LabeledField > #mark.bad {
+    color: $error;
+    text-style: bold;
+}
+
+/* ConfirmModal / OfflineAckModal / RootUserBlockModal / SaveSecretsModal:
+ * a centered card instead of full-bleed stacked buttons. */
+ConfirmModal > #dialog {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    margin: 4 0;
+    padding: 1 2;
+    background: $surface;
+    border: round $primary;
+}
+
+ConfirmModal > .confirm-dialog.danger {
+    border: round $error;
+}
+
+#question {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#body {
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+Collapsible {
+    border-left: thick $primary;
+}

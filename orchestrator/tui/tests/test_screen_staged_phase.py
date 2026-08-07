@@ -141,7 +141,13 @@ async def test_confirming_offline_ack_dismisses_with_phase():
 @pytest.mark.asyncio
 async def test_declining_offline_ack_pops_back_past_staged_phase():
     # Nav graph §5.10: OfflineAckModal --No--> ModeSelectScreen, i.e. this
-    # screen is popped too, not just the modal.
+    # screen is popped too, not just the modal -- via dismiss(None), the same
+    # path action_go_back uses, so the registered result callback actually
+    # fires (a bare app.pop_screen() would discard it and leave any real
+    # caller's screen_stack collapsed to the app's default empty screen,
+    # since in the real app ModeSelectScreen is not still on the stack
+    # underneath by this point -- only this test's stub harness leaves it
+    # there to assert against).
     app = _StagedPhaseApp(env={})
     async with app.run_test() as pilot:
         await pilot.pause()
@@ -153,7 +159,7 @@ async def test_declining_offline_ack_pops_back_past_staged_phase():
         await pilot.pause()
         await pilot.press("n")
         await pilot.pause()
-        assert pilot.app.result == "unset"
+        assert pilot.app.result is None
         assert isinstance(pilot.app.screen, _StubModeSelectScreen)
         assert len(pilot.app.screen_stack) == 2
 

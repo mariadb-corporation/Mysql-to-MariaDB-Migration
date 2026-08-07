@@ -89,20 +89,16 @@ class StagedPhaseScreen(Screen[str]):
                 if confirmed:
                     self.dismiss(phase)
                 else:
-                    # Nav graph §5.10: OfflineAckModal --No--> ModeSelectScreen,
-                    # i.e. pop past this screen too, not just the modal. Two
-                    # pops happen in total -- this one, plus the modal's own
-                    # dismiss() -- and together they always land one level
-                    # back on ModeSelectScreen regardless of which of the two
-                    # actually executes first (textual 8.2.8's ResultCallback
-                    # defers the callback via call_next while dismiss()'s own
-                    # pop_screen() is synchronous, so in practice this call
-                    # ends up popping StagedPhaseScreen itself, and dismiss()'s
-                    # already-run pop removed the modal -- but the code here
-                    # does not depend on that ordering). Verified empirically:
-                    # without this call, decline would incorrectly leave
-                    # StagedPhaseScreen on top.
-                    self.app.pop_screen()
+                    # Nav graph §5.10: OfflineAckModal --No--> ModeSelectScreen.
+                    # Must go through this screen's own dismiss(None) (the same
+                    # path action_go_back uses), not app.pop_screen() directly --
+                    # pop_screen() discards the result callback without invoking
+                    # it, which drops app.py's _on_staged_phase_done(None) (the
+                    # handler that re-pushes ModeSelectScreen) and leaves the
+                    # screen stack empty. ModeSelectScreen is not still
+                    # underneath on the stack to fall back onto: it was already
+                    # popped when _on_mode_selected pushed this screen.
+                    self.dismiss(None)
 
             self.app.push_screen(OfflineAckModal(), _callback)
         else:

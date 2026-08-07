@@ -33,6 +33,7 @@ from pathlib import Path
 import yaml
 from textual.app import App
 from textual.binding import Binding
+from textual.theme import Theme
 
 from orchestrator.tui import configio, modes, rundir
 from orchestrator.tui.modals.confirm import ConfirmModal
@@ -54,6 +55,24 @@ from orchestrator.tui.screens.welcome import WelcomeScreen
 # calls report.start_run(..., config_path="") -- a separate, known gap, not
 # fixed here).
 _SAVED_CONFIG_REL_PATH = Path("config") / "migration.yaml"
+
+# Baseline dark/teal theme, colors lifted from the design mockup (§ tui-phase0
+# effort-read artifact) -- not pixel parity, just the same accent family
+# instead of Textual's stock default palette.
+MIGRATIONCTL_THEME = Theme(
+    name="migrationctl-dark",
+    primary="#00838f",
+    secondary="#4dd8ff",
+    accent="#d2f801",
+    warning="#e8c34a",
+    error="#ea868f",
+    success="#96ddcf",
+    foreground="#eaf6f6",
+    background="#081a20",
+    surface="#0e2833",
+    panel="#132e3a",
+    dark=True,
+)
 
 
 def _mode_by_key(key: str | None) -> ModeInfo | None:
@@ -173,6 +192,8 @@ class MigrationApp(App[None]):
     # -- startup -------------------------------------------------------------
 
     def on_mount(self) -> None:
+        self.register_theme(MIGRATIONCTL_THEME)
+        self.theme = MIGRATIONCTL_THEME.name
         try:
             self.step_map = _load_step_map(self.repo_root)
         except FileNotFoundError as exc:

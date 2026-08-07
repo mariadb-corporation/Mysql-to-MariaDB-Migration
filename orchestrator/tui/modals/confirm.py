@@ -56,6 +56,14 @@ class ConfirmModal(ModalScreen[bool]):
             )
             yield Button(self.no_label, id="no")
 
+    def on_mount(self) -> None:
+        # ModalScreen auto-focuses the first composed Button ("yes") regardless
+        # of self.default -- without this, a modal built with default=False
+        # visually highlights "yes" while Enter (action_confirm_default) still
+        # dismisses False, a mismatch between what looks selected and what
+        # pressing Enter actually does.
+        self.query_one("#yes" if self.default else "#no", Button).focus()
+
     def action_confirm_yes(self) -> None:
         self.dismiss(True)
 
