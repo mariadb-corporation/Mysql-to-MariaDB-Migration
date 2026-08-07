@@ -40,6 +40,7 @@ from orchestrator.tui.modals.confirm import ConfirmModal
 from orchestrator.tui.models import ConfigDraft, ModeInfo
 from orchestrator.tui.screens.assess import AssessScreen
 from orchestrator.tui.screens.configure import ConfigureScreen
+from orchestrator.tui.screens.demo import DemoScreen
 from orchestrator.tui.screens.log_view import LogScreen
 from orchestrator.tui.screens.mode_select import ModeSelectScreen
 from orchestrator.tui.screens.plan import PlanScreen
@@ -237,9 +238,31 @@ class MigrationApp(App[None]):
         if phase_mode == "resume":
             self._push_resume()
             return
+        if phase_mode == "demo":
+            self._push_demo()
+            return
         self.phase_mode = phase_mode
         self.sub_title = f"select mode · {phase_mode}"
         self.push_screen(ModeSelectScreen(), self._on_mode_selected)
+
+    # -- Demo (side door -- not part of the real nav graph; design doc
+    # §5.10 does not cover this. See tui-phase4-demo-progress-screen.plan.md.
+    # Bypasses mode-select/configure/assess entirely: this has nothing to do
+    # with a real run, so there is no mode/draft/run_dir state to carry.) ---
+
+    def _push_demo(self) -> None:
+        self.sub_title = "demo"
+        self.push_screen(DemoScreen(), self._on_demo_done)
+
+    def _on_demo_done(self, _result: None) -> None:
+        # dismiss-then-repush, not a raw pop_screen() -- same reasoning as
+        # every other back-edge in this module (see staged_phase.py's fixed
+        # bug for exactly what goes wrong if that shortcut is taken).
+        self.sub_title = "welcome"
+        self.push_screen(
+            WelcomeScreen(repo_root=self.repo_root, skip_resume_check=True),
+            self._on_welcome_done,
+        )
 
     # -- Resume (design doc §5.10: jumps straight to RunScreen, skipping
     # configure/assess/plan -- matches `migrationctl resume`,

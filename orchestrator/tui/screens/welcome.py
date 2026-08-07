@@ -13,13 +13,31 @@ from rich.text import Text
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Footer, Header, OptionList, Static
 from textual.widgets.option_list import Option
 
 from orchestrator.tui import rundir
 from orchestrator.tui.modals.resume import ResumeChoiceModal
+
+# MariaDB's sea lion mascot, downsampled from a supplied source image's
+# ASCII rendering (not hand-drawn -- freehand ASCII art reliably comes out
+# lopsided) into a 34-wide block-density grid (space/./:/+/*/# by fill
+# fraction), small enough to leave room for the option list below it on a
+# normal terminal. A separate widget from _BANNER below, which stays a
+# verbatim reproduction of the real CLI's own text.
+_LOGO = r"""                            :****#
+                          :#####*:
+                         *####*.  
+                        *#####    
+                      :######+    
+                 ::+*########.    
+            :+*#############+     
+          *################*      
+   .    :############*###+:       
+  .*#####*:.    .::::##*          
+   *##*:           :#*.           """
 
 # mariadb-migrator:9-27, verbatim (the version/build line is hardcoded here
 # to match the script's own literal values at :5-6 -- this is a static
@@ -58,6 +76,12 @@ _ACTIONS: tuple[tuple[str, str, str], ...] = (
         "Assess the source, then proceed to the full migration "
         "(plan + run, with confirm steps between phases).",
     ),
+    (
+        "demo",
+        "3) See what this could look like (demo)",
+        "Watch a synthetic run animate -- step list, throughput, "
+        "replication lag. No real connection, no data moved.",
+    ),
     ("quit", "q) Quit", ""),
 )
 
@@ -90,7 +114,17 @@ class WelcomeScreen(Screen[str]):
     def compose(self) -> ComposeResult:
         yield Header()
         with Vertical(id="body"):
-            yield Static(_BANNER, id="banner")
+            # The license banner's longest lines are far short of a normal
+            # terminal's width -- the logo sits in that dead space to its
+            # right instead of stacking above it and costing extra rows.
+            # #banner-spacer is a blank 1fr filler, not a real gap: it
+            # eats whatever width neither sibling needs, which is what
+            # pins the logo to the right edge instead of butting it right
+            # up against the banner text.
+            with Horizontal(id="banner-row"):
+                yield Static(_BANNER, id="banner")
+                yield Static("", id="banner-spacer")
+                yield Static(_LOGO, id="logo")
             yield OptionList(
                 *(_make_option(label, desc, value) for value, label, desc in _ACTIONS),
                 id="actions",

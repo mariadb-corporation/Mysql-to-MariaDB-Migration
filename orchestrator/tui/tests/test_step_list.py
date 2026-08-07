@@ -98,6 +98,33 @@ async def test_update_rows_replaces_not_appends():
 
 
 @pytest.mark.asyncio
+async def test_update_rows_updates_in_place_when_count_unchanged():
+    # Same row count across two calls must reuse the existing StepRow
+    # widgets rather than remove+remount them -- remounting on every call
+    # is what causes the visible flicker on a screen that redraws on a
+    # timer (DemoScreen).
+    app = _StepListApp()
+    async with app.run_test() as pilot:
+        step_list = pilot.app.query_one(StepList)
+        await step_list.update_rows((_vm("a", "a", StepUiStatus.PENDING),))
+        await pilot.pause()
+        row_before = pilot.app.query_one(StepRow)
+
+        await step_list.update_rows(
+            (_vm("a", "a", StepUiStatus.RUNNING, detail="50%"),)
+        )
+        await pilot.pause()
+        row_after = pilot.app.query_one(StepRow)
+
+        assert row_before is row_after
+        name_line = row_after.query(".step-name")[0]
+        assert str(name_line.content).startswith("▶")
+        assert name_line.has_class("status-running")
+        detail_line = row_after.query(".step-detail")[0]
+        assert str(detail_line.content) == "50%"
+
+
+@pytest.mark.asyncio
 async def test_detail_line_carries_step_detail_class():
     vms = (_vm("dump", "mariadb-dump", StepUiStatus.RUNNING, detail="34 MB/s"),)
     app = _StepListApp()

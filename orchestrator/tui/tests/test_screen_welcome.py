@@ -53,13 +53,15 @@ async def test_banner_shows_product_name_and_version(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_actions_option_list_has_three_in_order(tmp_path):
+async def test_actions_option_list_has_four_in_order(tmp_path):
     app = _WelcomeApp(tmp_path)
     async with app.run_test() as pilot:
         await pilot.pause()
         actions = pilot.app.screen.query_one("#actions", OptionList)
-        assert actions.option_count == 3
-        assert [o.id for o in actions.options] == ["assess_plan", "all", "quit"]
+        assert actions.option_count == 4
+        assert [o.id for o in actions.options] == [
+            "assess_plan", "all", "demo", "quit",
+        ]
 
 
 @pytest.mark.asyncio
@@ -88,6 +90,20 @@ async def test_selecting_all_dismisses_with_that_value(tmp_path):
         await pilot.press("enter")
         await pilot.pause()
         assert pilot.app.result == "all"
+
+
+@pytest.mark.asyncio
+async def test_selecting_demo_dismisses_with_that_value(tmp_path):
+    app = _WelcomeApp(tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        actions = pilot.app.screen.query_one("#actions", OptionList)
+        actions.focus()
+        actions.highlighted = 2
+        await pilot.pause()
+        await pilot.press("enter")
+        await pilot.pause()
+        assert pilot.app.result == "demo"
 
 
 @pytest.mark.asyncio

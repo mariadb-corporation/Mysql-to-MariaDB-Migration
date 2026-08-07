@@ -32,7 +32,9 @@ from orchestrator.tui.screens import assess as assess_module
 from orchestrator.tui.screens import plan as plan_module
 from orchestrator.tui.screens.assess import AssessScreen
 from orchestrator.tui.screens.configure import ConfigureScreen
+from orchestrator.tui.screens.demo import DemoScreen
 from orchestrator.tui.screens.summary import SummaryScreen
+from orchestrator.tui.screens.welcome import WelcomeScreen
 from orchestrator.tui.widgets.field_row import LabeledField
 
 # ---------------------------------------------------------------------------
@@ -343,3 +345,31 @@ async def test_decline_plan_back_to_assess_does_not_rerun_assess(tmp_path, monke
         assert assess_calls_after == 1
         verdict = pilot.app.screen.query_one("#verdict", Static)
         assert str(verdict.render()) == "ASSESSMENT: PASS — ready to plan/run"
+
+
+@pytest.mark.asyncio
+async def test_demo_bypasses_mode_select_and_returns_to_fresh_welcome(tmp_path):
+    # tui-phase4-demo-progress-screen.plan.md: Welcome's "demo" option must
+    # reach DemoScreen directly (no ModeSelect/Configure/Assess in between),
+    # and escaping it must land back on a *fresh* WelcomeScreen, not a raw
+    # pop_screen() onto whatever is left on the stack.
+    app = MigrationApp(repo_root=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+
+        welcome = pilot.app.screen
+        actions = welcome.query_one("#actions", OptionList)
+        actions.focus()
+        actions.highlighted = 2  # "3) See what this could look like (demo)"
+        await pilot.pause()
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert isinstance(pilot.app.screen, DemoScreen)
+        assert pilot.app.mode is None  # no mode/draft state touched
+
+        await pilot.press("escape")
+        await pilot.pause()
+
+        assert isinstance(pilot.app.screen, WelcomeScreen)
+        assert pilot.app.screen is not welcome
