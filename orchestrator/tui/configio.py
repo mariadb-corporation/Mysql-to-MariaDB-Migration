@@ -241,3 +241,56 @@ def redact(mapping: Mapping[str, str]) -> dict[str, str]:
     return {
         key: ("" if key in SECRET_KEYS else value) for key, value in mapping.items()
     }
+
+
+# Design doc Sec 7.3 "Redaction on the output path": a 1-2 char secret value
+# would match (and clobber) unrelated text everywhere it happens to occur, so
+# values shorter than this are never substituted by redact_text().
+_MIN_REDACTABLE_LEN = 4
+
+
+def weak_secret_keys(secrets: Mapping[str, str]) -> frozenset[str]:
+    """Return the SECRET_KEYS present in `secrets` whose value is non-empty
+    but too short (< 4 chars) for redact_text() to redact safely.
+
+    `redact_text` silently skips these rather than risk over-matching -- this
+    is the small helper callers use to detect that and surface their own
+    weak-secret warning (design doc Sec 7.3). Non-secret keys in `secrets`
+    are ignored.
+    """
+    return frozenset(
+        key
+        for key, value in secrets.items()
+        if key in SECRET_KEYS and value and len(value) < _MIN_REDACTABLE_LEN
+    )
+
+
+def redact_text(text: str, secrets: Mapping[str, str]) -> str:
+    """Replace literal occurrences of SECRET_KEYS values in free-form `text`.
+
+    `secrets` is any key -> value mapping that may contain secret values
+    (typically the env passed to a subprocess) -- only keys that are also in
+    SECRET_KEYS are considered; unrelated keys are ignored. Unlike `redact`,
+    this function has no ConfigDraft/mapping of its own to redact against, so
+    the caller supplies current secret values explicitly (design doc Sec
+    7.3): scripts echo command lines containing MYSQL_PWD/connection strings,
+    and this is what scrubs those before they reach a log or the TUI.
+
+    Matching is a literal substring replace, longest value first, so a short
+    password that happens to be a substring of a longer one does not
+    partially clobber the longer match. Values shorter than 4 characters are
+    skipped entirely (see weak_secret_keys) rather than redacted, since a
+    short value would match all over unrelated text.
+    """
+    values = sorted(
+        {
+            value
+            for key, value in secrets.items()
+            if key in SECRET_KEYS and value and len(value) >= _MIN_REDACTABLE_LEN
+        },
+        key=len,
+        reverse=True,
+    )
+    for value in values:
+        text = text.replace(value, "********")
+    return text

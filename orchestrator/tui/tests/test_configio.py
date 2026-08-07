@@ -12,7 +12,14 @@ from typing import Any
 import pytest
 import yaml
 
-from orchestrator.tui.configio import SECRET_KEYS, draft_to_yaml, redact, yaml_to_draft
+from orchestrator.tui.configio import (
+    SECRET_KEYS,
+    draft_to_yaml,
+    redact,
+    redact_text,
+    weak_secret_keys,
+    yaml_to_draft,
+)
 from orchestrator.tui.models import ConfigDraft
 
 # Exact grouped key order the writer must emit inside `env:`, one list per
@@ -375,3 +382,88 @@ def test_allow_root_users_round_trip_when_blank() -> None:
     restored = yaml_to_draft(text)
 
     assert restored.ALLOW_ROOT_USERS == ""
+
+
+# --- redact_text (design doc Sec 7.3, output-path redaction) ------------
+
+
+def test_redact_text_replaces_secret_value_substring() -> None:
+    text = "connecting with MYSQL_PWD=supersecret123 to host"
+    secrets = {"SRC_PASS": "supersecret123"}
+
+    result = redact_text(text, secrets)
+
+    assert "supersecret123" not in result
+    assert "********" in result
+    assert result == "connecting with MYSQL_PWD=******** to host"
+
+
+def test_redact_text_ignores_non_secret_keys() -> None:
+    text = "host=dbhost123 unrelated"
+    secrets = {"SRC_HOST": "dbhost123"}
+
+    result = redact_text(text, secrets)
+
+    # SRC_HOST is not in SECRET_KEYS, so its value must not be touched.
+    assert result == text
+
+
+def test_redact_text_no_match_returns_text_unchanged() -> None:
+    text = "nothing sensitive here"
+    secrets = {"SRC_PASS": "supersecret123"}
+
+    assert redact_text(text, secrets) == text
+
+
+def test_redact_text_longest_value_first_avoids_partial_clobber() -> None:
+    # "secret" is a literal substring of "secretlong" -- redacting the
+    # shorter value first would leave "********long" behind instead of a
+    # single clean "********" for the full password.
+    text = "pwd=secretlong end"
+    secrets = {"SRC_PASS": "secretlong", "TGT_PASS": "secret"}
+
+    result = redact_text(text, secrets)
+
+    assert result == "pwd=******** end"
+    assert "long" not in result
+
+
+def test_redact_text_skips_values_shorter_than_four_chars() -> None:
+    text = "pwd=ab in the middle of ab normal text"
+    secrets = {"SRC_PASS": "ab"}
+
+    # Too short to redact safely -- must be left untouched, not replaced.
+    assert redact_text(text, secrets) == text
+
+
+def test_redact_text_skips_empty_values() -> None:
+    text = "pwd= trailing"
+    secrets = {"SRC_PASS": ""}
+
+    assert redact_text(text, secrets) == text
+
+
+def test_redact_text_handles_multiple_distinct_secrets() -> None:
+    text = "src=srcpassword tgt=tgtpassword"
+    secrets = {"SRC_PASS": "srcpassword", "TGT_PASS": "tgtpassword"}
+
+    result = redact_text(text, secrets)
+
+    assert result == "src=******** tgt=********"
+
+
+def test_weak_secret_keys_flags_only_short_non_empty_secret_values() -> None:
+    secrets = {
+        "SRC_PASS": "ab",  # too short
+        "TGT_PASS": "longenoughpass",  # fine
+        "REPL_PASS": "",  # empty -- not flagged, nothing to redact
+        "SRC_HOST": "x",  # not a SECRET_KEYS member at all
+    }
+
+    assert weak_secret_keys(secrets) == frozenset({"SRC_PASS"})
+
+
+def test_weak_secret_keys_empty_when_all_secrets_long_enough() -> None:
+    secrets = {"SRC_PASS": "longenough", "TGT_PASS": "alsolongenough"}
+
+    assert weak_secret_keys(secrets) == frozenset()

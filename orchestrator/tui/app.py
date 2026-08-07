@@ -31,12 +31,10 @@ import json
 from pathlib import Path
 
 import yaml
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.binding import Binding
-from textual.screen import Screen
-from textual.widgets import Static
 
-from orchestrator.tui import rundir
+from orchestrator.tui import configio, modes, rundir
 from orchestrator.tui.modals.confirm import ConfirmModal
 from orchestrator.tui.models import ConfigDraft, ModeInfo
 from orchestrator.tui.screens.assess import AssessScreen
@@ -44,50 +42,27 @@ from orchestrator.tui.screens.configure import ConfigureScreen
 from orchestrator.tui.screens.log_view import LogScreen
 from orchestrator.tui.screens.mode_select import ModeSelectScreen
 from orchestrator.tui.screens.plan import PlanScreen
+from orchestrator.tui.screens.run import RunScreen
 from orchestrator.tui.screens.staged_phase import StagedPhaseScreen
 from orchestrator.tui.screens.summary import SummaryScreen
 from orchestrator.tui.screens.welcome import WelcomeScreen
 
-_RUN_STUB_MESSAGE = (
-    "Run phase not yet implemented (Phase 2) -- exiting.\n\n"
-    "Press any key to quit."
-)
-_RESUME_STUB_MESSAGE = (
-    "Resume is not yet implemented (Phase 2) -- exiting.\n\n"
-    "Press any key to quit."
-)
+# The wizard/ConfigureScreen always save to this path (mariadb-migrator's own
+# convention, mirrored by PlanScreen.CONFIG_REL_PATH) -- the one place a
+# resumed run's ConfigDraft can be recovered from when RunSession itself
+# wrote report.json's own config_path as "" (runsession.py's drive() always
+# calls report.start_run(..., config_path="") -- a separate, known gap, not
+# fixed here).
+_SAVED_CONFIG_REL_PATH = Path("config") / "migration.yaml"
 
 
-class _RunPhaseStubScreen(Screen[None]):
-    """Deliberate, temporary placeholder for RunScreen.
-
-    RunScreen is Phase 2 scope and does not exist in this workflow run. Two
-    real navigation edges in design doc §5.10 would otherwise push it:
-    PlanScreen's "p" -> ConfirmModal -> Yes for ``phase_mode == "all"``, and
-    WelcomeScreen's ResumeChoiceModal "Resume" choice. Both land here
-    instead. This is NOT a design decision -- it is a stand-in until
-    RunScreen is built; do not mistake it for one.
-    """
-
-    BINDINGS = [
-        Binding("q", "quit_app", "quit", show=True),
-        Binding("enter", "quit_app", "quit", show=False),
-        Binding("escape", "quit_app", "quit", show=False),
-    ]
-
-    def __init__(self, message: str = _RUN_STUB_MESSAGE, id: str | None = None) -> None:
-        super().__init__(id=id)
-        self.message = message
-
-    def compose(self) -> ComposeResult:
-        yield Static(self.message, id="stub-message")
-
-    def action_quit_app(self) -> None:
-        # dismiss(), not a direct self.app.exit() -- keeps this screen on the
-        # same dismiss-callback contract as every other screen in the graph;
-        # the registered callback (MigrationApp._on_run_stub_done) is what
-        # actually exits the app.
-        self.dismiss(None)
+def _mode_by_key(key: str | None) -> ModeInfo | None:
+    if key is None:
+        return None
+    for info in modes.MODE_CATALOG:
+        if info.key == key:
+            return info
+    return None
 
 
 def _load_step_map(repo_root: Path) -> dict:
@@ -239,11 +214,64 @@ class MigrationApp(App[None]):
             self.exit()
             return
         if phase_mode == "resume":
-            self._push_run_stub(_RESUME_STUB_MESSAGE)
+            self._push_resume()
             return
         self.phase_mode = phase_mode
         self.sub_title = f"select mode · {phase_mode}"
         self.push_screen(ModeSelectScreen(), self._on_mode_selected)
+
+    # -- Resume (design doc §5.10: jumps straight to RunScreen, skipping
+    # configure/assess/plan -- matches `migrationctl resume`,
+    # migrationctl.py:607-632, which only needs config + mode + out) --------
+
+    def _push_resume(self) -> None:
+        # Re-discover rather than threading WelcomeScreen's own candidate
+        # through dismiss("resume") -- discover() is a pure structural read
+        # (no mutation), so a second call here costs nothing and keeps
+        # WelcomeScreen's Screen[str] contract simple.
+        candidate = rundir.discover(self.repo_root)
+        mode = _mode_by_key(candidate.dir_mode if candidate is not None else None)
+        if candidate is None or mode is None:
+            # Only reachable if the candidate vanished (or its dir name
+            # didn't parse) between WelcomeScreen's own discover() call and
+            # this one -- not a normal path, but resume must not crash.
+            self.notify("No resumable run found.", severity="warning")
+            self.sub_title = "welcome"
+            self.push_screen(
+                WelcomeScreen(repo_root=self.repo_root, skip_resume_check=True),
+                self._on_welcome_done,
+            )
+            return
+
+        self.mode = mode
+        self.draft = self._load_draft_for_resume(mode.key)
+        self.staged_phase = self.draft.STAGED_PHASE or None
+        self.phase_mode = "all"
+        self._push_run(candidate.run_dir)
+
+    def _load_draft_for_resume(self, mode_key: str) -> ConfigDraft:
+        """Best-effort reload of the ConfigDraft a resumed run needs.
+
+        There is no live ConfigDraft for a resume -- the operator picked
+        "resume" straight off WelcomeScreen, before ConfigureScreen ever
+        ran in *this* process -- so the saved config on disk is the only
+        source. Falls back to a bare ConfigDraft (mode set, nothing else)
+        if it is missing or unreadable rather than raising, since a run
+        that already completed most of its steps should still be able to
+        skip those via state.json even with an incomplete env.
+        """
+        cfg_path = self.repo_root / _SAVED_CONFIG_REL_PATH
+        try:
+            draft = configio.yaml_to_draft(cfg_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, yaml.YAMLError):
+            # OSError: missing/unreadable file. ValueError (which
+            # UnicodeDecodeError subclasses) covers non-UTF-8 bytes from
+            # read_text(encoding="utf-8"). yaml.YAMLError covers malformed
+            # YAML from configio.yaml_to_draft's internal yaml.safe_load()
+            # call. Same no-raise contract as _read_json above.
+            draft = ConfigDraft()
+        draft.mode = mode_key
+        return draft
 
     # -- ModeSelect --------------------------------------------------------------
 
@@ -381,11 +409,14 @@ class MigrationApp(App[None]):
             return
         if self.phase_mode == "assess_plan":
             self._push_summary_after_plan()
-        else:
-            # phase_mode == "all": the real edge here is RunScreen, which is
-            # Phase 2 scope and not built in this workflow run -- see
-            # _RunPhaseStubScreen's own docstring.
-            self._push_run_stub(_RUN_STUB_MESSAGE)
+            return
+        # phase_mode == "all": a fresh run, in a fresh run_dir, using the
+        # draft/step_map/mode this whole flow just built up.
+        if self.mode is None:
+            raise RuntimeError("_on_plan_done called with no mode selected")
+        ts = rundir.default_ts()
+        run_dir = self.repo_root / rundir.new_run_dir(self.mode.key, ts)
+        self._push_run(run_dir)
 
     # -- Summary (assess_plan terminal state; no run ever happens) -----------
 
@@ -414,11 +445,51 @@ class MigrationApp(App[None]):
     def _on_summary_done(self, _result: None) -> None:
         self.exit()
 
-    # -- Phase 2 stub (RunScreen placeholder) --------------------------------
+    # -- Run -------------------------------------------------------------------
 
-    def _push_run_stub(self, message: str) -> None:
-        self.sub_title = "run · not implemented"
-        self.push_screen(_RunPhaseStubScreen(message), self._on_run_stub_done)
+    def _push_run(self, run_dir: Path) -> None:
+        if self.mode is None:
+            raise RuntimeError("_push_run called with no mode selected")
+        self.run_dir = run_dir
+        env = _draft_env(self.draft)
+        steps = modes.resolve_steps(self.step_map, self.mode.key)
+        skips = modes.expected_skips(self.mode.key, env)
+        self.sub_title = f"run · {self.mode.key}"
+        self.push_screen(
+            RunScreen(self.repo_root, run_dir, self.mode, steps, env, skips),
+            self._on_run_done,
+        )
 
-    def _on_run_stub_done(self, _result: None) -> None:
-        self.exit()
+    def _on_run_done(self, success: bool) -> None:
+        # RunScreen.dismiss() only ever carries a bool (message.success from
+        # RunFinished) -- no "back" edge exists once a run has started.
+        #
+        # Per design doc §5.10, mode.key in {"binlog", "replace_slave"}
+        # should instead land on ReplicationWatchScreen once it exists
+        # (Phase 4 scope -- see the matching comment in
+        # screens/run.py::on_run_finished). RunScreen only ever dismisses a
+        # bare bool and cannot pick the next screen itself, so this is the
+        # one place a future mode-based branch to ReplicationWatchScreen
+        # would actually be wired. For now every mode, including
+        # binlog/replace_slave, routes unconditionally to SummaryScreen
+        # below -- a deliberate, temporary parity gap, not a permanent
+        # decision.
+        if self.mode is None:
+            raise RuntimeError("_on_run_done called with no mode selected")
+        report_data: dict = {}
+        if self.run_dir is not None:
+            report_path = self.run_dir / "report.json"
+            if report_path.is_file():
+                report_data = _read_json(report_path)
+        self.sub_title = f"summary · {self.mode.key}"
+        self.push_screen(
+            SummaryScreen(
+                success=bool(success),
+                mode=self.mode.key,
+                staged_phase=self.staged_phase,
+                run_dir=self.run_dir or self.repo_root,
+                report_data=report_data,
+                assess_dir=self.assess_dir,
+            ),
+            self._on_summary_done,
+        )

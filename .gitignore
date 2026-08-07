@@ -31,3 +31,4 @@ orchestrator-tui-proposal.html
 *.plan.md
 tui-phase0-design.md
 .tui.lock
+*.workflow.js
