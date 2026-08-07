@@ -1,0 +1,6 @@
+/* MigrationApp global stylesheet.
+ *
+ * Deliberately minimal for Phase 1 -- every screen so far relies on
+ * Textual's default widget styling. Per-screen visual polish is out of
+ * scope for this build item; add rules here as real styling needs come up.
+ */

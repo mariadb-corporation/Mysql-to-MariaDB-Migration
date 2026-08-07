@@ -1,0 +1,13 @@
+# Replication status fixtures (TDD unit 1, `replparse.py`)
+
+| File | Provenance |
+|---|---|
+| `fixture_replica_healthy_10.6.txt` | **Real capture.** `SHOW REPLICA STATUS\G` on a live MariaDB 10.6.15 replica (EC2). Confirms this vintage still emits legacy `Slave_*` field names, not `Replica_*`. |
+| `fixture_replica_healthy_docker_10.11.txt` | **Real capture.** Same query against a disposable Docker MariaDB 10.11 master/replica pair, healthy steady state. |
+| `fixture_replica_null_lag.txt` | **Real capture.** Same Docker pair with `STOP SLAVE SQL_THREAD` — `Slave_SQL_Running: No`, `Seconds_Behind_Master: NULL`. |
+| `fixture_replica_sql_error_dup_key.txt` | **Real capture.** Same Docker pair, genuine duplicate-key conflict (errno 1062) induced by inserting the same primary key directly on the replica then replicating a conflicting insert from master. Real `Last_SQL_Error` text, not synthesized. |
+| `fixture_replica_not_a_replica.txt` | **Real capture.** Empty file — `SHOW REPLICA STATUS` returns zero rows (not an error) when the server isn't configured as a replica at all, confirmed on the EC2 master host. |
+| `fixture_slave_status_mysql57.txt` | **Hand-authored**, not captured — no MySQL 5.7 host was available. Built from MySQL's own documented `SHOW SLAVE STATUS` field set/naming (5.7 predates `Replica_*` aliasing, which MySQL only added in 8.0.22+) plus MySQL-only fields absent from MariaDB (`Master_UUID`, `Executed_Gtid_Set`, `Channel_Name`, etc.) so the parser's unknown-field tolerance gets exercised too. |
+| `fixture_replica_connection_error.txt` | **Hand-authored.** Typical client connection failure string (`ERROR 2003 ...`) for the case where the query never returns a result set at all. |
+| `fixture_replica_sql_error_multiline.txt` | **Hand-authored**, not captured — no genuine multi-line `Last_SQL_Error` capture was available. Modeled on the real `fixture_replica_sql_error_dup_key.txt` capture's field layout/style, but with the `Last_SQL_Error` value spanning two physical lines (simulating a failing multi-line SQL statement embedded verbatim in the error text), to exercise the parser's continuation-line handling for that field. |
+| `fixture_replica_mixed_naming.txt` | **Hand-authored**, derived from the real `fixture_replica_healthy_docker_10.11.txt` capture with only `Slave_IO_Running`/`Slave_SQL_Running` renamed to `Replica_IO_Running`/`Replica_SQL_Running` (every other field, including `Seconds_Behind_Master`, left exactly as captured). Reflects the real-world MariaDB 10.5+ mixed-naming behavior described in the Phase 1 code review (`Replica_*` running fields alongside the older `Seconds_Behind_Master`); not independently re-captured against a live 10.5+ host.

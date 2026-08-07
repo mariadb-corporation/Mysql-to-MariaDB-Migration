@@ -1,0 +1,3 @@
+    [done] sakila: 1.4GiB, 9900000 approx rows, 412s
+    [done] world: 45.2MiB, 120000 approx rows, 18s
+    [done] employees: 892.1MiB, 4000000 approx rows, 96s

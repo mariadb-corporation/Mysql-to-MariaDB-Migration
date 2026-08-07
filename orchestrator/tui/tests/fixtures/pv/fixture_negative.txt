@@ -1,0 +1,4 @@
+mariadb-dump: Warning: Using a password on the command line interface can be insecure.
+ERROR: dump failed for database 'x' (partial file removed)
+CREATE TABLE t1 (note VARCHAR(20) DEFAULT '100% done');
+2026-08-06 12:34:56 0 [Note] mariadbd: ready for connections.
