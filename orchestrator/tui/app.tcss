@@ -1,0 +1,186 @@
+/* MigrationApp global stylesheet.
+ *
+ * Baseline styling pass: the app-wide color theme lives in
+ * app.py's MIGRATIONCTL_THEME (registered + applied in on_mount), so most
+ * widgets already pick up the dark/teal palette for free via Textual's
+ * theme variables ($primary, $accent, $surface, ...). The rules below cover
+ * what a theme alone can't: layout/sizing for our own composite widgets,
+ * and a few widgets (dialog cards) that need an explicit size to read as
+ * deliberate rather than default-Widget-sized.
+ */
+
+/* LabeledField(Widget) has no layout of its own -- without an explicit
+ * height, a plain Widget's auto-height children collapse to zero, which is
+ * why every Configure screen field used to render invisibly. One row:
+ * label, control, trailing validity mark. */
+LabeledField {
+    layout: horizontal;
+    height: 3;
+    margin-bottom: 1;
+}
+
+LabeledField > Label {
+    width: 30;
+    height: 3;
+    content-align: left middle;
+    color: $text-muted;
+}
+
+LabeledField > Input,
+LabeledField > Switch,
+LabeledField > Select {
+    width: 1fr;
+}
+
+LabeledField > #mark {
+    width: 3;
+    height: 3;
+    content-align: center middle;
+}
+
+LabeledField > #mark.ok {
+    color: $success;
+    text-style: bold;
+}
+
+LabeledField > #mark.bad {
+    color: $error;
+    text-style: bold;
+}
+
+/* ConfirmModal / OfflineAckModal / RootUserBlockModal / SaveSecretsModal:
+ * a centered card instead of full-bleed stacked buttons. */
+ConfirmModal > #dialog {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    margin: 4 0;
+    padding: 1 2;
+    background: $surface;
+    border: round $primary;
+}
+
+ConfirmModal > .confirm-dialog.danger {
+    border: round $error;
+}
+
+#question {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#body {
+    color: $text-muted;
+    margin-bottom: 1;
+}
+
+/* Safety net so the option list scrolls into view instead of being clipped
+ * off-screen on a short terminal, regardless of content length above it. */
+WelcomeScreen #body {
+    overflow-y: auto;
+}
+
+Collapsible {
+    border-left: thick $primary;
+}
+
+/* WelcomeScreen's banner + logo sit side by side (see compose()'s
+ * comment) instead of stacked, so the logo costs no extra rows. */
+#banner-row {
+    height: auto;
+    margin-bottom: 1;
+}
+
+#banner {
+    width: auto;
+    /* The license URL line's URL itself (no spaces to wrap on) is 93 cols
+     * -- if the logo squeezes this column any narrower than that, Rich
+     * can't wrap it and silently crops it instead, mangling verbatim
+     * license text. Never let that happen; the logo can give up space or
+     * get clipped on a narrow terminal instead. */
+    min-width: 93;
+}
+
+#banner-spacer {
+    width: 1fr;
+}
+
+#logo {
+    color: $secondary;
+    width: auto;
+}
+
+/* DemoScreen (tui-phase4-demo-progress-screen.plan.md): a persistent,
+ * high-contrast "DEMO ONLY" marker -- static, not blinking. Sparingly used
+ * static contrast reads as a serious label; animation reads as a gimmick
+ * and undercuts the demo. */
+#demo-banner {
+    background: $error;
+    color: $background;
+    text-style: bold;
+    text-align: center;
+    height: 1;
+    width: 1fr;
+}
+
+DemoScreen #status-pill {
+    height: 1;
+    text-align: right;
+    text-style: bold;
+    padding: 0 1;
+}
+
+DemoScreen #status-pill.running {
+    color: $secondary;
+}
+
+DemoScreen #status-pill.done {
+    color: $success;
+}
+
+/* Dolphie-style panel grid: a row of 5 small metric cards, then Steps and
+ * the live log side by side taking the rest of the vertical space. Flat
+ * ascii borders (+/-/|) rather than rounded Unicode ones, to match the
+ * ASCII-art dashboard look rather than a normal rounded-corner Textual
+ * widget look. */
+DemoScreen #stats-row {
+    layout: grid;
+    grid-size: 5 1;
+    grid-columns: 1fr 1fr 1fr 1fr 1fr;
+    grid-gutter: 1;
+    height: auto;
+    padding: 1 1 0 1;
+}
+
+DemoScreen #main-row {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 2fr 3fr;
+    grid-gutter: 1;
+    height: 1fr;
+    padding: 1;
+}
+
+DemoScreen .panel {
+    border: ascii $primary;
+    padding: 0 1;
+}
+
+DemoScreen .stat-panel {
+    height: auto;
+}
+
+/* StepRow is a bare Widget subclass with no height rule of its own, so it
+ * falls back to Textual's Widget default of height:1fr -- fine when its
+ * container happens to be barely taller than its content (RunScreen's
+ * layout so far), but inside a tall Dolphie-style panel with room to
+ * spare, 5 rows at "1fr" each stretch to split *all* of it evenly, pushing
+ * every row but the first off screen. Each row is two lines of text; it
+ * should only ever take the height its content needs. */
+StepRow {
+    height: auto;
+}
+
+DemoScreen #lag_value {
+    color: $warning;
+}

@@ -1,0 +1,3 @@
+sakila: writing... 1.2GiB after 120s (10240 KB/s) [44%]
+sakila: writing... 2.1GiB after 240s (9830 KB/s) [77%]
+sakila: writing... 2.7GiB after 360s (7900 KB/s) [99%]
