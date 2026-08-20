@@ -429,7 +429,7 @@ def run_assessment_checks(
 
     # Previously unwired checks
     func_indexes = _filter_by_schema(_read_tsv(pre / "functional_indexes.tsv"), _sel_dbs)
-    func_defaults = _read_tsv(pre / "functional_defaults.tsv")
+    func_defaults = _filter_by_schema(_read_tsv(pre / "functional_defaults.tsv"), _sel_dbs)
     invisible_cols = _filter_by_schema(_read_tsv(pre / "invisible_columns.tsv"), _sel_dbs)
     check_cons = _filter_by_schema(_read_tsv(pre / "check_constraints.tsv"), _sel_dbs)
     partial_rev = _read_tsv(pre / "partial_revokes.tsv")
