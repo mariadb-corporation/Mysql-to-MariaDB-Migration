@@ -260,6 +260,7 @@ def assess(
                     capture_output=True,
                     text=True,
                     check=False,
+                    stdin=subprocess.DEVNULL,
                 )
                 for line in (proc.stdout or "").splitlines():
                     report.log(line)

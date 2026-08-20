@@ -157,6 +157,7 @@ def _run_precheck(repo_root: Path, cfg: Dict[str, Any], outdir: Path, log) -> Pa
         capture_output=True,
         text=True,
         env=env,
+        stdin=subprocess.DEVNULL,
     )
 
     # Log stdout/stderr (should not contain password)
