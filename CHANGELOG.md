@@ -46,6 +46,49 @@
   `binlog_format` gates.
 
 ### Fixed
+- **`localhost` as a host input silently ignored the port.** The MySQL and
+  MariaDB clients treat `localhost` as an instruction to use a Unix socket,
+  discarding the port entirely, so an operator entering `localhost` with a
+  non-default port reached the wrong endpoint or failed with error 2002. The
+  launcher now substitutes `127.0.0.1` and says so on screen — worth noting
+  because `'user'@'localhost'` and `'user'@'127.0.0.1'` are distinct grants.
+- **Client option files that alter output format now fail the precheck up
+  front.** Options such as `verbose` and `vertical` change how the client frames
+  its output, which corrupts the values this program reads back from the servers
+  and can fail a gate against a correctly configured server. The precheck now
+  detects these locally, before any server connection, and stops with the
+  offending options named.
+- **Assessment could stall indefinitely at a prompt the operator never sees.**
+  When `mariadb-migrate-config-file` is present on the host, `00_precheck.sh`
+  offers to run it interactively. Under `migrationctl` the spawned script
+  inherited the caller's terminal on stdin, so its `[[ -t 0 ]]` guard evaluated
+  true and the prompt fired — but its output went to the captured stream rather
+  than the terminal, leaving the run apparently hung with no indication why.
+  Operators saw assessment stop after `==> Assessing` and resume only after
+  pressing Enter. Scripts spawned from `orchestrator/checks.py`,
+  `orchestrator/migrationctl.py`, and `orchestrator/runner.py` now run with
+  stdin closed, so any interactive prompt reached under orchestration falls
+  through to its non-interactive default instead of blocking.
+- **Assessment reported findings from databases outside the migration scope.**
+  The precheck SQL in `sql/checks/` queries `INFORMATION_SCHEMA` instance-wide,
+  and `orchestrator/checks.py` consumed those results without filtering to the
+  selected databases. A migration scoped to one database could therefore raise
+  HIGH- and MEDIUM-severity warnings for objects belonging to unrelated
+  databases, and include sample rows naming their tables and columns in
+  `artifacts/report.json`. Thirteen schema-scoped checks now filter on
+  `SRC_DBS`/`SRC_DB`: `json_columns`, `mysql8_collations`,
+  `mysql8_column_collations`, `gis_srid_usage`, `check_constraints`,
+  `generated_columns`, `functional_indexes`, `functional_defaults`,
+  `invisible_columns`, `partitioned_tables`, `schema_charsets`,
+  `fk_name_lengths`, and `trigger_order`. Instance-scoped checks
+  (`partial_revokes`, `mysql_roles`, `resource_groups`, `active_plugins`,
+  `definers_inventory`, `xplugin_status`, and the server-setting checks) are
+  deliberately unfiltered, as are `schema_sizes` (whole-instance footprint is
+  useful when planning a migration window) and `view_routine_bodies` (its first
+  column is an object type, not a schema name). Data movement was never
+  affected — the run phase passes the selected databases to `mariadb-dump`
+  directly. Inventory counts for the affected checks will be lower than in
+  1.4.0-beta for anyone with multiple databases on the source.
 - Resource-group precheck no longer false-positives on 8.0 sources. The query
   now excludes the two built-in default groups (`USR_default`, `SYS_default`),
   which are always present, so `resource_groups_in_use` warns only on
