@@ -424,13 +424,13 @@ def run_assessment_checks(
     ccoll = _filter_by_schema(_read_tsv(pre / "mysql8_column_collations.tsv"), _sel_dbs)
     sql_mode = _read_tsv(pre / "sql_mode.tsv")
     definers = _read_tsv(pre / "definers_inventory.tsv")
-    partitions = _read_tsv(pre / "partitioned_tables.tsv")
+    partitions = _filter_by_schema(_read_tsv(pre / "partitioned_tables.tsv"), _sel_dbs)
     plugins = _read_tsv(pre / "active_plugins.tsv")
 
     # Previously unwired checks
-    func_indexes = _read_tsv(pre / "functional_indexes.tsv")
+    func_indexes = _filter_by_schema(_read_tsv(pre / "functional_indexes.tsv"), _sel_dbs)
     func_defaults = _read_tsv(pre / "functional_defaults.tsv")
-    invisible_cols = _read_tsv(pre / "invisible_columns.tsv")
+    invisible_cols = _filter_by_schema(_read_tsv(pre / "invisible_columns.tsv"), _sel_dbs)
     check_cons = _filter_by_schema(_read_tsv(pre / "check_constraints.tsv"), _sel_dbs)
     partial_rev = _read_tsv(pre / "partial_revokes.tsv")
     gis_srid = _filter_by_schema(_read_tsv(pre / "gis_srid_usage.tsv"), _sel_dbs)
