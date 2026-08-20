@@ -303,6 +303,34 @@ prompt() {
   fi
 }
 
+# 'localhost' makes the client connect over a Unix socket and ignore -P/--port,
+# so it silently reaches whatever server owns the local socket instead of the
+# endpoint the operator meant. Substitute the TCP loopback address instead.
+# Note: 'user'@'localhost' and 'user'@'127.0.0.1' are distinct grants, so the
+# substitution is announced -- a later auth failure is then interpretable.
+prompt_host() {
+  local label="$1"
+  local def="${2:-}"
+  local var
+  while true; do
+    var="$(prompt "$label" "$def")"
+    var="${var#"${var%%[![:space:]]*}"}"
+    var="${var%"${var##*[![:space:]]}"}"
+    if [[ -z "$var" ]]; then
+      echo "  Enter the hostname or IP address." >&2
+      continue
+    fi
+    case "${var,,}" in
+      localhost|localhost.localdomain|::1)
+        echo "  Using 127.0.0.1 instead of '$var' so the port is honoured." >&2
+        var="127.0.0.1"
+        ;;
+    esac
+    printf "%s" "$var"
+    return 0
+  done
+}
+
 prompt_secret() {
   local label="$1"
   local var
@@ -1504,7 +1532,7 @@ EOF
 fi
 
 if [[ "$STAGED_PHASE" != "load_only" ]]; then
-  SRC_HOST="$(prompt "Source host" "")"
+  SRC_HOST="$(prompt_host "Source host" "")"
   SRC_PORT="$(prompt "Source port" "3306")"
   SRC_ADMIN_USER="$(prompt "Source admin user" "")"
   SRC_ADMIN_PASS="$(prompt_secret "Source admin password")"
@@ -1526,7 +1554,7 @@ if needs_source_endpoint_preflight; then
     echo ""
     echo "Re-enter source connection details (press Enter to keep the current value,"
     echo "or Ctrl-C to abort)."
-    SRC_HOST="$(prompt "Source host" "$SRC_HOST")"
+    SRC_HOST="$(prompt_host "Source host" "$SRC_HOST")"
     SRC_PORT="$(prompt "Source port" "$SRC_PORT")"
     SRC_ADMIN_USER="$(prompt "Source admin user" "$SRC_ADMIN_USER")"
     SRC_ADMIN_PASS="$(prompt_secret "Source admin password")"
@@ -1624,7 +1652,7 @@ TGT_SSH_HOST=""
 TGT_SSH_USER="root"
 TGT_SSH_OPTS="-o StrictHostKeyChecking=no"
 if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "dump_only" ]]; then
-  TGT_HOST="$(prompt "Target host" "")"
+  TGT_HOST="$(prompt_host "Target host" "")"
   TGT_PORT="$(prompt "Target port" "3306")"
   TGT_ADMIN_USER="$(prompt "Target admin user" "")"
   TGT_ADMIN_PASS="$(prompt_secret "Target admin password")"
@@ -1637,7 +1665,7 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "dump_only" ]]; then
       echo ""
       echo "Re-enter target connection details (press Enter to keep the current value,"
       echo "or Ctrl-C to abort)."
-      TGT_HOST="$(prompt "Target host" "$TGT_HOST")"
+      TGT_HOST="$(prompt_host "Target host" "$TGT_HOST")"
       TGT_PORT="$(prompt "Target port" "$TGT_PORT")"
       TGT_ADMIN_USER="$(prompt "Target admin user" "$TGT_ADMIN_USER")"
       TGT_ADMIN_PASS="$(prompt_secret "Target admin password")"
