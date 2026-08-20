@@ -647,6 +647,18 @@ EOF
   local version_line
   version_line="$("$DB_CLIENT" --version 2>/dev/null | head -1)"
   echo "==> DB client detected: $DB_CLIENT  ($version_line)"
+  # Gate: reject client option files that alter output format. Runs here,
+  # at the moment the client is known and before any query, because every
+  # capture below reads single values back from the client. Note that
+  # --batch --skip-column-names in db_run_query does NOT protect against
+  # verbose/vertical framing.
+  if [[ -r "scripts/lib/gate_client_output.sh" ]]; then
+    . "scripts/lib/gate_client_output.sh"
+    if ! gate_client_defaults_clean "$DB_CLIENT"; then
+      echo "==> Aborted: client output configuration is unsafe." >&2
+      exit 1
+    fi
+  fi
   export DB_CLIENT
 }
 
