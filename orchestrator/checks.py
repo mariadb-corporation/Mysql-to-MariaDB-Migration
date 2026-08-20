@@ -47,7 +47,9 @@ def _filter_by_schema(rows: List[List[str]], dbs: List[str]) -> List[List[str]]:
     Precheck queries run instance-wide, so schema-scoped checks return objects
     from databases that are not being migrated. Instance-scoped checks
     (partial_revokes, mysql_roles, resource_groups, active_plugins,
-    definers_inventory) must NOT be passed through here.
+    definers_inventory) must NOT be passed through here, nor must checks
+    whose first field is an object type rather than a schema name
+    (view_routine_bodies, definers_inventory).
 
     An empty db list means "unknown scope" and is passed through unfiltered.
     """
@@ -419,7 +421,7 @@ def run_assessment_checks(
     engines = _read_tsv(pre / "engines_summary.tsv")
     sizes = _read_tsv(pre / "schema_sizes.tsv")
 
-    schema_charsets = _read_tsv(pre / "schema_charsets.tsv")
+    schema_charsets = _filter_by_schema(_read_tsv(pre / "schema_charsets.tsv"), _sel_dbs)
     tcoll = _filter_by_schema(_read_tsv(pre / "mysql8_collations.tsv"), _sel_dbs)
     ccoll = _filter_by_schema(_read_tsv(pre / "mysql8_column_collations.tsv"), _sel_dbs)
     sql_mode = _read_tsv(pre / "sql_mode.tsv")
@@ -436,8 +438,8 @@ def run_assessment_checks(
     gis_srid = _filter_by_schema(_read_tsv(pre / "gis_srid_usage.tsv"), _sel_dbs)
     res_groups = _read_tsv(pre / "resource_groups.tsv")
     xplugin = _read_tsv(pre / "xplugin_status.tsv")
-    fk_names = _read_tsv(pre / "fk_name_lengths.tsv")
-    trigger_ord = _read_tsv(pre / "trigger_order.tsv")
+    fk_names = _filter_by_schema(_read_tsv(pre / "fk_name_lengths.tsv"), _sel_dbs)
+    trigger_ord = _filter_by_schema(_read_tsv(pre / "trigger_order.tsv"), _sel_dbs)
 
     # New checks
     mysql_roles = _read_tsv(pre / "mysql_roles.tsv")
