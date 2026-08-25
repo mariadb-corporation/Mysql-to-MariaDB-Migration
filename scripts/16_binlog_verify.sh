@@ -12,6 +12,10 @@ TGT_ADMIN_PASS="${TGT_ADMIN_PASS:-}"
 BINLOG_MAX_LAG_SECS="${BINLOG_MAX_LAG_SECS:-30}"
 BINLOG_VERIFY_TIMEOUT_SECS="${BINLOG_VERIFY_TIMEOUT_SECS:-90}"
 BINLOG_VERIFY_POLL_SECS="${BINLOG_VERIFY_POLL_SECS:-3}"
+# Threads must report healthy on this many consecutive polls. A single poll
+# can catch the SQL thread before it has applied the first relayed events, so
+# one healthy reading is not evidence that replication is actually running.
+BINLOG_VERIFY_STABLE_POLLS="${BINLOG_VERIFY_STABLE_POLLS:-3}"
 
 if [[ -z "$TGT_HOST" || -z "$TGT_ADMIN_USER" || -z "$TGT_ADMIN_PASS" ]]; then
   echo "ERROR: Missing target admin envs for verify step."
@@ -29,6 +33,7 @@ status_line=""
 deadline=$(( $(date +%s) + BINLOG_VERIFY_TIMEOUT_SECS ))
 last_io_error=""
 last_sql_error=""
+ok_polls=0
 while :; do
   status_line=""
   for q in "SHOW REPLICA STATUS\\G" "SHOW SLAVE STATUS\\G"; do
@@ -66,7 +71,13 @@ while :; do
   last_sql_error="$(printf "%s" "$status_line" | awk -F'\t' '{print $5}')"
 
   if [[ "${io_state:-No}" == "Yes" && "${sql_state:-No}" == "Yes" ]]; then
-    break
+    ok_polls=$(( ok_polls + 1 ))
+    if (( ok_polls >= BINLOG_VERIFY_STABLE_POLLS )); then
+      break
+    fi
+  else
+    # Any unhealthy reading resets the run of good polls.
+    ok_polls=0
   fi
   if (( $(date +%s) >= deadline )); then
     break

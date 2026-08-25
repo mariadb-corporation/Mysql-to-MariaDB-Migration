@@ -25,6 +25,8 @@ SRC_BINLOG_POS="${SRC_BINLOG_POS:-}"
 BINLOG_CREATE_REPL_USER="${BINLOG_CREATE_REPL_USER:-1}"
 BINLOG_MASTER_SSL="${BINLOG_MASTER_SSL:-0}"
 BINLOG_MASTER_SSL_VERIFY_SERVER_CERT="${BINLOG_MASTER_SSL_VERIFY_SERVER_CERT:-0}"
+BINLOG_SRC_SSL_CA="${BINLOG_SRC_SSL_CA:-}"
+BINLOG_REPL_AUTH="${BINLOG_REPL_AUTH:-auto}"
 BINLOG_AUTO_FIX_SERVER_ID="${BINLOG_AUTO_FIX_SERVER_ID:-1}"
 TGT_SERVER_ID="${TGT_SERVER_ID:-}"
 
@@ -97,58 +99,200 @@ if [[ -z "$SRC_BINLOG_FILE" || -z "$SRC_BINLOG_POS" ]]; then
   exit 2
 fi
 
+echo "Detecting source version and authentication plugins..."
+src_version="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+  -e "SELECT VERSION();" 2>/dev/null | head -1 | tr -d '[:space:]')"
+[[ -n "$src_version" ]] || src_version="unknown"
+
+# Probe a single auth plugin. Distinguishes "probe failed" (non-zero return)
+# from "plugin not present" (success, empty output) so a connection error is
+# never reported as a missing plugin.
+probe_plugin() {
+  local name="$1" out err rc
+  err="$(mktemp)"
+  out="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+    -e "SELECT plugin_status FROM information_schema.plugins WHERE plugin_name='${name}';" 2>"$err")" && rc=0 || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    echo "ERROR: Could not query authentication plugin status on the source ($SRC_HOST:$SRC_PORT)." >&2
+    sed 's/^/       /' "$err" >&2
+    rm -f "$err"
+    return $rc
+  fi
+  rm -f "$err"
+  printf "%s\n" "$out" | head -1 | tr -d '[:space:]'
+}
+
+native_status="$(probe_plugin mysql_native_password)" || exit 14
+sha2_status="$(probe_plugin caching_sha2_password)"   || exit 14
+
+# Choose the replication auth plugin.
+#   native  - works without TLS; default wherever available (MySQL 8.0 and earlier)
+#   sha2    - requires TLS on the replication link; no RSA fallback
+# Verified working against MySQL 8.0.46 and 8.4.7 with MASTER_SSL=1.
+repl_auth_plugin=""
+case "$BINLOG_REPL_AUTH" in
+  native)
+    if [[ "$native_status" == "ACTIVE" ]]; then
+      repl_auth_plugin="mysql_native_password"
+    else
+      echo "ERROR: BINLOG_REPL_AUTH=native but mysql_native_password is not active on the source." >&2
+      exit 14
+    fi
+    ;;
+  sha2)
+    if [[ "$sha2_status" == "ACTIVE" ]]; then
+      repl_auth_plugin="caching_sha2_password"
+    else
+      echo "ERROR: BINLOG_REPL_AUTH=sha2 but caching_sha2_password is not active on the source." >&2
+      exit 14
+    fi
+    ;;
+  auto)
+    if [[ "$native_status" == "ACTIVE" ]]; then
+      repl_auth_plugin="mysql_native_password"
+    elif [[ "$sha2_status" == "ACTIVE" ]]; then
+      repl_auth_plugin="caching_sha2_password"
+    fi
+    ;;
+  *)
+    echo "ERROR: BINLOG_REPL_AUTH must be auto, native, or sha2 (got '$BINLOG_REPL_AUTH')." >&2
+    exit 1
+    ;;
+esac
+
+if [[ -z "$repl_auth_plugin" ]]; then
+  cat >&2 <<EOF
+ERROR: No usable authentication plugin for replication on the source
+       ($SRC_HOST:$SRC_PORT, version $src_version).
+
+       Neither 'mysql_native_password' nor 'caching_sha2_password' is active.
+
+       Verify with:
+           SELECT plugin_name, plugin_status FROM information_schema.plugins
+           WHERE plugin_name IN ('mysql_native_password','caching_sha2_password');
+EOF
+  exit 14
+fi
+
+# When the user is pre-created, take the auth path from the existing account so
+# the TLS decision below matches how it will actually authenticate.
+if [[ "$BINLOG_CREATE_REPL_USER" != "1" ]]; then
+  existing_plugin="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+    -e "SELECT plugin FROM mysql.user WHERE user='${REPL_USER//\'/\'\'}' AND host='%';" 2>/dev/null | head -1 | tr -d '[:space:]')"
+  if [[ -n "$existing_plugin" ]]; then
+    repl_auth_plugin="$existing_plugin"
+  fi
+fi
+
+echo "Replication auth plugin: $repl_auth_plugin (source $src_version)"
+
+# caching_sha2_password requires a secure transport for full verification and
+# has no RSA fallback on this path: without TLS the IO thread fails with 1045
+# once the source-side fast-auth cache goes cold.
+if [[ "$repl_auth_plugin" == "caching_sha2_password" ]]; then
+  src_ssl_cert="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+    -e "SELECT @@global.ssl_cert;" 2>/dev/null | head -1 | tr -d '[:space:]')"
+  if [[ -z "$src_ssl_cert" || "$src_ssl_cert" == "NULL" ]]; then
+    cat >&2 <<EOF
+ERROR: The source ($SRC_HOST:$SRC_PORT, version $src_version) requires
+       caching_sha2_password for replication, but has no TLS certificate
+       configured. That combination cannot authenticate.
+
+       Either configure TLS on the source, or enable mysql_native_password
+       (MySQL 8.0 and earlier only):
+
+           [mysqld]
+           mysql_native_password=ON
+
+       Note: mysql_native_password was removed in MySQL 9.0 and setting it
+       there is an invalid option.
+EOF
+    exit 15
+  fi
+
+  BINLOG_MASTER_SSL=1
+  if [[ -n "$BINLOG_SRC_SSL_CA" ]]; then
+    BINLOG_MASTER_SSL_VERIFY_SERVER_CERT=1
+  else
+    BINLOG_MASTER_SSL_VERIFY_SERVER_CERT=0
+    cat >&2 <<EOF
+WARNING: The replication link to $SRC_HOST is encrypted, but the source
+         certificate will not be verified. Set BINLOG_SRC_SSL_CA to the
+         source's CA certificate path to enable verification.
+EOF
+  fi
+fi
+
 echo "Ensuring replication user exists on source..."
 if [[ "$BINLOG_CREATE_REPL_USER" == "1" ]]; then
   repl_user_esc="${REPL_USER//\'/\'\'}"
   repl_pass_esc="${REPL_PASS//\'/\'\'}"
 
-  # mysql_native_password required (MariaDB-as-replica can't speak caching_sha2_password).
-  plugin_status="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-    -e "SELECT plugin_status FROM information_schema.plugins WHERE plugin_name='mysql_native_password';" \
-    2>/dev/null | head -1)"
-  if [[ "$plugin_status" != "ACTIVE" ]]; then
-    cat >&2 <<EOF
-ERROR: 'mysql_native_password' plugin is not active on the source ($SRC_HOST:$SRC_PORT).
-       MariaDB replication clients require this plugin (caching_sha2_password
-       does not work for cross-vendor replication).
-
-       On the source, load the plugin and retry:
-
-           INSTALL COMPONENT 'file://component_mysql_native_password';
-
-       Or set in /etc/my.cnf and restart MySQL:
-
-           [mysqld]
-           mysql_native_password=ON
-
-       Verify with:
-           SELECT plugin_name, plugin_status FROM information_schema.plugins
-           WHERE plugin_name='mysql_native_password';
-EOF
-    exit 14
-  fi
-
-  create_user_sql="CREATE USER IF NOT EXISTS '${repl_user_esc}'@'%' IDENTIFIED WITH mysql_native_password BY '${repl_pass_esc}';"
-  alter_user_sql="ALTER USER '${repl_user_esc}'@'%' IDENTIFIED WITH mysql_native_password BY '${repl_pass_esc}';"
+  create_user_sql="CREATE USER IF NOT EXISTS '${repl_user_esc}'@'%' IDENTIFIED WITH ${repl_auth_plugin} BY '${repl_pass_esc}';"
+  alter_user_sql="ALTER USER '${repl_user_esc}'@'%' IDENTIFIED WITH ${repl_auth_plugin} BY '${repl_pass_esc}';"
   grant_sql="GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO '${repl_user_esc}'@'%';"
+
+  # Account DDL executed here lands in the source binlog at a position AFTER
+  # the coordinates captured during seed, so the replica would replay the
+  # tool's own CREATE/ALTER/GRANT. On a MariaDB target an
+  # "ALTER USER ... IDENTIFIED WITH caching_sha2_password AS '<hash>'" fails
+  # (ERROR 1396, no server-side sha2 plugin) and stops the SQL thread.
+  # Suppress binary logging for these statements where the source account has
+  # the privilege to do so.
+  nolog=""
+  if MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+       -e "SET SESSION sql_log_bin=0;" >/dev/null 2>&1; then
+    nolog="SET SESSION sql_log_bin=0; "
+  else
+    cat >&2 <<EOF
+WARNING: '$SRC_ADMIN_USER' cannot set sql_log_bin on the source, so the
+         replication account DDL below will be written to the binary log and
+         replayed on the target. If the target rejects it the replica SQL
+         thread will stop. Grant BINLOG_ADMIN (or SUPER) to avoid this.
+EOF
+  fi
 
   run_sql() {
     local sql="$1" out rc
     out="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
-      -e "$sql" 2>&1)" && rc=0 || rc=$?
+      -e "${nolog}$sql" 2>&1)" && rc=0 || rc=$?
     [[ $rc -ne 0 ]] && printf "%s\n" "$out" >&2
     return $rc
   }
 
+  # CREATE is advisory (the account may already exist); ALTER and GRANT are not.
   run_sql "$create_user_sql" || true
-  run_sql "$alter_user_sql"  || true
-  run_sql "$grant_sql"       || true
-  MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "FLUSH PRIVILEGES;"
+  run_sql "$alter_user_sql" || {
+    echo "ERROR: Could not set the replication user's password/plugin on the source." >&2
+    exit 16
+  }
+  run_sql "$grant_sql" || {
+    echo "ERROR: Could not grant replication privileges on the source." >&2
+    exit 16
+  }
+  MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" -e "${nolog}FLUSH PRIVILEGES;"
+
+  # Confirm the account landed as intended rather than discovering it 60s later
+  # as a generic access-denied in Last_IO_Error.
+  actual_plugin="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" "${src_args[@]}" \
+    -e "SELECT plugin FROM mysql.user WHERE user='${repl_user_esc}' AND host='%';" 2>/dev/null | head -1 | tr -d '[:space:]')"
+  if [[ -z "$actual_plugin" ]]; then
+    echo "WARNING: Could not verify the replication user on the source (no read access to mysql.user)." >&2
+  elif [[ "$actual_plugin" != "$repl_auth_plugin" ]]; then
+    echo "ERROR: Replication user '${REPL_USER}'@'%' uses '$actual_plugin', expected '$repl_auth_plugin'." >&2
+    exit 16
+  else
+    echo "Replication user '${REPL_USER}'@'%' ready ($actual_plugin)."
+  fi
 fi
 
 repl_ssl_sql=", MASTER_SSL=0, MASTER_SSL_VERIFY_SERVER_CERT=0"
 if [[ "$BINLOG_MASTER_SSL" == "1" ]]; then
-  repl_ssl_sql=", MASTER_SSL=1, MASTER_SSL_VERIFY_SERVER_CERT=${BINLOG_MASTER_SSL_VERIFY_SERVER_CERT}"
+  if [[ -n "$BINLOG_SRC_SSL_CA" ]]; then
+    repl_ssl_sql=", MASTER_SSL=1, MASTER_SSL_CA='${BINLOG_SRC_SSL_CA}', MASTER_SSL_VERIFY_SERVER_CERT=${BINLOG_MASTER_SSL_VERIFY_SERVER_CERT}"
+  else
+    repl_ssl_sql=", MASTER_SSL=1, MASTER_SSL_VERIFY_SERVER_CERT=${BINLOG_MASTER_SSL_VERIFY_SERVER_CERT}"
+  fi
 fi
 
 repl_sql="CHANGE MASTER TO
