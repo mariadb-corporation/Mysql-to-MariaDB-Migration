@@ -36,6 +36,18 @@ fi
 OUTDIR="${OUTDIR:-$ROOT/artifacts/precheck}"
 mkdir -p "$OUTDIR"
 
+# Operator-selected databases (comma-separated), for display scoping.
+SEL_DBS="${SRC_DBS:-${SRC_DB:-}}"
+
+# First TSV column is a schema name. Keep in sync with the
+# _filter_by_schema() call sites in orchestrator/checks.py.
+SCHEMA_SCOPED=(
+  json_columns schema_charsets mysql8_collations mysql8_column_collations
+  partitioned_tables functional_indexes functional_defaults invisible_columns
+  check_constraints gis_srid_usage fk_name_lengths trigger_order
+  generated_columns
+)
+
 CHECKS_DIR="${CHECKS_DIR:-$ROOT/sql/checks}"
 COMBINED_OUT="$OUTDIR/precheck.out"
 COMBINED_ERR="$OUTDIR/precheck.err"
@@ -48,6 +60,7 @@ echo "Host: $HOST  Port: $PORT  User: $USER" | tee -a "$COMBINED_OUT"
 echo "Checks dir: $CHECKS_DIR" | tee -a "$COMBINED_OUT"
 echo "Outdir: $OUTDIR" | tee -a "$COMBINED_OUT"
 echo "" | tee -a "$COMBINED_OUT"
+echo "Databases: ${SEL_DBS:-<all - no selection in environment>}" | tee -a "$COMBINED_OUT"
 
 : > "$COMBINED_ERR"
 
@@ -111,6 +124,30 @@ SQL_FILES=(
   "$CHECKS_DIR/view_routine_bodies.sql"
 )
 
+_view_tmp="$(mktemp)"
+trap 'rm -f "$_view_tmp"' EXIT
+
+# Write the display view of a TSV to $_view_tmp. Schema-scoped checks are
+# filtered to the selected databases; everything else passes through. An
+# empty selection means "unknown scope" and is unfiltered, matching
+# _filter_by_schema() in orchestrator/checks.py.
+_display_view() {
+  local file="$1" base="$2" s
+  if [[ -n "$SEL_DBS" ]]; then
+    for s in "${SCHEMA_SCOPED[@]}"; do
+      if [[ "$s" == "$base" ]]; then
+        awk -F'\t' -v dbs="$SEL_DBS" '
+          BEGIN { n = split(dbs, a, ",")
+                  for (i = 1; i <= n; i++) { gsub(/^[ \t]+|[ \t]+$/, "", a[i]); sel[a[i]] = 1 } }
+          $1 in sel
+        ' "$file" > "$_view_tmp"
+        return
+      fi
+    done
+  fi
+  cat "$file" > "$_view_tmp"
+}
+
 for f in "${SQL_FILES[@]}"; do
   if [[ ! -f "$f" ]]; then
     echo "ERROR: Missing SQL file: $f" | tee -a "$COMBINED_OUT"
@@ -122,10 +159,16 @@ for f in "${SQL_FILES[@]}"; do
   echo "---- $base ----" | tee -a "$COMBINED_OUT"
 
   if "$MYSQL_BIN" "${MYSQL_AUTH[@]}" "${MYSQL_OPTS[@]}" < "$f" > "$out" 2>>"$COMBINED_ERR"; then
+
     if [[ -s "$out" ]]; then
-      head -n 50 "$out" | tee -a "$COMBINED_OUT"
-      if [[ $(wc -l < "$out") -gt 50 ]]; then
-        echo "... (truncated; full output in $out)" | tee -a "$COMBINED_OUT"
+      _display_view "$out" "$base"
+      if [[ -s "$_view_tmp" ]]; then
+        head -n 50 "$_view_tmp" | tee -a "$COMBINED_OUT"
+        if [[ $(wc -l < "$_view_tmp") -gt 50 ]]; then
+          echo "... (truncated; full output in $out)" | tee -a "$COMBINED_OUT"
+        fi
+      else
+        echo "(no rows in selected databases)" | tee -a "$COMBINED_OUT"
       fi
     else
       echo "(no rows)" | tee -a "$COMBINED_OUT"
