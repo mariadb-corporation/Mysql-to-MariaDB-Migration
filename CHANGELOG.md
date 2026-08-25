@@ -115,6 +115,20 @@
 - Corrected the mode name printed in the replication-incompatibility advisory
   from "Parallel Streaming Copy" to "Parallel Restartable Streaming Copy"
   (launcher, assessment, and preflight paths).
+- **Assessment output no longer lists objects from databases outside the
+  migration.** Precheck queries run instance-wide, so the run log reported
+  tables, collations, and columns from every database on the source rather than
+  only the selected ones. The assessment report was already scoped correctly,
+  which meant the two disagreed. The log is now scoped to the selected
+  databases and records which databases were in scope for the run.
+- **Rows larger than 16 MiB no longer fail part-way through a load.** The client
+  used to move data carries its own packet-size limit, independent of the source
+  and target servers. A single row above that limit stopped the load with
+  `ERROR 2020`, even when both servers had been raised to accommodate it — and
+  even after the pre-run check reported sufficient headroom, because that check
+  compares the two servers and cannot see the client's own limit. All data-path
+  client invocations now set the limit explicitly. Verified with 20 MiB rows
+  migrating intact into a MariaDB target at its 16 MiB default.
 
 ### Compatibility notes
 - No configuration changes required. Behavior for MySQL 8.0 and 8.4 sources is
