@@ -5,6 +5,7 @@ set -euo pipefail
 MIG_TOOL_VERSION="1.4.0-beta"
 MIG_TOOL_BUILD="20260724"
 
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # Display professional welcome header
 cat << EOF
 ---------------------------------------------------------------------
@@ -683,6 +684,138 @@ db_run_query() {
   DB_QUERY_STDERR="$(cat "$stderr_file" 2>/dev/null || true)"
   rm -f "$stderr_file"
   return $DB_QUERY_RC
+}
+# ---------------------------------------------------------------------------
+# max_allowed_packet headroom (all modes)
+#
+# A single row larger than the target's max_allowed_packet aborts the load with
+# ERROR 2006 (Server has gone away). The dump cannot split it: one row is one
+# INSERT, so there is no seam to break at.
+#
+# The source can only emit rows its own limit allows, so when the target is at
+# least twice the source there is no reachable overflow and the scan is
+# skipped. The 2x margin covers --hex-blob (doubles binary columns) and
+# escaping expansion in text, neither of which shows in the raw byte total.
+#
+# Typical case: MySQL 8.x defaults to 64M, MariaDB to 16M. MySQL 5.7 defaults
+# to 4M and clears the headroom check outright.
+# ---------------------------------------------------------------------------
+
+# Sibling of db_run_query() for checks that need a .sql file on stdin.
+db_run_sql_file() {
+  local host="$1" port="$2" user="$3" pass="$4" file="$5" init="$6"
+  local stderr_file
+  local -a args=(
+    -h"$host" -P"$port" -u"$user"
+    --connect-timeout=10
+    --batch --skip-column-names --raw
+  )
+  if [[ "$DB_CLIENT" == "mariadb" ]]; then
+    args+=(--ssl-verify-server-cert=OFF)
+  fi
+  [[ -n "$init" ]] && args+=(--init-command="$init")
+  stderr_file="$(mktemp)"
+  DB_QUERY_STDOUT="$(MYSQL_PWD="$pass" "$DB_CLIENT" "${args[@]}" \
+    < "$file" 2>"$stderr_file")" && DB_QUERY_RC=0 || DB_QUERY_RC=$?
+  DB_QUERY_STDERR="$(cat "$stderr_file" 2>/dev/null || true)"
+  rm -f "$stderr_file"
+  return $DB_QUERY_RC
+}
+
+check_packet_headroom() {
+  local src_packet tgt_packet limit big_rows answer
+  local sql_file="${REPO_ROOT:-.}/sql/checks/large_row_bytes.sql"
+
+  echo "==> Checking max_allowed_packet headroom..."
+
+  if ! db_run_query "$SRC_HOST" "$SRC_PORT" "$SRC_ADMIN_USER" "$SRC_ADMIN_PASS" \
+       "SELECT @@max_allowed_packet;"; then
+    echo "WARNING: Could not read max_allowed_packet from source. Skipping check."
+    return 0
+  fi
+  src_packet="$(printf "%s" "$DB_QUERY_STDOUT" | head -1 | tr -d '\r')"
+
+  if ! db_run_query "$TGT_HOST" "$TGT_PORT" "$TGT_ADMIN_USER" "$TGT_ADMIN_PASS" \
+       "SELECT @@max_allowed_packet;"; then
+    echo "WARNING: Could not read max_allowed_packet from target. Skipping check."
+    return 0
+  fi
+  tgt_packet="$(printf "%s" "$DB_QUERY_STDOUT" | head -1 | tr -d '\r')"
+
+  if [[ ! "$src_packet" =~ ^[0-9]+$ || ! "$tgt_packet" =~ ^[0-9]+$ ]]; then
+    echo "WARNING: Unexpected max_allowed_packet values. Skipping check."
+    return 0
+  fi
+
+  echo "    Source: ${src_packet} bytes   Target: ${tgt_packet} bytes"
+
+  if [[ "$src_packet" -le $(( tgt_packet / 2 )) ]]; then
+    echo "==> OK: target has sufficient headroom."
+    return 0
+  fi
+
+  if [[ ! -f "$sql_file" ]]; then
+    echo "WARNING: $sql_file not found. Skipping row-size scan."
+    return 0
+  fi
+
+  limit=$(( tgt_packet / 2 ))
+  echo "    Target is below source. Scanning large-column tables for oversized rows."
+  echo "    (This reads only tables holding TEXT/BLOB/JSON columns and may take a"
+  echo "     few moments on large databases.)"
+
+  if ! db_run_sql_file "$SRC_HOST" "$SRC_PORT" "$SRC_ADMIN_USER" "$SRC_ADMIN_PASS" \
+       "$sql_file" "SET @selected_dbs='${SRC_DBS_INPUT// /}', @row_limit=${limit}"; then
+    echo "WARNING: row-size scan failed. Skipping check."
+    return 0
+  fi
+  big_rows="$DB_QUERY_STDOUT"
+
+  if [[ -z "$big_rows" ]]; then
+    echo "==> OK: no oversized rows found."
+    return 0
+  fi
+
+  echo ""
+  echo "WARNING: The following table(s) contain rows too large for the target's"
+  echo "         current max_allowed_packet (${tgt_packet} bytes):"
+  while IFS=$'\t' read -r s t b; do
+    [[ -z "$s" ]] && continue
+    echo "       - ${s}.${t}: ${b} bytes"
+  done <<< "$big_rows"
+  echo ""
+  echo "         These rows cannot be split across packets, so the load will stop"
+  echo "         with ERROR 2006 (Server has gone away) when one is reached."
+  echo ""
+
+  answer="$(prompt "Raise max_allowed_packet on the target to ${src_packet} now? (y/n)" "y")"
+  if [[ "$(printf "%s" "$answer" | tr '[:upper:]' '[:lower:]')" != "y" ]]; then
+    echo "WARNING: Continuing without raising max_allowed_packet."
+    echo "         Set it under [mysqld] and restart the target before migrating:"
+    echo "           max_allowed_packet=${src_packet}"
+    return 0
+  fi
+
+  if ! db_run_query "$TGT_HOST" "$TGT_PORT" "$TGT_ADMIN_USER" "$TGT_ADMIN_PASS" \
+       "SET GLOBAL max_allowed_packet=${src_packet};"; then
+    echo "ERROR: Could not raise max_allowed_packet on the target."
+    echo "       ${DB_QUERY_STDERR}"
+    echo "       This usually means the admin user lacks SUPER."
+    echo "       Set it manually under [mysqld] and restart:"
+    echo "         max_allowed_packet=${src_packet}"
+    return 0
+  fi
+
+  # SET GLOBAL applies to new connections only, so re-read on a fresh one.
+  if db_run_query "$TGT_HOST" "$TGT_PORT" "$TGT_ADMIN_USER" "$TGT_ADMIN_PASS" \
+     "SELECT @@max_allowed_packet;"; then
+    tgt_packet="$(printf "%s" "$DB_QUERY_STDOUT" | head -1 | tr -d '\r')"
+    echo "==> Target max_allowed_packet is now ${tgt_packet} bytes."
+  fi
+  echo "    Note: this is a runtime change and will not survive a restart."
+  echo "    To persist it, add under [mysqld] on the target:"
+  echo "      max_allowed_packet=${src_packet}"
+  return 0
 }
 
 test_source_endpoint() {
@@ -1436,7 +1569,7 @@ fi
 # Runs regardless of how $MODE was set (menu or env), so mariadb-mtk detection
 # and variant validation are consistent across both entry paths.
 if [[ "$MODE" == "two_step" ]]; then
-  sqldata_bin="${SQLINESDATA_BIN:-$(command -v sqldata 2>/dev/null || true)}"
+  sqldata_bin="${SQLINESDATA_BIN:-$(command -v mariadb-mtk 2>/dev/null || command -v sqldata 2>/dev/null || true)}"
   if [[ -z "$sqldata_bin" || ! -x "$sqldata_bin" ]]; then
     cat <<'EOF'
 
@@ -1721,6 +1854,7 @@ if [[ "$MODE" == "one_step" || "$MODE" == "two_step" || "$MODE" == "binlog" \
       exit 1
     fi
   done
+  check_packet_headroom
   if needs_target_endpoint_preflight; then
     print_target_ready_banner
   fi
@@ -1809,7 +1943,7 @@ fi
 REPL_USER="$CFG_REPL_USER"
 REPL_PASS="$CFG_REPL_PASS"
 if [[ "$MODE" == "binlog" || "$MODE" == "replace_slave" ]]; then
-  REPL_USER="$(prompt "Replication user" "${REPL_USER:-repl}")"
+  REPL_USER="$(prompt "Replication user" "${REPL_USER:-repl_user}")"
   REPL_PASS="$(prompt_secret "Replication password")"
   echo ""
   REPL_PASS="${REPL_PASS#"${REPL_PASS%%[![:space:]]*}"}"

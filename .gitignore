@@ -11,6 +11,7 @@ sqldata_ddl.sql
 sqldata_failed.sql
 sqldata_failed_tables.txt
 config/source.yaml
+sqldata_tables_in_progress.txt
 
 # Runtime artifacts (per-run state, never committed)
 state.json

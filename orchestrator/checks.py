@@ -414,7 +414,7 @@ def run_assessment_checks(
 
     # Load TSVs
     mysql_version = _read_tsv(pre / "mysql_version.tsv")          # expected: 1 row: version, comment?
-    innodb = _read_tsv(pre / "innodb_settings.tsv")               # expected: 1 row: file_per_table, fast_shutdown
+    innodb = _read_tsv(pre / "innodb_settings.tsv")               # expected: 1 row: file_per_table, fast_shutdown, max_allowed_packet
     auth = _read_tsv(pre / "auth_plugins.tsv")
     json_cols = _filter_by_schema(_read_tsv(pre / "json_columns.tsv"), _sel_dbs)
     enc = _read_tsv(pre / "compression_encryption.tsv")
@@ -471,9 +471,12 @@ def run_assessment_checks(
 
     innodb_file_per_table = ""
     innodb_fast_shutdown = ""
+    max_allowed_packet = ""
     if innodb and len(innodb[0]) >= 2:
         innodb_file_per_table = innodb[0][0].strip()
         innodb_fast_shutdown = innodb[0][1].strip()
+    if innodb and len(innodb[0]) >= 3:
+        max_allowed_packet = innodb[0][2].strip()
 
     gates.append(
         Gate(
