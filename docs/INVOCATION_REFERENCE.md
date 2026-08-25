@@ -113,6 +113,16 @@ python3 -m orchestrator.migrationctl resume \
   `scripts/00_preflight_binlog.sh` for the binlog mode's exit code
   mapping (`9` for `binlog_format`-not-`ROW`, `10` for JSON columns,
   etc.).
+- **`max_allowed_packet` check.** Before the run phase, the launcher
+  compares `max_allowed_packet` on source and target. If the target has
+  less than twice the source's limit, tables holding TEXT/BLOB/JSON
+  columns are scanned for rows the target cannot accept, and the
+  operator is offered a runtime `SET GLOBAL` on the target. A row larger
+  than the limit stops the load with ERROR 2006 and cannot be split
+  across packets. `one_step` gates on this again at preflight and exits
+  `7` if oversized rows remain. `two_step`, `staged`, and `binlog` have
+  the launcher check only, so a non-interactive run that declines the
+  raise is not stopped a second time.
 
 - **Artifacts.** Each invocation writes to a directory under `artifacts/`
   containing `report.json` (machine-readable result), `run.log` (full

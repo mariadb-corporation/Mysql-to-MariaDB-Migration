@@ -12,6 +12,8 @@
   (see below) rather than failing later in binlog setup.
 
 ### Changed
+- The default replication user offered in Replication (`binlog`) mode is now
+  `repl_user` (previously `repl`).
 - **Assessment prechecks now guard for 8.0-only catalog objects and degrade
   gracefully on pre-8.0 sources.** Several precheck queries referenced
   `INFORMATION_SCHEMA`/`mysql` columns and tables that do not exist before
@@ -46,6 +48,16 @@
   `binlog_format` gates.
 
 ### Fixed
+- **Rows exceeding the target's `max_allowed_packet` are now detected before the
+  run.**
+  A single row larger than the limit stops the load with `ERROR 2006 (Server has
+  gone away)` and cannot be split across packets. Before the run phase the tool
+  compares the limits on both ends; when the target has less than twice the
+  source's limit, tables holding TEXT, BLOB, or JSON columns are scanned and any
+  oversized rows reported, with an offer to raise the limit on the target.
+  Serial Streaming Copy (`one_step`) checks again at preflight and exits `7`.
+- Corrected the `mariadb-mtk` binary lookup in the launcher, which still
+  searched only for `sqldata` and failed on hosts carrying the renamed binary.
 - **`localhost` as a host input silently ignored the port.** The MySQL and
   MariaDB clients treat `localhost` as an instruction to use a Unix socket,
   discarding the port entirely, so an operator entering `localhost` with a
