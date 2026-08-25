@@ -111,7 +111,7 @@ compressed_flag="${compressed_flag:-1}"
 src_version_at_dump="$(awk -F': ' '/^# source_version:/ {print $2; exit}' "$manifest")"
 
 # ----- Connection args -----
-TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" )
+TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" --max-allowed-packet=1G )
 tgt_args=( -h"$TGT_HOST" -P"$TGT_PORT" --connect-timeout=5 --batch --skip-column-names )
 if [[ "$MARIADB_BIN" == *mariadb* ]]; then
   tgt_args+=( --ssl-verify-server-cert=OFF )

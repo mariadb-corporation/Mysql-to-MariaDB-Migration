@@ -64,7 +64,7 @@ if [[ "${#missing[@]}" -gt 0 ]]; then
   exit 1
 fi
 
-TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" )
+TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" --max-allowed-packet=1G )
 tgt_client_args=()
 if [[ "$MARIADB_BIN" == *mariadb* ]]; then
   tgt_client_args+=( --ssl-verify-server-cert=OFF )

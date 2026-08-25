@@ -115,7 +115,7 @@ if [[ "$dump_basename" == "mysqldump" ]] && \
 fi
 
 SRC_AUTH=( -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_USER" )
-TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" )
+TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" --max-allowed-packet=1G )
 # Explicit SSL flag on the data-path clients so the dump (mariadb-dump) and
 # load (mariadb) invocations don't auto-disable verification and warn on a
 # passwordless login. Skip for upstream mysqldump on the dump side — it uses
@@ -178,6 +178,7 @@ fi
 
 set -o pipefail
 DUMP_ARGS=(
+  --max-allowed-packet=1G
   --routines --triggers --events
   --no-tablespaces --hex-blob --single-transaction
 )
