@@ -48,8 +48,7 @@
   `binlog_format` gates.
 
 ### Fixed
-- **Rows exceeding the target's `max_allowed_packet` are now detected before the
-  run.**
+- **Rows exceeding the target's `max_allowed_packet` are now detected before the run.**
   A single row larger than the limit stops the load with `ERROR 2006 (Server has
   gone away)` and cannot be split across packets. Before the run phase the tool
   compares the limits on both ends; when the target has less than twice the
