@@ -44,6 +44,7 @@ def run_step(
         cmd,
         cwd=str(repo_root),
         env=env,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,

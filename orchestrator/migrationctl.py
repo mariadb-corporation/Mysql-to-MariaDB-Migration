@@ -22,6 +22,52 @@ DEFAULT_STATE = "state.json"
 DEFAULT_REPORT = "report.json"
 DEFAULT_LOG = "run.log"
 
+def _gate_reason(gate: Any) -> str:
+    """Best-effort one-line explanation for a failing gate.
+
+    Gates populate their explanation inconsistently: some set a message/reason
+    attribute, others only leave structured data in details. Probe the common
+    shapes and fall back to an empty string so the caller can still print the
+    gate name on its own.
+    """
+    for attr in ("message", "reason", "summary"):
+        value = getattr(gate, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    details = getattr(gate, "details", None) or {}
+    if not isinstance(details, dict):
+        return ""
+
+    for key in ("reason", "message", "summary", "error", "detail"):
+        value = details.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    # Structured failures (e.g. binlog_source_compatibility): name the failing
+    # keys rather than dumping nested payloads onto the terminal.
+    failures = details.get("failures")
+    if isinstance(failures, dict) and failures:
+        return "failed on: " + ", ".join(sorted(failures.keys()))
+
+    return ""
+
+
+def _echo_failed_gates(result: Any) -> List[str]:
+    """Print every failing gate to stdout. Returns the failing gate names."""
+    failed = [g for g in result.gates if g.status == GateStatus.FAIL]
+    if not failed:
+        return []
+
+    typer.echo("")
+    typer.echo("Failed gates:")
+    for gate in failed:
+        reason = _gate_reason(gate)
+        typer.echo(f"  - {gate.name}: {reason}" if reason else f"  - {gate.name}")
+    typer.echo("")
+    return [g.name for g in failed]
+
+
 def _failure_hint_from_meta(meta: Optional[Dict[str, Any]]) -> Optional[str]:
     if not meta:
         return None
@@ -214,6 +260,7 @@ def assess(
                     capture_output=True,
                     text=True,
                     check=False,
+                    stdin=subprocess.DEVNULL,
                 )
                 for line in (proc.stdout or "").splitlines():
                     report.log(line)
@@ -286,7 +333,12 @@ def assess(
                     typer.echo("  binlog_format = ROW")
                     typer.echo("")
                 break
-        report.finish_run(success=False, message="Assessment failed: one or more hard gates failed.")
+        failed_names = _echo_failed_gates(result)
+        for line in failed_names:
+            report.log(f"GATE FAILED: {line}")
+        summary = "Assessment failed: " + ", ".join(failed_names) if failed_names else \
+            "Assessment failed: one or more hard gates failed."
+        report.finish_run(success=False, message=summary)
         typer.echo("ASSESSMENT: FAIL (see artifacts/report.json and run.log)")
         raise typer.Exit(code=2)
 

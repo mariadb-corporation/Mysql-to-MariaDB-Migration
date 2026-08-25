@@ -30,6 +30,34 @@ def _read_tsv(path: Path) -> List[List[str]]:
     return rows
 
 
+def _selected_dbs(env_cfg: Dict[str, str]) -> List[str]:
+    """Resolve the operator-selected database list (SRC_DBS, else SRC_DB)."""
+    src_dbs = str(env_cfg.get("SRC_DBS", "")).strip()
+    src_db = str(env_cfg.get("SRC_DB", "")).strip()
+    if src_dbs:
+        return [x.strip() for x in src_dbs.split(",") if x.strip()]
+    if src_db:
+        return [src_db]
+    return []
+
+
+def _filter_by_schema(rows: List[List[str]], dbs: List[str]) -> List[List[str]]:
+    """Keep only rows whose first field names a selected schema.
+
+    Precheck queries run instance-wide, so schema-scoped checks return objects
+    from databases that are not being migrated. Instance-scoped checks
+    (partial_revokes, mysql_roles, resource_groups, active_plugins,
+    definers_inventory) must NOT be passed through here, nor must checks
+    whose first field is an object type rather than a schema name
+    (view_routine_bodies, definers_inventory).
+
+    An empty db list means "unknown scope" and is passed through unfiltered.
+    """
+    if not dbs:
+        return rows
+    return [r for r in rows if r and r[0] in dbs]
+
+
 def _effective_env_cfg(cfg: Dict[str, Any]) -> Dict[str, str]:
     env_cfg = {str(k): str(v) for k, v in (cfg.get("env", {}) or {}).items()}
     # Allow interactive wrapper exports to override assessment config.
@@ -157,6 +185,7 @@ def _run_precheck(repo_root: Path, cfg: Dict[str, Any], outdir: Path, log) -> Pa
         capture_output=True,
         text=True,
         env=env,
+        stdin=subprocess.DEVNULL,
     )
 
     # Log stdout/stderr (should not contain password)
@@ -381,39 +410,40 @@ def run_assessment_checks(
     inventory: Dict[str, Any] = {}
 
     pre = _run_precheck(repo_root, cfg, outdir, report.log)
+    _sel_dbs = _selected_dbs(_effective_env_cfg(cfg))
 
     # Load TSVs
     mysql_version = _read_tsv(pre / "mysql_version.tsv")          # expected: 1 row: version, comment?
-    innodb = _read_tsv(pre / "innodb_settings.tsv")               # expected: 1 row: file_per_table, fast_shutdown
+    innodb = _read_tsv(pre / "innodb_settings.tsv")               # expected: 1 row: file_per_table, fast_shutdown, max_allowed_packet
     auth = _read_tsv(pre / "auth_plugins.tsv")
-    json_cols = _read_tsv(pre / "json_columns.tsv")
+    json_cols = _filter_by_schema(_read_tsv(pre / "json_columns.tsv"), _sel_dbs)
     enc = _read_tsv(pre / "compression_encryption.tsv")
     engines = _read_tsv(pre / "engines_summary.tsv")
     sizes = _read_tsv(pre / "schema_sizes.tsv")
 
-    schema_charsets = _read_tsv(pre / "schema_charsets.tsv")
-    tcoll = _read_tsv(pre / "mysql8_collations.tsv")
-    ccoll = _read_tsv(pre / "mysql8_column_collations.tsv")
+    schema_charsets = _filter_by_schema(_read_tsv(pre / "schema_charsets.tsv"), _sel_dbs)
+    tcoll = _filter_by_schema(_read_tsv(pre / "mysql8_collations.tsv"), _sel_dbs)
+    ccoll = _filter_by_schema(_read_tsv(pre / "mysql8_column_collations.tsv"), _sel_dbs)
     sql_mode = _read_tsv(pre / "sql_mode.tsv")
     definers = _read_tsv(pre / "definers_inventory.tsv")
-    partitions = _read_tsv(pre / "partitioned_tables.tsv")
+    partitions = _filter_by_schema(_read_tsv(pre / "partitioned_tables.tsv"), _sel_dbs)
     plugins = _read_tsv(pre / "active_plugins.tsv")
 
     # Previously unwired checks
-    func_indexes = _read_tsv(pre / "functional_indexes.tsv")
-    func_defaults = _read_tsv(pre / "functional_defaults.tsv")
-    invisible_cols = _read_tsv(pre / "invisible_columns.tsv")
-    check_cons = _read_tsv(pre / "check_constraints.tsv")
+    func_indexes = _filter_by_schema(_read_tsv(pre / "functional_indexes.tsv"), _sel_dbs)
+    func_defaults = _filter_by_schema(_read_tsv(pre / "functional_defaults.tsv"), _sel_dbs)
+    invisible_cols = _filter_by_schema(_read_tsv(pre / "invisible_columns.tsv"), _sel_dbs)
+    check_cons = _filter_by_schema(_read_tsv(pre / "check_constraints.tsv"), _sel_dbs)
     partial_rev = _read_tsv(pre / "partial_revokes.tsv")
-    gis_srid = _read_tsv(pre / "gis_srid_usage.tsv")
+    gis_srid = _filter_by_schema(_read_tsv(pre / "gis_srid_usage.tsv"), _sel_dbs)
     res_groups = _read_tsv(pre / "resource_groups.tsv")
     xplugin = _read_tsv(pre / "xplugin_status.tsv")
-    fk_names = _read_tsv(pre / "fk_name_lengths.tsv")
-    trigger_ord = _read_tsv(pre / "trigger_order.tsv")
+    fk_names = _filter_by_schema(_read_tsv(pre / "fk_name_lengths.tsv"), _sel_dbs)
+    trigger_ord = _filter_by_schema(_read_tsv(pre / "trigger_order.tsv"), _sel_dbs)
 
     # New checks
     mysql_roles = _read_tsv(pre / "mysql_roles.tsv")
-    gen_cols = _read_tsv(pre / "generated_columns.tsv")
+    gen_cols = _filter_by_schema(_read_tsv(pre / "generated_columns.tsv"), _sel_dbs)
     srv_defaults = _read_tsv(pre / "server_defaults.tsv")
     view_routine = _read_tsv(pre / "view_routine_bodies.tsv")
 
@@ -441,9 +471,12 @@ def run_assessment_checks(
 
     innodb_file_per_table = ""
     innodb_fast_shutdown = ""
+    max_allowed_packet = ""
     if innodb and len(innodb[0]) >= 2:
         innodb_file_per_table = innodb[0][0].strip()
         innodb_fast_shutdown = innodb[0][1].strip()
+    if innodb and len(innodb[0]) >= 3:
+        max_allowed_packet = innodb[0][2].strip()
 
     gates.append(
         Gate(

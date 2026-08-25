@@ -42,6 +42,7 @@ ALLOW_TARGET_DB_OVERWRITE="${ALLOW_TARGET_DB_OVERWRITE:-0}"
 
 AUTO_FIX="${PREFLIGHT_AUTO_FIX:-0}"
 AUTO_FIX_TARGET="${PREFLIGHT_AUTO_FIX_TARGET:-$AUTO_FIX}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 missing=()
 for v in SRC_HOST SRC_USER SRC_PASS SRC_ADMIN_USER SRC_ADMIN_PASS TGT_HOST TGT_USER TGT_PASS TGT_ADMIN_USER TGT_ADMIN_PASS; do
@@ -183,6 +184,81 @@ if [[ -n "$TGT_SSH_HOST" ]]; then
     "MYSQL_PWD='${TGT_PASS}' mariadb -h'${TGT_HOST}' -P'${TGT_PORT}' -u'${TGT_USER}' --connect-timeout=5 -e 'SELECT 1;' >/dev/null 2>&1"; then
     echo "WARN: Target migration user login failed for ${TGT_USER}@${TGT_HOST}:${TGT_PORT}."
     echo "one_step will continue and attempt to create migration users in the next step."
+  fi
+fi
+# ---------------------------------------------------------------------------
+# max_allowed_packet headroom
+#
+# A single row larger than the target's max_allowed_packet aborts the restore
+# mid-stream with ERROR 2006 (Server has gone away). The dump cannot split it:
+# one row is one INSERT, so there is no seam to break at.
+#
+# The source can only emit rows its own limit allows, so when the target is at
+# least twice the source there is no reachable overflow and the row scan is
+# skipped. The 2x margin covers --hex-blob (doubles binary columns) and
+# escaping expansion in text columns, neither of which is visible in the raw
+# byte total.
+#
+# Typical case this catches: MySQL 8.x defaults to 64M, MariaDB to 16M.
+# MySQL 5.7 defaults to 4M and clears the headroom check outright.
+# ---------------------------------------------------------------------------
+echo "Checking max_allowed_packet headroom..."
+
+tgt_query() {
+  local q="$1"
+  if [[ -n "$TGT_SSH_HOST" ]]; then
+    local tgt_pass_q
+    tgt_pass_q="$(printf '%q' "$TGT_ADMIN_PASS")"
+    ssh ${TGT_SSH_OPTS} "${TGT_SSH_USER}@${TGT_SSH_HOST}" \
+      "MYSQL_PWD=$tgt_pass_q mariadb -h'${TGT_HOST}' -P'${TGT_PORT}' -u'${TGT_ADMIN_USER}' --batch --skip-column-names -e \"$q\""
+  else
+    MYSQL_PWD="$TGT_ADMIN_PASS" mariadb -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_ADMIN_USER" \
+      --batch --skip-column-names -e "$q"
+  fi
+}
+
+src_packet="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+  "${SRC_SSL_ARGS[@]}" --connect-timeout=5 --batch --skip-column-names \
+  -e "SELECT @@max_allowed_packet;" 2>/dev/null | head -1 || true)"
+tgt_packet="$(tgt_query "SELECT @@max_allowed_packet;" 2>/dev/null | head -1 || true)"
+
+if [[ ! "$src_packet" =~ ^[0-9]+$ || ! "$tgt_packet" =~ ^[0-9]+$ ]]; then
+  # Target connectivity is advisory at this stage (see TCP check above), so a
+  # missing value warns rather than blocks.
+  echo "WARN: could not read max_allowed_packet (source='${src_packet:-}' target='${tgt_packet:-}'); skipping row-size check."
+else
+  echo "max_allowed_packet: source=${src_packet} target=${tgt_packet}"
+  if [[ "$src_packet" -le $(( tgt_packet / 2 )) ]]; then
+    echo "Target has sufficient headroom; row-size scan not required."
+  else
+    # Scan only tables that could hold an oversized row. Everything else is
+    # bounded well below the limit by its column types.
+    if [[ -n "$SRC_DBS" ]]; then
+      dbs_csv="${SRC_DBS// /}"
+    else
+      dbs_csv="$SRC_DB"
+    fi
+    echo "Scanning candidate tables in: ${dbs_csv}"
+    limit=$(( tgt_packet / 2 ))
+    big_rows="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
+      "${SRC_SSL_ARGS[@]}" --batch --skip-column-names \
+      --init-command="SET @selected_dbs='$(sql_escape "$dbs_csv")', @row_limit=${limit}" \
+      < "${REPO_ROOT}/sql/checks/large_row_bytes.sql" 2>/dev/null || true)"
+
+    if [[ -n "$big_rows" ]]; then
+      echo "ERROR: rows exceed safe size for target max_allowed_packet (${tgt_packet} bytes)."
+       while IFS=$'\t' read -r s t b; do
+        echo "         ${s}.${t}: ${b} bytes"
+      done <<< "$big_rows"
+
+      echo "Raise max_allowed_packet on the target before migrating."
+      echo "  Runtime (new connections only):"
+      echo "    SET GLOBAL max_allowed_packet=${src_packet};"
+      echo "  Persistent, under [mysqld], requires restart:"
+      echo "    max_allowed_packet=${src_packet}"
+      exit 7
+    fi
+    echo "No oversized rows found."
   fi
 fi
 

@@ -4,6 +4,23 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# --- Gate: client option files must not alter output format --------------
+# Runs before anything else: no connectivity or credentials required.
+. "$ROOT/scripts/lib/gate_client_output.sh"
+
+_gate_fail=0
+while read -r _bin; do
+  gate_client_defaults_clean "$_bin" || _gate_fail=1
+done < <(printf '%s\n' "${MYSQL_BIN:-mysql}" \
+                       mariadb \
+                       "${MARIADB_DUMP_BIN:-mariadb-dump}" | sort -u)
+if (( _gate_fail )); then
+  echo "==> Precheck aborted: client output configuration is unsafe." >&2
+  exit 1
+fi
+unset _gate_fail _bin
+# -------------------------------------------------------------------------
+
 MYSQL_BIN="${MYSQL_BIN:-mysql}"
 # Use admin creds if provided; fall back to SRC_USER/SRC_PASS.
 HOST="${SRC_HOST:-${HOST:-127.0.0.1}}"

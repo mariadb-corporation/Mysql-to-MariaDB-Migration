@@ -253,6 +253,30 @@ grep -niE 'row.?count|differ' artifacts/run_two_step_<ts>/run.log
 cat artifacts/run_two_step_<ts>/analyze_target_report.txt   # ANALYZE results
 ```
 
+## `max_allowed_packet`
+
+A single row larger than the target's `max_allowed_packet` stops the load with
+`ERROR 2006 (Server has gone away)`. The row cannot be split — one row is one
+statement, so there is no seam to break at. MySQL 8.x defaults to 64 MB and
+MariaDB to 16 MB, so a source row between those two sizes will transfer cleanly
+from the source and fail on the target.
+
+Before the run phase the tool compares the limits on both ends. When the target
+has at least twice the source's limit no scan runs. Otherwise the tool scans
+tables holding TEXT, BLOB, or JSON columns, reports any oversized rows, and
+offers to raise the limit on the target:
+
+    Raise max_allowed_packet on the target to 67108864 now? (y/n) [y]:
+
+Answering `y` issues `SET GLOBAL max_allowed_packet`, which applies to new
+connections only and does not survive a restart. To persist it, set the value
+under `[mysqld]` on the target and restart:
+
+    max_allowed_packet=67108864
+
+Answering `n` allows the run to continue. There is no second check later, so a
+run that declines will fail at the load if an oversized row is reached.
+
 ## Troubleshooting
 
 **Access denied, but the password is definitely correct.**
