@@ -192,6 +192,7 @@ fi
 
 echo "Creating source snapshot with binlog coordinates ($DUMP_DATA_OPT)..."
 DUMP_ARGS=(
+  --max-allowed-packet=1G
   --single-transaction
   "$DUMP_DATA_OPT"
   --routines --triggers --events
@@ -237,7 +238,7 @@ SRC_BINLOG_POS=${src_pos}
 COORDS
 
 echo "Restoring snapshot to target..."
-restore_args=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_RESTORE_USER" --batch --skip-column-names )
+restore_args=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_RESTORE_USER" --batch --skip-column-names --max-allowed-packet=1G )
 if [[ "$MARIADB_BIN" == *mariadb* ]]; then
   restore_args+=( --ssl-verify-server-cert=OFF )
 fi

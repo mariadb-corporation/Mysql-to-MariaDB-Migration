@@ -174,6 +174,7 @@ fi
 
 # ----- Common dump args -----
 DUMP_ARGS=(
+  --max-allowed-packet=1G
   --routines --triggers --events
   --no-tablespaces --hex-blob --single-transaction
 )

@@ -127,7 +127,7 @@ if [[ "$dump_basename" == "mysqldump" ]] && \
 fi
 
 SRC_AUTH=( -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_USER" )
-TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" )
+TGT_AUTH=( -h"$TGT_HOST" -P"$TGT_PORT" -u"$TGT_USER" --max-allowed-packet=1G )
 
 if [[ -n "$SRC_DBS" ]]; then
   echo "Source: $SRC_HOST:$SRC_PORT  DBs: $SRC_DBS"
