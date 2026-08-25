@@ -48,6 +48,14 @@
   `binlog_format` gates.
 
 ### Fixed
+- **Replication mode now works against sources where native password
+  authentication is unavailable.** The tool selects an authentication method the
+  source supports and enables TLS on the replication link when required.
+- **The replication account created on the source is no longer copied to the
+  target.** Previously this could stop replication on the target.
+- **Replication status is confirmed over several checks before a run reports
+  success.** A replica that stops shortly after starting is no longer reported
+  as healthy.
 - **Rows exceeding the target's `max_allowed_packet` are now detected before the run.**
   A single row larger than the limit stops the load with `ERROR 2006 (Server has
   gone away)` and cannot be split across packets. Before the run phase the tool
