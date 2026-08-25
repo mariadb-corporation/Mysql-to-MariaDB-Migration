@@ -760,7 +760,7 @@ check_packet_headroom() {
   fi
 
   limit=$(( tgt_packet / 2 ))
-  echo "    Target is below source. Scanning large-column tables for oversized rows."
+  echo "    Checking for rows too large for the target."
   echo "    (This reads only tables holding TEXT/BLOB/JSON columns and may take a"
   echo "     few moments on large databases.)"
 
