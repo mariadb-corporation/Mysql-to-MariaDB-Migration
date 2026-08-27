@@ -57,6 +57,10 @@ For mode-specific *required* variables, see the corresponding section of `README
 | `ALLOW_ROOT_USERS` | `"0"` | Set to `"1"` to allow `root` as `SRC_ADMIN_USER` or `TGT_ADMIN_USER`. Default rejects root for safety. |
 | `ALLOW_TARGET_DB_OVERWRITE` | `"0"` | Set to `"1"` to allow loading into a target where the destination databases already exist. Default fails fast to prevent accidental overwrite. |
 | `MIGRATE_APP_USERS` | `"0"` | Set to `"1"` to migrate application users from source to target as part of the run. |
+| `APP_USER_DEFAULT_PASSWORD` | *(prompted)* | Password assigned to accounts whose original password can't be carried over. Recorded in plain text in `user_migration_report.txt`. |
+| `APP_USER_PWD_EXPIRE` | `"1"` | Set to `"0"` so default-password accounts are not forced to change their password at first login. Accounts whose original password was carried over are never affected. |
+| `PORT_SHA2_PASSWORDS` | `"1"` | Set to `"0"` to skip carrying over passwords for `caching_sha2_password` accounts and give them the default password instead. |
+| `PORT_SHA2_INSTALL_PLUGIN` | `"0"` | Set to `"1"` to let the tool load the `caching_sha2_password` plugin on the target when it isn't already loaded. Requires MariaDB 11.4.9 / 11.8.4 or later. |
 | `STRIP_DEFINERS` | `"1"` | Strip `DEFINER=` clauses from dumps so views/procedures load on targets where the source DEFINER doesn't exist. |
 
 ## Binlog mode

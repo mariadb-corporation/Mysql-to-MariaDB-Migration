@@ -62,6 +62,13 @@ APP_USER_DEFAULT_PASSWORD="$(trim_ws "${APP_USER_DEFAULT_PASSWORD:-Str0ngChangeM
 # performs no writes.
 APP_USER_PWD_EXPIRE="${APP_USER_PWD_EXPIRE:-1}"
 
+# Mirrors the run-phase flag. When enabled, caching_sha2_password users whose
+# hash passes the source-side checks are reported as likely to keep their
+# original password. Whether they actually do also depends on the target having
+# the plugin active, which this phase cannot check because it performs no
+# target connections.
+PORT_SHA2_PASSWORDS="${PORT_SHA2_PASSWORDS:-1}"
+
 if [[ -z "$SRC_HOST" || -z "$SRC_ADMIN_USER" || -z "$SRC_ADMIN_PASS" ]]; then
   echo "ERROR: Missing source envs. Set SRC_HOST, SRC_ADMIN_USER, SRC_ADMIN_PASS."
   exit 1
@@ -84,6 +91,27 @@ mask_client_noise() {
   grep -v -e 'Deprecated program name' \
           -e 'ssl-verify-server-cert is disabled' \
           -e 'WARNING: option' || true
+}
+
+# Source-side eligibility check for porting a caching_sha2_password hash. Must
+# stay in step with the same function in scripts/09_migrate_app_users.sh. The
+# hash is passed as hex because it contains bytes that do not survive being
+# read back as text.
+sha2_hash_portable() {
+  python3 - "$1" <<'PY'
+import sys
+try:
+    b = bytes.fromhex(sys.argv[1])
+except ValueError:
+    print("hash is not valid hex"); sys.exit(1)
+if len(b) != 70:
+    print("unexpected hash length %d (expected 70)" % len(b)); sys.exit(1)
+if not b.startswith(b'$A$'):
+    print("unrecognized hash prefix"); sys.exit(1)
+if any(x >= 0x80 for x in b):
+    print("hash contains a byte >= 0x80"); sys.exit(1)
+sys.exit(0)
+PY
 }
 
 run_source_admin_sql() {
@@ -118,6 +146,7 @@ users_would_preserve=""
 users_would_default=""
 users_would_skip=""
 grants_total=0
+n_sha2_eligible=0
 
 # -----------------------------------------------------------------------------
 # Role discovery. Same heuristic as the run script: account_locked='Y' AND
@@ -154,20 +183,22 @@ is_role_row() {
 echo "Classifying users by plugin..."
 
 user_rows=$(run_source_admin_sql "
-  SELECT user, host, plugin, IFNULL(authentication_string,'')
+  SELECT user, host, plugin, IFNULL(authentication_string,''),
+         HEX(IFNULL(authentication_string,''))
     FROM mysql.user
    WHERE user <> ''
      AND user NOT IN ('root','${admin_user_esc}','debian-sys-maint',
                       'mysql.infoschema','mysql.session','mysql.sys','mysqlxsys');
 ")
 
-while IFS=$'\t' read -r u h p auth_str; do
+while IFS=$'\t' read -r u h p auth_str auth_hex; do
   [[ -z "$u" ]] && continue
   if is_role_row "$u" "$h"; then
     continue
   fi
   p="${p:-}"
   auth_str="${auth_str:-}"
+  auth_hex="${auth_hex:-}"
 
   case "$p" in
     mysql_native_password)
@@ -177,7 +208,19 @@ while IFS=$'\t' read -r u h p auth_str; do
         users_would_default+="'${u}'@'${h}' (source plugin: ${p}, no source hash)"$'\n'
       fi
       ;;
-    caching_sha2_password|sha256_password)
+    caching_sha2_password)
+      if [[ "$PORT_SHA2_PASSWORDS" != "1" ]]; then
+        users_would_default+="'${u}'@'${h}' (source plugin: ${p}; porting disabled)"$'\n'
+      elif [[ -z "$auth_hex" ]]; then
+        users_would_default+="'${u}'@'${h}' (source plugin: ${p}, no source hash)"$'\n'
+      elif sha2_reason="$(sha2_hash_portable "$auth_hex")"; then
+        n_sha2_eligible=$((n_sha2_eligible + 1))
+        users_would_preserve+="'${u}'@'${h}' (source plugin: ${p}; target must have the plugin)"$'\n'
+      else
+        users_would_default+="'${u}'@'${h}' (source plugin: ${p}; ${sha2_reason})"$'\n'
+      fi
+      ;;
+    sha256_password)
       users_would_default+="'${u}'@'${h}' (source plugin: ${p})"$'\n'
       ;;
     *)
@@ -217,7 +260,7 @@ report=$(cat <<EOF
 Application user assessment (no writes performed)
 ================================================================================
 Roles found on source                : ${n_roles}    (would CREATE ROLE on target)
-Users with portable native password  : ${n_preserve} (would preserve via IDENTIFIED VIA)
+Users keeping their original password : ${n_preserve}
 Users requiring default password     : ${n_default}  (${default_pwd_note})
 Users that would be SKIPPED          : ${n_skip}     (non-password auth plugin)
 Grants found across all users        : ${grants_total} (replay outcome unknown until run)
@@ -226,6 +269,14 @@ This is a discovery report. Actual creation, alteration, and grant replay
 happens during the run phase via scripts/09_migrate_app_users.sh. Grants are
 not classified as compatible/incompatible here because that requires
 replaying against the target.
+
+Of the users above, ${n_sha2_eligible} use caching_sha2_password with a hash that can be
+carried over. Whether they keep their original password also depends on the
+target having the caching_sha2_password plugin active, which this phase does
+not check because it makes no target connections. If the plugin is missing,
+those users get the default password instead. The plugin requires MariaDB
+11.4.9 / 11.8.4 or later and is loaded with:
+    INSTALL SONAME 'auth_mysql_sha2';
 
 EOF
 )

@@ -1,6 +1,15 @@
 # Changelog
-## [Unreleased]
+## [1.4.0-beta] - 2026-08-27
 ### Added
+- **Application users authenticating with `caching_sha2_password` now keep their
+  original passwords.** Previously these accounts were recreated with the shared
+  default password. This requires the `caching_sha2_password` plugin on the
+  target (MariaDB 11.4.9 / 11.8.4 or later, not loaded by default); when it is
+  absent, or a stored password is not in the expected format, the account falls
+  back to the default password with the reason recorded in the report. New
+  options `PORT_SHA2_PASSWORDS` (default `1`) and `PORT_SHA2_INSTALL_PLUGIN`
+  (default `0`). `sha256_password` accounts continue to receive the default
+  password.
 - **MySQL 5.7 source support for the offline data-movement modes.** Serial
   Streaming Copy (`one_step`), Parallel Restartable Streaming Copy (`two_step`),
   and Offline Copy (`staged`) are now validated end-to-end from a MySQL 5.7
@@ -139,6 +148,8 @@
   migrating intact into a MariaDB target at its 16 MiB default.
 
 ### Compatibility notes
+- `PORT_SHA2_PASSWORDS` and `PORT_SHA2_INSTALL_PLUGIN` are both optional. On a
+  target without the `caching_sha2_password` plugin, behavior is unchanged.
 - No configuration changes required. Behavior for MySQL 8.0 and 8.4 sources is
   unchanged across all modes; the precheck probes and the version gate are
   no-ops on 8.0+ sources.

@@ -87,6 +87,23 @@ else
   PWD_EXPIRE_CLAUSE=""
 fi
 
+# Whether to attempt porting caching_sha2_password hashes to the target so
+# those users keep their original password. 1 = attempt (falls back to the
+# default password whenever the target or an individual hash isn't eligible),
+# 0 = always use the default password, which was the behavior before 1.4.0.
+#
+# Eligibility is decided by probing the target for an active
+# caching_sha2_password plugin, NOT by comparing version numbers. The plugin
+# first shipped in Community 11.4.9 / 11.8.4 and is present in every later
+# series, so a probe is correct on 12.x, 13.x, and beyond with no change here.
+PORT_SHA2_PASSWORDS="${PORT_SHA2_PASSWORDS:-1}"
+
+# Whether the tool may load the plugin itself when it isn't already active.
+# Default 0: probe only, and tell the operator the one command to run. Loading
+# a server plugin is a change to the target beyond user creation, so it is
+# opt-in rather than something the migration does on its own.
+PORT_SHA2_INSTALL_PLUGIN="${PORT_SHA2_INSTALL_PLUGIN:-0}"
+
 if [[ -z "$SRC_HOST" || -z "$SRC_ADMIN_USER" || -z "$SRC_ADMIN_PASS" ]]; then
   echo "ERROR: Missing source envs. Set SRC_HOST, SRC_ADMIN_USER, SRC_ADMIN_PASS."
   exit 1
@@ -112,6 +129,74 @@ sql_escape() {
   local s="$1"
   s="${s//\'/\'\'}"
   printf "%s" "$s"
+}
+
+# -----------------------------------------------------------------------------
+# caching_sha2_password hash handling.
+#
+# The hash is 70 bytes of which roughly 20 are a random salt, so it routinely
+# contains bytes that are not printable and cannot be read back as text. Two
+# consequences shape the code below:
+#
+#   - The hash is read from the source with HEX() and never as raw text. A
+#     --batch read escapes field data (that is what keeps tab-separated output
+#     parseable), and for this hash the escaping is not reversible by the SQL
+#     parser: MySQL has already escaped some bytes when building the literal,
+#     the client escapes the resulting backslash again, and only one level gets
+#     undone. Measured on 100 accounts, 55 carried a byte that triggers this.
+#
+#   - The literal is built here, from the hex, with exactly one level of
+#     escaping under our control. Relying on client flags to cancel out two
+#     layers works but is fragile, and it breaks outright if the target session
+#     has NO_BACKSLASH_ESCAPES set, so the CREATE/ALTER below clears sql_mode
+#     for its own session.
+#
+# MariaDB rejects hex literals and function expressions in the IDENTIFIED
+# clause, so a string literal is the only supported route today. MDEV-38524
+# tracks accepting 0x... there, which would remove the escaping question and
+# the sql_mode dependency entirely.
+# -----------------------------------------------------------------------------
+
+# Decide whether a hex-encoded hash can be ported. Prints a short reason and
+# returns non-zero when it cannot, so the caller can record why it fell back.
+sha2_hash_portable() {
+  python3 - "$1" <<'PY'
+import sys
+try:
+    b = bytes.fromhex(sys.argv[1])
+except ValueError:
+    print("hash is not valid hex"); sys.exit(1)
+if len(b) != 70:
+    print("unexpected hash length %d (expected 70)" % len(b)); sys.exit(1)
+if not b.startswith(b'$A$'):
+    print("unrecognized hash prefix"); sys.exit(1)
+if any(x >= 0x80 for x in b):
+    # Not observed in 200 sampled MySQL 8.4 accounts, but a high byte is not
+    # valid utf8mb4 and the behavior of a string literal carrying one is not
+    # something to guess at. Fall back rather than create a broken account.
+    print("hash contains a byte >= 0x80"); sys.exit(1)
+sys.exit(0)
+PY
+}
+
+# Turn a hex-encoded hash into the inner text of a single-quoted SQL literal.
+# Only the bytes that must be escaped are escaped; everything else is emitted
+# raw. NUL, LF and CR are escaped so the statement stays a single line and can
+# survive a shell variable, which cannot hold a NUL at all.
+sha2_literal_from_hex() {
+  python3 - "$1" <<'PY'
+import sys
+b = bytes.fromhex(sys.argv[1])
+out = bytearray()
+for c in b:
+    if   c == 0x00: out += b'\\0'
+    elif c == 0x0A: out += b'\\n'
+    elif c == 0x0D: out += b'\\r'
+    elif c == 0x27: out += b"\\'"
+    elif c == 0x5C: out += b'\\\\'
+    else: out.append(c)
+sys.stdout.buffer.write(out)
+PY
 }
 
 # Filter client noise that adds 30+ lines per phase to the log without
@@ -218,6 +303,65 @@ grants_dropped=""
 grants_total=0
 grants_succeeded=0
 
+# Set by probe_target_sha2_plugin below.
+TGT_SHA2_CAPABLE=0
+TGT_SHA2_NOTE=""
+
+# -----------------------------------------------------------------------------
+# Target capability probe for caching_sha2_password.
+#
+# Deliberately a probe and not a version comparison. The plugin appeared in
+# Community 11.4.9 and 11.8.4 and is present in every later series, so asking
+# the target whether the plugin is active is both simpler and correct for
+# versions that do not exist yet.
+# -----------------------------------------------------------------------------
+sha2_plugin_active() {
+  local n
+  n="$(run_target_sql "SELECT COUNT(*) FROM information_schema.PLUGINS
+         WHERE PLUGIN_NAME = 'caching_sha2_password'
+           AND PLUGIN_STATUS = 'ACTIVE';" 2>/dev/null | tr -d '[:space:]')"
+  [[ "$n" == "1" ]]
+}
+
+probe_target_sha2_plugin() {
+  if [[ "$PORT_SHA2_PASSWORDS" != "1" ]]; then
+    TGT_SHA2_NOTE="disabled by configuration (PORT_SHA2_PASSWORDS=0)"
+    return
+  fi
+
+  if sha2_plugin_active; then
+    TGT_SHA2_CAPABLE=1
+    TGT_SHA2_NOTE="plugin active on target"
+    return
+  fi
+
+  if [[ "$PORT_SHA2_INSTALL_PLUGIN" == "1" ]]; then
+    if run_target_sql "INSTALL SONAME 'auth_mysql_sha2';" >/dev/null 2>&1 \
+       && sha2_plugin_active; then
+      TGT_SHA2_CAPABLE=1
+      TGT_SHA2_NOTE="plugin loaded on target by this run"
+      return
+    fi
+    TGT_SHA2_NOTE="plugin not available on target and could not be loaded"
+    return
+  fi
+
+  TGT_SHA2_NOTE="plugin not active on target"
+}
+
+echo "Checking target support for caching_sha2_password..."
+probe_target_sha2_plugin
+if [[ "$TGT_SHA2_CAPABLE" == "1" ]]; then
+  echo "  Original passwords can be kept for caching_sha2_password users (${TGT_SHA2_NOTE})."
+else
+  echo "  caching_sha2_password users will get the default password (${TGT_SHA2_NOTE})."
+  if [[ "$PORT_SHA2_PASSWORDS" == "1" && "$PORT_SHA2_INSTALL_PLUGIN" != "1" ]]; then
+    echo "  To keep original passwords, load the plugin on the target and re-run:"
+    echo "    INSTALL SONAME 'auth_mysql_sha2';"
+    echo "  The plugin requires MariaDB 11.4.9 / 11.8.4 or later."
+  fi
+fi
+
 # -----------------------------------------------------------------------------
 # Role discovery and replay.
 #
@@ -265,15 +409,21 @@ is_role_row() {
 # -----------------------------------------------------------------------------
 echo "Migrating application users to target (plugin-aware: native users keep their hash; sha2/no-hash users get the default password [expire=${APP_USER_PWD_EXPIRE}]; non-password plugins are skipped)"
 
+# authentication_string is selected twice on purpose. The text column feeds
+# the existing mysql_native_password branch, whose hashes are '*' plus 40 hex
+# characters and so survive a --batch read unchanged. The HEX() column is what
+# the caching_sha2_password branch uses, because that hash contains bytes that
+# do not survive being read as text.
 user_rows=$(run_source_admin_sql "
-  SELECT user, host, plugin, IFNULL(authentication_string,'')
+  SELECT user, host, plugin, IFNULL(authentication_string,''),
+         HEX(IFNULL(authentication_string,''))
     FROM mysql.user
    WHERE user <> ''
      AND user NOT IN ('root','${admin_user_esc}','debian-sys-maint',
                       'mysql.infoschema','mysql.session','mysql.sys','mysqlxsys');
 ")
 
-while IFS=$'\t' read -r u h p auth_str; do
+while IFS=$'\t' read -r u h p auth_str auth_hex; do
   [[ -z "$u" ]] && continue
 
   # Skip role rows — they were handled in the role pass above.
@@ -285,6 +435,7 @@ while IFS=$'\t' read -r u h p auth_str; do
   h_esc="$(sql_escape "$h")"
   p="${p:-}"
   auth_str="${auth_str:-}"
+  auth_hex="${auth_hex:-}"
   app_pwd_esc="$(sql_escape "$APP_USER_DEFAULT_PASSWORD")"
 
   # Plugin-aware user creation. Branches:
@@ -319,7 +470,64 @@ while IFS=$'\t' read -r u h p auth_str; do
         fi
       fi
       ;;
-    caching_sha2_password|sha256_password)
+    caching_sha2_password)
+      # Try to keep the original password. Every failure path below falls
+      # through to the default-password behavior rather than failing the user,
+      # so the worst case is what this script did before 1.4.0.
+      sha2_ported=0
+      sha2_reason=""
+
+      if [[ "$TGT_SHA2_CAPABLE" != "1" ]]; then
+        sha2_reason="$TGT_SHA2_NOTE"
+      elif [[ -z "$auth_hex" ]]; then
+        sha2_reason="no source hash"
+      elif ! sha2_reason="$(sha2_hash_portable "$auth_hex")"; then
+        : # sha2_reason now holds the gate's explanation
+      else
+        sha2_reason=""
+        auth_lit="$(sha2_literal_from_hex "$auth_hex")"
+        # sql_mode is cleared for this session only. With NO_BACKSLASH_ESCAPES
+        # in effect the backslash escapes above are taken literally and the
+        # statement fails on hash length, or on a syntax error when the salt
+        # happens to contain a quote.
+        if run_target_sql "SET SESSION sql_mode='';
+              CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}'
+                IDENTIFIED WITH 'caching_sha2_password' AS '${auth_lit}';" >/dev/null 2>&1 \
+           && run_target_sql "SET SESSION sql_mode='';
+              ALTER USER '${u_esc}'@'${h_esc}'
+                IDENTIFIED WITH 'caching_sha2_password' AS '${auth_lit}';" >/dev/null 2>&1; then
+          # Confirm the bytes landed intact rather than trusting the statement's
+          # exit status. A wrong-but-accepted hash would create an account
+          # nobody can log into, which is worse than the default password.
+          landed="$(run_target_sql "SELECT HEX(JSON_UNQUOTE(JSON_EXTRACT(Priv,'\$.authentication_string')))
+                      FROM mysql.global_priv
+                     WHERE User='${u_esc}' AND Host='${h_esc}';" 2>/dev/null | tr -d '[:space:]')"
+          if [[ -n "$landed" && "$landed" == "$auth_hex" ]]; then
+            sha2_ported=1
+          else
+            sha2_reason="hash did not round-trip on target"
+          fi
+        else
+          sha2_reason="CREATE/ALTER USER with ported hash failed"
+        fi
+      fi
+
+      if [[ "$sha2_ported" == "1" ]]; then
+        users_preserved+="'${u}'@'${h}' (source plugin: ${p})"$'\n'
+      else
+        if run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}'${PWD_EXPIRE_CLAUSE};" >/dev/null 2>&1 \
+           && run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}'${PWD_EXPIRE_CLAUSE};" >/dev/null 2>&1; then
+          users_default_password+="'${u}'@'${h}' (source plugin: ${p}; ${sha2_reason:-not eligible})"$'\n'
+        else
+          users_failed+="'${u}'@'${h}' (CREATE/ALTER USER failed)"$'\n'
+          continue
+        fi
+      fi
+      ;;
+    sha256_password)
+      # sha256_password is a different hash format from caching_sha2_password
+      # and the MariaDB plugin does not cover it, so this stays on the
+      # default-password path.
       if run_target_sql "CREATE USER IF NOT EXISTS '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}'${PWD_EXPIRE_CLAUSE};" >/dev/null 2>&1 \
          && run_target_sql "ALTER USER '${u_esc}'@'${h_esc}' IDENTIFIED BY '${app_pwd_esc}'${PWD_EXPIRE_CLAUSE};" >/dev/null 2>&1; then
         users_default_password+="'${u}'@'${h}' (source plugin: ${p})"$'\n'
@@ -373,6 +581,12 @@ else
   default_pwd_label="no expiry (usable as-is)"
 fi
 
+if [[ "$TGT_SHA2_CAPABLE" == "1" ]]; then
+  sha2_capable_label="yes (${TGT_SHA2_NOTE})"
+else
+  sha2_capable_label="no (${TGT_SHA2_NOTE})"
+fi
+
 report=$(cat <<EOF
 ================================================================================
 Application user migration summary
@@ -385,6 +599,8 @@ Users that failed to migrate         : ${n_failed}
 Grants attempted                     : ${grants_total}
 Grants successfully replayed         : ${grants_succeeded}
 Grants dropped (incompatible)        : ${n_grants_dropped}
+
+caching_sha2_password originals kept : ${sha2_capable_label}
 
 EOF
 )
