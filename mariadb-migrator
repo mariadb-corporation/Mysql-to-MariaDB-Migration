@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Define tool versioning
 MIG_TOOL_VERSION="1.4.0-beta"
-MIG_TOOL_BUILD="20260724"
+MIG_TOOL_BUILD="20260827"
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # Display professional welcome header
@@ -336,7 +336,7 @@ prompt_secret() {
   local label="$1"
   local var
   read -r -s -p "$label: " var
-  printf "\n"
+  printf "\n" >&2
   printf "%s" "$var"
 }
 
@@ -1868,7 +1868,7 @@ if [[ "$MODE" != "inplace" ]]; then
   if [[ "$(printf "%s" "$MIGRATE_APP_USERS" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
     MIGRATE_APP_USERS="1"
     APP_USER_DEFAULT_PASSWORD="$(prompt_secret "Default password for app users")"
-    APP_USER_PWD_EXPIRE="$(prompt "Expire the default password on first login? (only users given the default password; hash-ported users are unaffected) (y/n)" "y")"
+    APP_USER_PWD_EXPIRE="$(prompt "Expire the default password on first login? (y/n)" "y")"
     if [[ "$(printf "%s" "$APP_USER_PWD_EXPIRE" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
       APP_USER_PWD_EXPIRE="1"
     else
