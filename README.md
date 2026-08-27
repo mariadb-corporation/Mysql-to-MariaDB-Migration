@@ -108,7 +108,8 @@ User creation on target is plugin-aware. The source plugin determines which path
 |---|---|
 | `mysql_native_password` (with hash) | Migrated with original password preserved (hash ported via MariaDB's `IDENTIFIED VIA ... USING` syntax). |
 | `mysql_native_password` (no hash) | Created with the default password supplied at the prompt, with `PASSWORD EXPIRE` set so the user must change it on first login. |
-| `caching_sha2_password`, `sha256_password` | Same as above — default password + `PASSWORD EXPIRE`. The hash formats are not portable across the engine boundary. |
+| `caching_sha2_password` | Migrated with original password preserved, when the target has the `caching_sha2_password` plugin loaded and the stored password is in the expected format. Otherwise falls back to the default password + `PASSWORD EXPIRE`, with the reason recorded in the report. |
+| `sha256_password` | Created with the default password + `PASSWORD EXPIRE`. This hash format is not covered by the MariaDB plugin. |
 | `auth_socket`, `unix_socket`, `auth_pam`, `mysql_no_login`, anything else | **Skipped.** Not created on target. Configure these manually after the migration if needed. |
 
 Roles are detected separately (using the standard MySQL fingerprint of locked, expired, no authentication string) and replayed on target via `CREATE ROLE IF NOT EXISTS`. They are not migrated as users.
@@ -133,14 +134,36 @@ The two reports use parallel structure for direct comparison. Operators running 
 
 ### Default password handling
 
-When the operator supplies a default password at the `Default password for app users:` prompt, that password is used for every user that cannot have their original password preserved (i.e. all non-native-password users and native-password users without a hash). Every such user is also marked `PASSWORD EXPIRE`, so they must change their password on first login.
+When the operator supplies a default password at the `Default password for app users:` prompt, that password is used for every user that cannot have their original password preserved — native-password users without a hash, `sha256_password` users, and any `caching_sha2_password` user the target can't accommodate. Whether those users are also marked `PASSWORD EXPIRE` depends on `APP_USER_PWD_EXPIRE`; users whose original password was carried over are never expired.
 
 The default password is recorded in plain text in `user_migration_report.txt`. Treat that file as sensitive and rotate the default after the migration completes.
+
+### Carrying over `caching_sha2_password` users
+
+Users authenticating with `caching_sha2_password` keep their original passwords when the target can accommodate them. This requires the `caching_sha2_password` plugin to be loaded on the target — it is available in MariaDB 11.4.9, 11.8.4, and later releases, but is not loaded by default.
+
+The tool checks the target for the plugin at the start of the phase rather than comparing version numbers, so no change is needed here as new MariaDB releases appear. If the plugin isn't loaded, the phase reports it and names the statement to run:
+
+```sql
+INSTALL SONAME 'auth_mysql_sha2';
+```
+
+Re-run the phase afterwards and those users keep their original passwords. Set `PORT_SHA2_INSTALL_PLUGIN=1` if you would rather the tool load the plugin as part of the run, or `PORT_SHA2_PASSWORDS=0` to skip the attempt entirely and give every such user the default password.
+
+Each stored password is also checked for the expected format before it is carried over. Anything unexpected falls back to the default password with the reason recorded in `user_migration_report.txt`, rather than creating an account that cannot log in.
+
+Note that `caching_sha2_password` requires TLS or RSA key exchange to authenticate. A user whose password was carried over correctly will still fail with a generic access-denied error over a plain connection, so check the connection's TLS setup before suspecting the credential.
+
+### What isn't carried over
+
+Users are recreated on the target with their authentication and grants. Password policy and connection requirements attached to the account on the source are not reproduced: password history, reuse interval, `PASSWORD REQUIRE CURRENT`, password expiry policy, failed-login lockout, and `REQUIRE SSL` / `REQUIRE X509` and their cipher, issuer, and subject variants.
+
+`REQUIRE SSL` in particular loosens on migration — a user restricted to TLS on the source can connect without it on the target. Re-apply anything your security posture depends on after the users phase completes.
 
 ### Limitations and known behavior
 
 - Replication, monitoring, and backup-tool accounts (e.g. `repl_user`, `dbpwf*`, `pmm_*`, `xtrabackup`, `mysqld_exporter`) are migrated as application users in this release. They need to be cleaned up manually on target post-migration. A pattern-based exclusion list is planned.
-- MySQL 8.4 sources default to `caching_sha2_password` and ship with `mysql_native_password` disabled. Most or all users on a fresh 8.4 source will land on the default-password path. Plan a password rotation pass before re-enabling application traffic on the target.
+- MySQL 8.4 sources default to `caching_sha2_password` and ship with `mysql_native_password` disabled, so most or all users on a fresh 8.4 source take the `caching_sha2_password` path. Those users keep their original passwords only if the target has the plugin loaded (MariaDB 11.4.9 / 11.8.4 or later — see "Carrying over `caching_sha2_password` users" below). Without it, plan a password rotation pass before re-enabling application traffic on the target.
 - The dump phase (one_step, two_step, staged) may replay user-related rows from `mysql.user` as part of the data load, which can produce duplicate or conflicting entries alongside what the user migration script created. Worth a `SELECT user, host, plugin, is_role FROM mysql.user` review on target post-migration if the user set looks off.
 
 ## Post-load optimizer statistics (ANALYZE TABLE)
