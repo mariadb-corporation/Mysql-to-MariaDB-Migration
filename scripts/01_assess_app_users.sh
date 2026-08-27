@@ -260,7 +260,7 @@ report=$(cat <<EOF
 Application user assessment (no writes performed)
 ================================================================================
 Roles found on source                : ${n_roles}    (would CREATE ROLE on target)
-Users with portable native password  : ${n_preserve} (would preserve via IDENTIFIED VIA)
+Users keeping their original password : ${n_preserve}
 Users requiring default password     : ${n_default}  (${default_pwd_note})
 Users that would be SKIPPED          : ${n_skip}     (non-password auth plugin)
 Grants found across all users        : ${grants_total} (replay outcome unknown until run)
