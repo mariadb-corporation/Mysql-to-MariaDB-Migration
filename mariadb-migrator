@@ -1,6 +1,17 @@
 #!/usr/bin/env bash 
 set -euo pipefail
 
+# --- Platform gate: bash 4.0+ required -----------------------------------
+# bash 3.x-compatible syntax so it runs on the shells it rejects.
+if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+  echo "ERROR: bash 4.0 or newer required (found ${BASH_VERSION})." >&2
+  echo "       macOS ships bash 3.2. Install a current bash and re-run:" >&2
+  echo "         brew install bash" >&2
+  echo "         \$(brew --prefix bash)/bin/bash ./mariadb-migrator" >&2
+  exit 1
+fi
+# -------------------------------------------------------------------------
+
 # Define tool versioning
 MIG_TOOL_VERSION="1.4.0-beta"
 MIG_TOOL_BUILD="20260827"
