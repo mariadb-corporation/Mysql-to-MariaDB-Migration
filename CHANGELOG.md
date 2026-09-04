@@ -31,9 +31,9 @@
 - **The source-side client binary is now resolved by probe rather than a fixed
   default.** Phase scripts defaulted `MYSQL_BIN` inconsistently — some to
   `mysql`, some to `mariadb` — so a host carrying only one of the two clients
-  could fail in some phases while succeeding in others. All call sites now
-  prefer `mariadb` and fall back to `mysql`. An explicit `MYSQL_BIN` in the
-  environment continues to take precedence.
+  could fail in some phases while succeeding in others, and the orchestrator
+  hardcoded `mysql` before exporting it to them. Both layers now prefer
+  `mariadb`. `MYSQL_BIN`, then `client.mysql_bin`, still take precedence.
 - The default replication user offered in Replication (`binlog`) mode is now
   `repl_user` (previously `repl`).
 - **Assessment prechecks now guard for 8.0-only catalog objects and degrade
