@@ -3,7 +3,8 @@ set -euo pipefail
 
 echo "==> Preflight checks (replace_slave)"
 
-MYSQL_BIN="${MYSQL_BIN:-mysql}"
+# Prefer the MariaDB client; fall back to mysql. Explicit MYSQL_BIN wins.
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 MARIADB_BIN="${MARIADB_BIN:-mariadb}"
 
 SRC_HOST="${SRC_HOST:-}"

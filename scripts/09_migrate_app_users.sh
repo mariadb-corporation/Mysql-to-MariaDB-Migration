@@ -39,12 +39,12 @@ fi
 
 echo "==> Migrate application users from source to target"
 
-# Default to the mariadb client binary. The MySQL-named binary on modern
-# distributions is often a deprecated alias for mariadb and prints a banner
-# on every invocation that floods the log (Finding L from 1.2.3 testing).
-# Operators who genuinely need the upstream mysql client can still set
-# MYSQL_BIN=mysql in their environment.
-MYSQL_BIN="${MYSQL_BIN:-mariadb}"
+# Prefer the mariadb client binary, falling back to 'mysql' if it is absent.
+# The MySQL-named binary on modern distributions is often a deprecated alias
+# for mariadb and prints a banner on every invocation that floods the log
+# (Finding L from 1.2.3 testing). Operators who genuinely need the upstream
+# mysql client can still set MYSQL_BIN=mysql in their environment.
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 MARIADB_BIN="${MARIADB_BIN:-mariadb}"
 
 # Report file path. Falls back to artifacts/ when RUN_DIR isn't set —

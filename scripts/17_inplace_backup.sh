@@ -4,7 +4,8 @@ set -euo pipefail
 echo "==> In-place upgrade: backup"
 
 MARIADB_DUMP_BIN="${MARIADB_DUMP_BIN:-mariadb-dump}"
-MYSQL_BIN="${MYSQL_BIN:-mysql}"
+# Prefer the MariaDB client; fall back to mysql. Explicit MYSQL_BIN wins.
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 
 SRC_HOST="${SRC_HOST:-}"
 SRC_PORT="${SRC_PORT:-3306}"

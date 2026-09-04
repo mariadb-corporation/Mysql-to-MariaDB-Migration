@@ -4,13 +4,14 @@ set -euo pipefail
 echo "==> One-step migration (mariadb-dump | mariadb)"
 
 MARIADB_DUMP_BIN="${MARIADB_DUMP_BIN:-mariadb-dump}"
-# Source version probe uses the canonical 'mariadb' client by default (avoids
-# the "Deprecated program name" banner when 'mysql' is a MariaDB alias —
-# Finding L). Operators who genuinely need the upstream mysql client can still
-# set MYSQL_BIN=mysql in their environment. Note: this is only the informational
-# version probe; dump-tool selection below is independent and unchanged.
+# Source version probe prefers the canonical 'mariadb' client, falling back to
+# 'mysql' if it is absent (avoids the "Deprecated program name" banner when
+# 'mysql' is a MariaDB alias — Finding L). Operators who genuinely need the
+# upstream mysql client can still set MYSQL_BIN=mysql in their environment.
+# Note: this is only the informational version probe; dump-tool selection
+# below is independent and unchanged.
 MARIADB_BIN="${MARIADB_BIN:-mariadb}"
-MYSQL_BIN="${MYSQL_BIN:-mariadb}"
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 PV_BIN="${PV_BIN:-pv}"
 
 SRC_HOST="${SRC_HOST:-}"

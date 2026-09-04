@@ -21,7 +21,8 @@ fi
 unset _gate_fail _bin
 # -------------------------------------------------------------------------
 
-MYSQL_BIN="${MYSQL_BIN:-mysql}"
+# Prefer the MariaDB client; fall back to mysql. Explicit MYSQL_BIN wins.
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 # Use admin creds if provided; fall back to SRC_USER/SRC_PASS.
 HOST="${SRC_HOST:-${HOST:-127.0.0.1}}"
 PORT="${SRC_PORT:-${PORT:-3306}}"

@@ -31,7 +31,8 @@ echo "==> Staged dump (mariadb-dump | pv | gzip > file, per database)"
 
 # ----- Tunables -----
 MARIADB_DUMP_BIN="${MARIADB_DUMP_BIN:-mariadb-dump}"
-MYSQL_BIN="${MYSQL_BIN:-mysql}"
+# Prefer the MariaDB client; fall back to mysql. Explicit MYSQL_BIN wins.
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 PV_BIN="${PV_BIN:-pv}"
 GZIP_BIN="${GZIP_BIN:-gzip}"
 STAGED_DUMP_DIR="${STAGED_DUMP_DIR:-}"
