@@ -1,19 +1,8 @@
 #!/usr/bin/env bash
-# Gate: reject client option files that alter output format.
-#
-# Options like [client] verbose or vertical change the framing of client
-# output. Scripts here capture single values from the client (server
-# variables, gate comparisons, version probes); altered framing silently
-# corrupts those captures, and the failure surfaces much later at an
-# unrelated step. This gate stops the run at the point the cause is legible.
-#
-# The check is local to the tooling host and needs no server connection:
-# --print-defaults asks each client to report its own resolved options.
-# That covers all option-file layering (/etc/my.cnf, ~/.my.cnf, MYSQL_HOME,
-# !includedir) without parsing any of it.
+# Gate: reject client option files that alter output format, which silently
+# corrupt single-value captures. Uses --print-defaults; no server connection.
 
-# Options that alter output format or destination. Deliberately excludes
-# 'tee' (duplicates output, does not corrupt stdout).
+# Excludes 'tee': duplicates output, does not corrupt stdout.
 _MIGRATOR_UNSAFE_CLIENT_OPTS='verbose|vertical|auto-vertical-output|xml|html|column-type-info|show-warnings|pager'
 
 gate_client_defaults_clean() {
