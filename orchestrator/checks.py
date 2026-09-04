@@ -153,14 +153,17 @@ def _run_precheck(repo_root: Path, cfg: Dict[str, Any], outdir: Path, log) -> Pa
         raise RuntimeError(f"unable to authenticate to source for assessment: {cred_source}")
     log(f"Assessment source auth selected: {cred_source} ({user})")
 
-    env = {
+    # Seed from the parent environment so PATH (and locale, TMPDIR, etc.)
+    # reach the phase script; a bare dict leaves it with no PATH at all.
+    env = os.environ.copy()
+    env.update({
         "MYSQL_BIN": str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", _default_mysql_bin()))),
         "HOST": str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1"))),
         "PORT": str(env_cfg.get("SRC_PORT", client.get("port", 3306))),
         "USER": user,
         "OUTDIR": str(precheck_out),
         "CHECKS_DIR": str(repo_root / "sql" / "checks"),
-    }
+    })
     # Pass through env vars first.
     for k, v in env_cfg.items():
         env[str(k)] = str(v)
