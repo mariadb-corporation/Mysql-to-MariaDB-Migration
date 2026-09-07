@@ -2359,7 +2359,12 @@ fi
     echo ""
   fi
 else
-  echo "==> Skipping config save."
+  echo "==> Not saving inputs. This run uses your prompt entries only."
+  # plan/run/resume pass --config and the orchestrator requires the path to
+  # exist. Seed an empty map, not the example: its placeholders (TGT_SSH_HOST
+  # among them) act as feature guards in the phase scripts.
+  mkdir -p config
+  [[ -f "config/migration.yaml" ]] || printf 'env: {}\n' > config/migration.yaml
 fi
 
 TS="$(date +%Y%m%d_%H%M%S)"
