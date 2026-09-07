@@ -107,11 +107,11 @@ preflight enforces it, the gate it corresponds to.
 
 **Load host** (when dumping and loading from a third machine):
 
-- If you run the tool from a host that is neither source nor target, set
-  `TGT_SSH_HOST` / `TGT_SSH_USER` / `TGT_SSH_OPTS` so the load can reach the
-  target. `INSTALL_TARGET_MARIADB` controls whether the tool installs MariaDB on
-  the target (default `1`; auto-set to `0` for `dump_only`, which never touches a
-  target).
+- Running the tool from a host that is neither source nor target needs only
+  TCP reachability to both. The load connects to the target over the network;
+  `TGT_SSH_HOST` is not required (it applies to the deprecated install path
+  and to `replace_slave` mode only). MariaDB must already be installed and
+  running on the target — the launcher does not install it.
 
 ## Engine notes and gotchas
 
