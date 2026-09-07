@@ -78,43 +78,14 @@ MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADM
   "${SRC_SSL_ARGS[@]}" --connect-timeout=5 --batch --skip-column-names \
   -e "SELECT 1;" >/dev/null
 
-# Detect source version and warn early if 8.4+ but no upstream mysqldump 8.4+
-# is available. The dump step in 10_one_step_migration.sh hard-errors with the
-# same guidance, but surfacing it here saves the user from progressing past
-# preflight only to fail mid-migration.
+# Probe the source version for the banner. No version gating here: this mode
+# does not pass --master-data / --source-data, so SHOW BINARY LOG STATUS is
+# never issued and mariadb-dump works against any 5.7 / 8.0 / 8.4+ source.
+# Only 14_binlog_seed.sh needs an upstream mysqldump 8.4+.
 src_version_full="$(MYSQL_PWD="$SRC_ADMIN_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_ADMIN_USER" \
   "${SRC_SSL_ARGS[@]}" --connect-timeout=5 --batch --skip-column-names \
   -e "SELECT VERSION();" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+' | head -1)"
 echo "Source MySQL: ${src_version_full:-unknown}"
-src_version_num="$(printf "%s" "$src_version_full" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')"
-src_major="${src_version_num%%.*}"
-src_minor="${src_version_num#*.}"; src_minor="${src_minor%%.*}"
-if [[ "${src_major:-0}" -gt 8 ]] || { [[ "${src_major:-0}" -eq 8 ]] && [[ "${src_minor:-0}" -ge 4 ]]; }; then
-  # Source is 8.4+. Walk MARIADB_DUMP_BIN (if set) and a plain mysqldump on
-  # PATH; accept the first one that is upstream MySQL (not MariaDB) and >= 8.4.
-  upstream_ok=0
-  for cand in "${MARIADB_DUMP_BIN}" "mysqldump"; do
-    [[ "$cand" == "mariadb-dump" ]] && continue
-    if command -v "$cand" >/dev/null 2>&1; then
-      ver_line="$("$cand" --version 2>/dev/null || true)"
-      if ! printf "%s" "$ver_line" | grep -iq 'mariadb'; then
-        ver="$(printf "%s" "$ver_line" | sed -nE 's/.*Ver +([0-9]+\.[0-9]+).*/\1/p' | head -1)"
-        v_major="${ver%%.*}"
-        v_minor="${ver#*.}"; v_minor="${v_minor%%.*}"
-        if [[ "${v_major:-0}" -gt 8 ]] || { [[ "${v_major:-0}" -eq 8 ]] && [[ "${v_minor:-0}" -ge 4 ]]; }; then
-          upstream_ok=1; break
-        fi
-      fi
-    fi
-  done
-  if [[ "$upstream_ok" -ne 1 ]]; then
-    echo "WARNING: Source is MySQL 8.4+, but no upstream mysqldump 8.4+ is available."
-    echo "         one_step migration will fail at the dump step."
-    echo "         Install MySQL 8.4 client tools first:"
-    echo "             https://dev.mysql.com/downloads/mysql/"
-    echo "         Then: export MARIADB_DUMP_BIN=/path/to/mysqldump"
-  fi
-fi
 
 echo "Checking source migration user readiness..."
 if ! MYSQL_PWD="$SRC_PASS" "$MYSQL_BIN" -h"$SRC_HOST" -P"$SRC_PORT" -u"$SRC_USER" \
