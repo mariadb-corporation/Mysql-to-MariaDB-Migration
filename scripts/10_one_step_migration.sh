@@ -167,14 +167,19 @@ if [[ "${#PIPE_CMD[@]}" -eq 0 ]]; then
   (
     start=$(date +%s)
     while true; do
-      sleep 60
+      # Sleep in 1s slices: a killed subshell would otherwise orphan a
+      # long sleep that holds the orchestrator's stdout pipe open, delaying
+      # the next phase by up to a full interval.
+      for _ in $(seq 60); do sleep 1; done
       elapsed=$(( $(date +%s) - start ))
       printf "still running... %ds elapsed\n" "$elapsed"
     done
   ) &
   PROBE_PID=$!
   # shellcheck disable=SC2064  # intentional early expansion of $PROBE_PID
-  trap "[[ -n \"$PROBE_PID\" ]] && kill $PROBE_PID 2>/dev/null; wait $PROBE_PID 2>/dev/null; trap - EXIT" EXIT
+  # || true on both: wait on a SIGTERM'd child returns 143, which under
+  # set -e becomes the script's exit status even after a successful run.
+  trap "kill $PROBE_PID 2>/dev/null || true; wait $PROBE_PID 2>/dev/null || true; trap - EXIT" EXIT
 fi
 
 set -o pipefail

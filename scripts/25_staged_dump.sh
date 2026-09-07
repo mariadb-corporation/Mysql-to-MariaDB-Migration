@@ -246,7 +246,10 @@ file_size_probe() {
   local start now elapsed cur rate_kbs pct extra
   start=$(date +%s)
   while true; do
-    sleep "$interval"
+    # Sleep in 1s slices: a killed probe would otherwise orphan a long
+    # sleep that holds the orchestrator's stdout pipe open, delaying the
+    # next database (or phase) by up to a full interval.
+    for _ in $(seq "$interval"); do sleep 1; done
     now=$(date +%s)
     elapsed=$((now - start))
     [[ -f "$path" ]] || continue
@@ -309,7 +312,9 @@ dump_one_db() {
     file_size_probe 60 "$out_file" "$db" "$approx_bytes" &
     probe_pid=$!
     # shellcheck disable=SC2064  # intentional early expansion of $probe_pid
-    trap "kill $probe_pid 2>/dev/null; wait $probe_pid 2>/dev/null; trap - RETURN" RETURN
+    # || true on both: wait on a SIGTERM'd child returns 143, which under
+    # set -e would surface as a dump failure for this database.
+    trap "kill $probe_pid 2>/dev/null || true; wait $probe_pid 2>/dev/null || true; trap - RETURN" RETURN
   fi
 
   set -o pipefail
