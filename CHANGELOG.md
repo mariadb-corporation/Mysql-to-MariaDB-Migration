@@ -70,6 +70,11 @@
   `binlog_format` gates.
 
 ### Fixed
+- Declining the config save prompt no longer breaks plan, run, and resume. The
+  config is now created whichever way the prompt is answered; credentials remain
+  governed by the separate secrets prompt.
+- The example config no longer ships a placeholder `TGT_SSH_HOST`, which caused
+  preflight to attempt SSH to a host that does not exist.
 - **Replication mode now works against sources where native password
   authentication is unavailable.** The tool selects an authentication method the
   source supports and enables TLS on the replication link when required.

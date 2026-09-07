@@ -20,7 +20,8 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - MySQL: 5.7, 8.0, 8.4
 - MariaDB: Supported Enterprise and Community editions
 - MariaDB Cloud as a target (validated for Offline Copy (`staged`), Parallel Restartable Streaming Copy (`two_step`), and Serial Streaming Copy (`one_step`))
-- mariadb-migrator: Tested and built for linux on x86-64 and ARM64 
+- mariadb-migrator: Tested and built for Linux on x86-64 and ARM64
+- macOS: compatible for Serial Streaming Copy (`one_step`) and Offline Copy (`staged`), verified against a MySQL 8.4 source and a MariaDB 11.8 target. Requires bash 4.0 or newer (`brew install bash`; the launcher prints the exact invocation if the system bash is used) and the `mariadb` client from Homebrew. Parallel Restartable Streaming Copy (`two_step`) is unavailable — `mariadb-mtk` has no macOS build.
 
 Mode-specific notes:
 - MySQL 8.0 / 8.4 migrations are supported via any of the four modes.
