@@ -116,6 +116,9 @@ step starts. Each item lists how to check it yourself.
   echo "$SQLINESDATA_BIN"
   ```
 
+- **Linux only.** `mariadb-mtk` has no macOS build, so this mode requires a
+  Linux tools host. The other modes have no such constraint.
+
 - **The engine resolves the source and target hostnames itself.** `mariadb-mtk`
   has its own resolver path, independent of the `mariadb` client the launcher
   uses. A launcher connection succeeding does **not** confirm the engine can
