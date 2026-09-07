@@ -17,7 +17,7 @@ env:
   TGT_PASS: ""
   TGT_ADMIN_USER: "admin"
   TGT_ADMIN_PASS: ""
-  TGT_SSH_HOST: "target-ssh-host"
+  TGT_SSH_HOST: ""
   TGT_SSH_USER: "root"
   TGT_SSH_OPTS: "-o StrictHostKeyChecking=no"
   # User migration
