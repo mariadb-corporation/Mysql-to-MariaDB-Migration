@@ -1,5 +1,6 @@
 # Changelog
-## [1.4.0-beta] - 2026-08-27
+
+## [1.4.0-beta] - 2026-09-04
 ### Added
 - **Application users authenticating with `caching_sha2_password` now keep their
   original passwords.** Previously these accounts were recreated with the shared
@@ -21,6 +22,18 @@
   (see below) rather than failing later in binlog setup.
 
 ### Changed
+- **The launcher now fails immediately when run under bash older than 4.0.**
+  The launcher and phase scripts use bash 4.0+ parameter expansion; on macOS,
+  which ships bash 3.2.57, this previously surfaced as an opaque
+  `bad substitution` error part-way through a run, after connection details
+  had already been entered. The check reports the version found and the
+  remediation.
+- **The source-side client binary is now resolved by probe rather than a fixed
+  default.** Phase scripts defaulted `MYSQL_BIN` inconsistently — some to
+  `mysql`, some to `mariadb` — so a host carrying only one of the two clients
+  could fail in some phases while succeeding in others, and the orchestrator
+  hardcoded `mysql` before exporting it to them. Both layers now prefer
+  `mariadb`. `MYSQL_BIN`, then `client.mysql_bin`, still take precedence.
 - The default replication user offered in Replication (`binlog`) mode is now
   `repl_user` (previously `repl`).
 - **Assessment prechecks now guard for 8.0-only catalog objects and degrade

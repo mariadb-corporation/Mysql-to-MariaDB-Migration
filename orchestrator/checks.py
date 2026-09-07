@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .report import Gate, GateStatus, WarningItem, Report
+
+
+def _default_mysql_bin() -> str:
+    """Prefer the 'mariadb' client, falling back to 'mysql' if absent."""
+    return "mariadb" if shutil.which("mariadb") else "mysql"
 
 
 @dataclass
@@ -82,7 +88,7 @@ def _effective_env_cfg(cfg: Dict[str, Any]) -> Dict[str, str]:
 
 def _select_source_credentials(cfg: Dict[str, Any], env_cfg: Dict[str, str]) -> Tuple[Optional[str], Optional[str], str]:
     client = cfg.get("client", {}) or {}
-    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", "mysql")))
+    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", _default_mysql_bin())))
     host = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
     port = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
 
@@ -147,20 +153,23 @@ def _run_precheck(repo_root: Path, cfg: Dict[str, Any], outdir: Path, log) -> Pa
         raise RuntimeError(f"unable to authenticate to source for assessment: {cred_source}")
     log(f"Assessment source auth selected: {cred_source} ({user})")
 
-    env = {
-        "MYSQL_BIN": str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", "mysql"))),
+    # Seed from the parent environment so PATH (and locale, TMPDIR, etc.)
+    # reach the phase script; a bare dict leaves it with no PATH at all.
+    env = os.environ.copy()
+    env.update({
+        "MYSQL_BIN": str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", _default_mysql_bin()))),
         "HOST": str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1"))),
         "PORT": str(env_cfg.get("SRC_PORT", client.get("port", 3306))),
         "USER": user,
         "OUTDIR": str(precheck_out),
         "CHECKS_DIR": str(repo_root / "sql" / "checks"),
-    }
+    })
     # Pass through env vars first.
     for k, v in env_cfg.items():
         env[str(k)] = str(v)
 
     # Then force the effective credentials (and password) used by precheck.
-    env["MYSQL_BIN"] = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", "mysql")))
+    env["MYSQL_BIN"] = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", _default_mysql_bin())))
     env["HOST"] = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
     env["PORT"] = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
     env["USER"] = user
@@ -220,7 +229,7 @@ def _source_db_gate(cfg: Dict[str, Any]) -> Gate:
         )
 
     client = cfg.get("client", {}) or {}
-    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", "mysql")))
+    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", _default_mysql_bin())))
     host = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
     port = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
     user, password, cred_source = _select_source_credentials(cfg, env_cfg)
@@ -308,7 +317,7 @@ def _binlog_source_compatibility_gate(
     # Shared source-connection setup, used by both the version gate below and
     # the binlog_format sub-check further down.
     client = cfg.get("client", {}) or {}
-    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", "mysql")))
+    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", _default_mysql_bin())))
     host = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
     port = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
     user, password, _ = _select_source_credentials(cfg, env_cfg)

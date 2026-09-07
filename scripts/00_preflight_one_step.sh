@@ -3,12 +3,13 @@ set -euo pipefail
 
 echo "==> Preflight checks (one_step)"
 
-# Source-side client queries use the canonical 'mariadb' client by default
-# (avoids the "Deprecated program name" banner when 'mysql' is a MariaDB alias).
-# Operators needing the upstream mysql client can still set MYSQL_BIN=mysql.
-# Note: this is only for the connectivity/version/db-existence probes below;
-# the 8.4 mysqldump detection block is independent and unchanged.
-MYSQL_BIN="${MYSQL_BIN:-mariadb}"
+# Source-side client queries prefer the canonical 'mariadb' client, falling
+# back to 'mysql' if it is absent (avoids the "Deprecated program name" banner
+# when 'mysql' is a MariaDB alias). Operators needing the upstream mysql client
+# can still set MYSQL_BIN=mysql. Note: this is only for the connectivity /
+# version / db-existence probes below; the 8.4 mysqldump detection block is
+# independent and unchanged.
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 MARIADB_DUMP_BIN="${MARIADB_DUMP_BIN:-mariadb-dump}"
 PV_BIN="${PV_BIN:-pv}"
 

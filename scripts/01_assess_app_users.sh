@@ -37,7 +37,8 @@ fi
 
 echo "==> Assess application users on source"
 
-MYSQL_BIN="${MYSQL_BIN:-mariadb}"
+# Prefer the MariaDB client; fall back to mysql. Explicit MYSQL_BIN wins.
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 
 # Report file path. Prefer ASSESS_DIR if the assess phase set it; otherwise
 # fall back to RUN_DIR or artifacts/. Same fallback chain as the run script.

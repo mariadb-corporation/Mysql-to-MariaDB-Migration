@@ -1,6 +1,6 @@
 # Source config for assessment (read-only)
 client:
-  mysql_bin: mysql 
+  # mysql_bin: mysql   # unset: probe for mariadb, falls back to mysql
   host: 127.0.0.1
   port: 3306
   user: root

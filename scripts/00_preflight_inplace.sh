@@ -3,8 +3,8 @@ set -euo pipefail
 
 echo "==> Preflight checks (inplace)"
 
-MYSQL_BIN="${MYSQL_BIN:-mariadb}"
-#MYSQL_BIN="${MYSQL_BIN:-mysql}"
+# Prefer the MariaDB client; fall back to mysql. Explicit MYSQL_BIN wins.
+MYSQL_BIN="${MYSQL_BIN:-$(command -v mariadb >/dev/null 2>&1 && echo mariadb || echo mysql)}"
 
 SRC_HOST="${SRC_HOST:-}"
 SRC_PORT="${SRC_PORT:-3306}"
