@@ -9,6 +9,10 @@
   preflight to attempt SSH to a host that does not exist.
 
 ### Changed
+- The bash version gate now requires 4.4 or newer, up from 4.0. Offline Copy
+  (`staged`) uses `wait -n` (bash 4.3) and the phase scripts expand arrays
+  under `set -u`, which is only safe from 4.4; hosts on 4.0-4.3 passed the
+  gate and then failed mid-run.
 - README now records macOS compatibility for Serial Streaming Copy (`one_step`)
   and Offline Copy (`staged`), and the mode 2 guide notes that Parallel
   Restartable Streaming Copy requires a Linux tools host.
