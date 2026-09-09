@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.4.1-beta] - 2026-09-09
+### Fixed
+- Declining the config save prompt no longer breaks plan, run, and resume. The
+  config is now created whichever way the prompt is answered; credentials remain
+  governed by the separate secrets prompt.
+- The example config no longer ships a placeholder `TGT_SSH_HOST`, which caused
+  preflight to attempt SSH to a host that does not exist.
+
+### Changed
+- The bash version gate now requires 4.4 or newer, up from 4.0. Offline Copy
+  (`staged`) uses `wait -n` (bash 4.3) and the phase scripts expand arrays
+  under `set -u`, which is only safe from 4.4; hosts on 4.0-4.3 passed the
+  gate and then failed mid-run.
+- README now records macOS compatibility for Serial Streaming Copy (`one_step`)
+  and Offline Copy (`staged`), and the mode 2 guide notes that Parallel
+  Restartable Streaming Copy requires a Linux tools host.
+- The mode 3 guide no longer states that `TGT_SSH_HOST` is needed to run the
+  tool from a third host; only TCP reachability to source and target is.
+
 ## [1.4.0-beta] - 2026-09-04
 ### Added
 - **Application users authenticating with `caching_sha2_password` now keep their
@@ -70,11 +89,6 @@
   `binlog_format` gates.
 
 ### Fixed
-- Declining the config save prompt no longer breaks plan, run, and resume. The
-  config is now created whichever way the prompt is answered; credentials remain
-  governed by the separate secrets prompt.
-- The example config no longer ships a placeholder `TGT_SSH_HOST`, which caused
-  preflight to attempt SSH to a host that does not exist.
 - **Replication mode now works against sources where native password
   authentication is unavailable.** The tool selects an authentication method the
   source supports and enables TLS on the replication link when required.

@@ -21,7 +21,7 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - MariaDB: Supported Enterprise and Community editions
 - MariaDB Cloud as a target (validated for Offline Copy (`staged`), Parallel Restartable Streaming Copy (`two_step`), and Serial Streaming Copy (`one_step`))
 - mariadb-migrator: Tested and built for Linux on x86-64 and ARM64
-- macOS: compatible for Serial Streaming Copy (`one_step`) and Offline Copy (`staged`), verified against a MySQL 8.4 source and a MariaDB 11.8 target. Requires bash 4.0 or newer (`brew install bash`; the launcher prints the exact invocation if the system bash is used) and the `mariadb` client from Homebrew. Parallel Restartable Streaming Copy (`two_step`) is unavailable — `mariadb-mtk` has no macOS build.
+- macOS: compatible for Serial Streaming Copy (`one_step`) and Offline Copy (`staged`), verified against a MySQL 8.4 source and a MariaDB 11.8 target. Requires bash 4.4 or newer (`brew install bash`; the launcher prints the exact invocation if the system bash is used) and the `mariadb` client from Homebrew. Parallel Restartable Streaming Copy (`two_step`) is unavailable — `mariadb-mtk` has no macOS build.
 
 Mode-specific notes:
 - MySQL 8.0 / 8.4 migrations are supported via any of the four modes.
@@ -59,6 +59,9 @@ Pressing Enter selects option 2. Operators previewing a migration before committ
 The same phases are reachable non-interactively via `--assess`, `--plan`, `--run` — see `./mariadb-migrator --help`. CLI flags bypass the menu.
 
 ## Prerequisites (required)
+- **bash 4.4 or newer on the orchestrator host.** The launcher checks this on
+  startup and refuses to run on older shells. macOS ships bash 3.2; install a
+  current bash (`brew install bash`) and invoke the launcher with it.
 - **MariaDB must be installed and running on the target host before running the tool.** The tool verifies the target version during preflight but does not install MariaDB. 
 - For Replication (`binlog`): MariaDB on the target must additionally be configured per customer requirements (replication user, binlog format, etc.).
 - Python 3.9+ is required on the orchestrator host. On first run the launcher creates a project-local virtual environment (`.venv`) and installs the Python dependencies into it automatically — no manual `pip install` step is needed. On Debian/Ubuntu, install the venv module first: `sudo apt-get install -y python3-venv`.

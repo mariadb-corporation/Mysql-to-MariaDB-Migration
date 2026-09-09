@@ -1,20 +1,22 @@
 #!/usr/bin/env bash 
 set -euo pipefail
 
-# --- Platform gate: bash 4.0+ required -----------------------------------
+# --- Platform gate: bash 4.4+ required -----------------------------------
 # bash 3.x-compatible syntax so it runs on the shells it rejects.
-if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
-  echo "ERROR: bash 4.0 or newer required (found ${BASH_VERSION})." >&2
-  echo "       macOS ships bash 3.2. Install a current bash and re-run:" >&2
-  echo "         brew install bash" >&2
+# 4.4 is the floor: declare -A needs 4.0, wait -n needs 4.3, and empty-array
+# expansion under set -u is only safe from 4.4.
+if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
+  echo "ERROR: bash 4.4 or newer required (found ${BASH_VERSION})." >&2
+  echo "       Install a newer bash and re-run the launcher with it, e.g.:" >&2
+  echo "         brew install bash                                  # macOS" >&2
   echo "         \$(brew --prefix bash)/bin/bash ./mariadb-migrator" >&2
   exit 1
 fi
 # -------------------------------------------------------------------------
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.4.0-beta"
-MIG_TOOL_BUILD="20260904"
+MIG_TOOL_VERSION="1.4.1-beta"
+MIG_TOOL_BUILD="20260909"
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # Display professional welcome header
