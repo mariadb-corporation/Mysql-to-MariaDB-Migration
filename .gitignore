@@ -26,3 +26,4 @@ config/sqldata_failed_tables_validation.txt
 config/source.yaml
 .claude/
 CLAUDE.md
+mariadb-migrator.tar.gz
