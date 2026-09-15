@@ -1,4 +1,4 @@
--- mariadb-mtk Data options (contact us at  https://mariadb-community.slack.com/archives/C0BEPVC8PC6 to request a new option)
+-- SQLines Data options (contact us at support@sqlines.com to request a new option)
 
 -- Please note that all configuration options can be specified in the command line as well.
 
@@ -61,7 +61,7 @@
 -load_existing_columns_order=target
 
 -- The maximum number of rows in read/write batch, by default it is defined by the buffer size divided by the table row size
--batch_max_rows=10000
+-batch_max_rows=100000
 
 -- Enable concurrent transfer within a single table or partition for large tables (intra-table and intra-partition parallelism)
 -large_tables_parallel=yes
@@ -95,7 +95,7 @@
 
 -- The number of restart attempts for data transfer and DDL statements that failed with a transient error (e.g., timeout, lost connection).
 -- Default value is 10. Set -restart_attempts=0 to disable restarts.
--restart_attempts=
+-restart_attempts=10
 
 -- MariaDB options
 ------------------
@@ -110,7 +110,7 @@
 
 -- Define how to handle duplicate rows (based on PRIMARY KEY or UNIQUE constraints). If REPLACE is specified, the new rows replace the existing
 -- rows with the same key value. If IGNORE is specified, new rows with duplicate keys are ignored.
--- By default, an error occurs when a duplicate key value is found.
+-- Because LOCAL is used in the LOAD DATA command, the default is IGNORE.
 -mariadb_load_data_duplicates=
 
 -- Set the session SQL_MODE, if not empty the tool runs SET @@SQL_MODE = '<flags>'; to set SQL_MODE flags (comma-separated list)
@@ -135,6 +135,15 @@
 -- Disable or enable server certificate verification (MYSQL_OPT_SSL_VERIFY_SERVER_CERT option), possible values: 
 -- 0 (disabled, default) and 1 (enabled)
 -mariadb_ssl_verify_server_cert=0
+
+-- SSL private key file (--ssl-key MariaDB option), the absolute path to the file
+-mariadb_ssl_key=
+
+-- SSL certificate file (--ssl-cert MariaDB option), the absolute path to the file in PEM format
+-mariadb_ssl_cert=
+
+-- SSL CA file (--ssl-ca option of MariaDB CLI), the absolute path to the file in PEM format
+-mariadb_ssl_ca=
 
 -- MySQL options
 ----------------
@@ -166,7 +175,7 @@
 
 -- Define how to handle duplicate rows (based on PRIMARY KEY or UNIQUE constraints). If REPLACE is specified, the new rows replace the existing
 -- rows with the same key value. If IGNORE is specified, new rows with duplicate keys are ignored.
--- By default, an error occurs when a duplicate key value is found.
+-- Because LOCAL is used in the LOAD DATA command, the default is IGNORE.
 -mysql_load_data_duplicates=
 
 -- By default, data is loaded in a single transaction. However, when binary logging is enabled or a Galera cluster is used, 
