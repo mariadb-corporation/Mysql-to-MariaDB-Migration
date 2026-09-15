@@ -15,8 +15,8 @@ fi
 # -------------------------------------------------------------------------
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.4.1-beta"
-MIG_TOOL_BUILD="20260909"
+MIG_TOOL_VERSION="1.4.2-beta"
+MIG_TOOL_BUILD="20260915"
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # Display professional welcome header
