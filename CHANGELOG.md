@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.2-beta] - 2026-09-15
+### Changed
+- The mariadb-mtk engine configuration is refreshed to the 3.7.37 baseline, and
+  `restart_attempts` is now set explicitly to 10 rather than left blank.
+- Parallel Restartable Streaming Copy (`two_step`) now passes `-cfg` explicitly
+  on both the data transfer and the row-count validation pass. The engine reads
+  `sqldata.cfg` from the current working directory by default, so the
+  configuration resolved differently depending on how the tool was started; it
+  is now located relative to the install directory. A run that cannot find a
+  readable configuration says so instead of silently using engine defaults.
+
 ## [1.4.1-beta] - 2026-09-09
 ### Fixed
 - Declining the config save prompt no longer breaks plan, run, and resume. The
