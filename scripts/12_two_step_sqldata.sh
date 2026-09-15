@@ -72,6 +72,35 @@ if [[ -z "$SQLINESDATA_BIN" ]] || ! command -v "$SQLINESDATA_BIN" >/dev/null 2>&
   exit 1
 fi
 
+# mariadb-mtk config resolution.
+#
+# mariadb-mtk reads sqldata.cfg from the current working directory by default,
+# and the cwd differs by entry point: the Python runner sets cwd to the repo
+# root, while the launcher inherits whatever directory the operator invoked it
+# from. Invoked by absolute path from elsewhere, the cfg silently does not load
+# and the engine runs on its own defaults -- losing the duplicate handling,
+# session-scope FK bypass, chunking and restart_attempts settings this script's
+# comments assume are in effect. Resolve the path explicitly and pass -cfg.
+#
+# Override: set MTK_CFG to point at a cfg elsewhere (e.g. one kept alongside a
+# packaged engine install).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MTK_CFG="${MTK_CFG:-$REPO_ROOT/sqldata.cfg}"
+
+# Empty-array expansion under 'set -u' requires bash 4.4+ (gated by the
+# launcher). When no readable cfg is found, the expansion adds no argument and
+# the engine falls back to its built-in defaults.
+MTK_CFG_ARGS=()
+if [[ -r "$MTK_CFG" ]]; then
+  MTK_CFG_ARGS=("-cfg=$MTK_CFG")
+  echo "==> mariadb-mtk config: $MTK_CFG"
+  MTK_CFG_LOADED=1
+else
+  echo "==> mariadb-mtk config not found at $MTK_CFG; engine defaults apply"
+  MTK_CFG_LOADED=0
+fi
+
 missing=()
 for v in SRC_HOST SRC_USER SRC_PASS TGT_HOST TGT_USER TGT_PASS; do
   if [[ -z "${!v:-}" ]]; then
@@ -132,7 +161,12 @@ if target_sql "SET GLOBAL FOREIGN_KEY_CHECKS=0;"; then
     fk_was_set=1
 else
     echo "    GLOBAL scope unavailable (managed target without SUPER) — using session scope."
-    echo "    Per-worker FK_CHECKS=0 is set by sqldata.cfg; no cleanup needed."
+    if [[ "$MTK_CFG_LOADED" -eq 1 ]]; then
+      echo "    Per-worker FK_CHECKS=0 is set by $MTK_CFG; no cleanup needed."
+    else
+      echo "    WARNING: no mariadb-mtk config loaded, so per-worker FK_CHECKS=0" >&2
+      echo "             is NOT set. FK-bearing schemas may fail during load." >&2
+    fi
 fi
 fi
 
@@ -144,7 +178,10 @@ fi
 SQLDATA_TOPT="${SQLDATA_TOPT:-none}"
 
 # Large-table chunking and transient-error retries are native to sqldata and
-# driven by sqldata.cfg defaults (see sqldata.cfg-example) — not by this script.
+# driven by the sqldata.cfg resolved above and passed as -cfg (see
+# sqldata.cfg-example) — not by this script. If no readable cfg was found, the
+# engine's own built-in defaults apply instead and the tuning described below
+# is not in effect.
 # Large tables are transferred as parallel chunks (large_tables_parallel /
 # large_tables_rows); chunking requires an AUTO_INCREMENT column, so tables
 # without one transfer as a single stream. The size-based threshold
@@ -162,6 +199,7 @@ for db in "${DB_LIST[@]}"; do
   mkdir -p "$db_out_dir"
 #    -ss=6 \
   "$SQLINESDATA_BIN" \
+    "${MTK_CFG_ARGS[@]}" \
     "-sd=mysql,${SRC_USER}/${SRC_PASS}@${SRC_HOST}:${SRC_PORT}/${db}" \
     "-td=mariadb,${TGT_USER}/${TGT_PASS}@${TGT_HOST}:${TGT_PORT}/${db}" \
     "-smap=${db}:${db}" \
@@ -221,6 +259,7 @@ else
     # Detail goes to a temp log (parsed, then folded into both logs); console
     # output suppressed to avoid double-logging.
     "$SQLINESDATA_BIN" \
+      "${MTK_CFG_ARGS[@]}" \
       "-sd=mysql,${SRC_USER}/${SRC_PASS}@${SRC_HOST}:${SRC_PORT}/${db}" \
       "-td=mariadb,${TGT_USER}/${TGT_PASS}@${TGT_HOST}:${TGT_PORT}/${db}" \
       "-smap=${db}:${db}" \
@@ -230,8 +269,8 @@ else
       -cmd=validate \
       -vopt=rowcount >/dev/null 2>&1 || rc=$?
       # Session count intentionally omitted: sqldata uses the -ss default from
-      # sqldata.cfg (mirrors the load loop's commented-out -ss). Add "-ss=<n>"
-      # above to override per run.
+      # the resolved cfg (mirrors the load loop's commented-out -ss). Add
+      # "-ss=<n>" above to override per run.
 
     # Parse sqldata's summary block rather than trusting rc alone:
     #   Tables: N (N compared, N failed) / Equal tables: N / Different tables: N
