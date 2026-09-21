@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.0] - 2026-09-21
+### Changed
+- Promoted to general availability. No functional change from 1.4.2-beta; the
+  version suffix is dropped and the release line moves off beta.
+
 ## [1.4.2-beta] - 2026-09-15
 ### Changed
 - The mariadb-mtk engine configuration is refreshed to the 3.7.37 baseline, and
