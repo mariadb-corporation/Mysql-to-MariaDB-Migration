@@ -19,6 +19,19 @@ MIG_TOOL_VERSION="1.5.0"
 MIG_TOOL_BUILD="20260921"
 
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+
+# How to invoke the orchestrator. Defaults to the module in this checkout;
+# the zipapp overrides it so the bundle calls back into itself.
+MIGCTL="${MIGCTL:-python3 -m orchestrator.migrationctl}"
+
+# Where the generated config lives. Relative to the working directory, not
+# REPO_ROOT: under the bundle REPO_ROOT is a read-only share dir.
+CONFIG_DIR="${CONFIG_DIR:-$PWD/config}"
+
+# Where run artifacts land. Absolute, and under the invoking directory:
+# phase scripts run with cwd set to the tool root, which under the bundle
+# is a versioned cache dir the user never looks in.
+ARTIFACTS_DIR="${ARTIFACTS_DIR:-$PWD/artifacts}"
 # Display professional welcome header
 cat << EOF
 ---------------------------------------------------------------------
@@ -242,10 +255,13 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 # Define the path to the dependency check script
-DEP_CHECK_SCRIPT="scripts/00_check_python_deps.sh"
+DEP_CHECK_SCRIPT="${REPO_ROOT:-.}/scripts/00_check_python_deps.sh"
 
-# Check if the dependency script exists and is executable
-if [[ -x "$DEP_CHECK_SCRIPT" ]]; then
+# Running from the zipapp bundle: Python dependencies are vendored inside the
+# archive, so there is no venv to build and no requirements.txt to install.
+if [[ -n "${MARIADB_MIGRATOR_ROOT:-}" ]]; then
+    echo "==> Python dependencies bundled."
+elif [[ -x "$DEP_CHECK_SCRIPT" ]]; then
     # Execute the dependency check
     if ! "$DEP_CHECK_SCRIPT"; then
         echo "ERROR: Dependency check failed. Please resolve the issues above."
@@ -257,7 +273,7 @@ fi
 
 # System binaries (DB client required; pv optional).
 
-SYS_CHECK_SCRIPT="scripts/00_check_system_deps.sh"
+SYS_CHECK_SCRIPT="${REPO_ROOT:-.}/scripts/00_check_system_deps.sh"
 if [[ -x "$SYS_CHECK_SCRIPT" ]]; then
     if ! "$SYS_CHECK_SCRIPT"; then
         echo "ERROR: System dependency check failed. Please resolve the issues above."
@@ -365,7 +381,7 @@ confirm_proceed() {
 # --- User-facing mode labels ------------------------------------------------
 # Map the internal mode identifier (one_step / two_step / staged / binlog) to
 # the descriptive label shown in the menu and completion banners. The internal
-# identifiers remain the canonical form in config/migration.yaml, env vars,
+# identifiers remain the canonical form in $CONFIG_DIR/migration.yaml, env vars,
 # state.json, and the orchestrator API — only the display text changes.
 mode_label() {
   case "$1" in
@@ -1479,7 +1495,7 @@ CFG_REPLACE_START_MARIADB_CMD=""
 CFG_REPLACE_DELETE_OLD_MYSQL_DATA=""
 CFG_REPLACE_CLEANUP_CMD=""
 
-if [[ -f "config/migration.yaml" ]]; then
+if [[ -f "$CONFIG_DIR/migration.yaml" ]]; then
   while IFS=$'\t' read -r cfg_key cfg_val; do
     case "$cfg_key" in
       REPL_USER) CFG_REPL_USER="$cfg_val" ;;
@@ -1519,7 +1535,7 @@ if [[ -f "config/migration.yaml" ]]; then
         sub(/[[:space:]]+$/, "", $0)
         print key "\t" $0
       }
-    ' config/migration.yaml
+    ' $CONFIG_DIR/migration.yaml
   )
 fi
 
@@ -2065,7 +2081,8 @@ yaml_quote() {
 }
 
 save_config() {
-  local cfg="config/migration.yaml"
+  local cfg="$CONFIG_DIR/migration.yaml"
+  mkdir -p "$CONFIG_DIR"
   local tmp
   tmp="$(mktemp)"
   local backup="${cfg}.bak"
@@ -2209,7 +2226,7 @@ BEGIN { in_env=0 }
     # Staged-mode persistent settings. STAGED_DUMP_DIR is intentionally NOT
     # persisted because it is per-run (auto-derived from RUN_DIR for dump
     # phases, prompted explicitly for load_only). If your existing
-    # config/migration.yaml predates staged support, these patterns will
+    # $CONFIG_DIR/migration.yaml predates staged support, these patterns will
     # silently skip — re-init from migration.yaml.example to pick them up.
     if ($0 ~ /^  STAGED_PHASE:/) { print "  STAGED_PHASE: " staged_phase; next }
     if ($0 ~ /^  STAGED_COMPRESS:/) { print "  STAGED_COMPRESS: " staged_compress; next }
@@ -2255,7 +2272,7 @@ if [[ -n "$TGT_SSH_USER" ]]; then export TGT_SSH_USER; fi
 
 # Always export both SRC_DBS and SRC_DB derived from the typed input so the
 # operator's prompt entry wins unconditionally over any stale values left in
-# config/migration.yaml from a previous run. Previously this block exported
+# $CONFIG_DIR/migration.yaml from a previous run. Previously this block exported
 # only one of the two (XOR on comma presence), leaving the other key
 # unset — which let migrationctl fall back to YAML for the unset key.
 # For a multi-DB list (comma present) SRC_DBS holds the list and SRC_DB is
@@ -2271,17 +2288,17 @@ if [[ "$MODE" != "inplace" ]]; then
   fi
 fi
 
-  confirm_save="$(prompt "Save inputs to config/migration.yaml? (y/n)" "n")"
+  confirm_save="$(prompt "Save inputs to $CONFIG_DIR/migration.yaml? (y/n)" "n")"
   if [[ "$(printf "%s" "$confirm_save" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
-    mkdir -p config
+    mkdir -p "$CONFIG_DIR"
 
-    if [[ ! -f "config/migration.yaml" ]]; then
-        if [[ -f "config/migration.yaml.example" ]]; then
-            cp "config/migration.yaml.example" "config/migration.yaml"
-            echo "==> Initialized config/migration.yaml from example."
+    if [[ ! -f "$CONFIG_DIR/migration.yaml" ]]; then
+        if [[ -f "${REPO_ROOT:-.}/config/migration.yaml.example" ]]; then
+            cp "${REPO_ROOT:-.}/config/migration.yaml.example" "$CONFIG_DIR/migration.yaml"
+            echo "==> Initialized $CONFIG_DIR/migration.yaml from example."
         else
             # Fallback: create an empty file so awk doesn't crash
-            touch "config/migration.yaml"
+            touch "$CONFIG_DIR/migration.yaml"
         fi
     fi
 
@@ -2320,8 +2337,8 @@ fi
     echo ""
     echo "  # or, non-interactively (single phase at a time):"
     [[ -f ".venv/bin/activate" ]] && echo "  source .venv/bin/activate && \\"
-    echo "  python3 -m orchestrator.migrationctl $hint_subcmd \\"
-    echo "      --config config/migration.yaml --mode $MODE \\"
+    echo "  $MIGCTL $hint_subcmd \\"
+    echo "      --config $CONFIG_DIR/migration.yaml --mode $MODE \\"
     echo "      --out artifacts/${hint_outvar}_\$(date +%Y%m%d_%H%M%S)"
     echo ""
     echo "  (See docs/INVOCATION_REFERENCE.md for other subcommands.)"
@@ -2353,8 +2370,8 @@ fi
     echo "  # or, non-interactively (passwords required via environment):"
     [[ -f ".venv/bin/activate" ]] && echo "  source .venv/bin/activate && \\"
     echo "  $hint_env \\"
-    echo "      python3 -m orchestrator.migrationctl $hint_subcmd \\"
-    echo "        --config config/migration.yaml --mode $MODE \\"
+    echo "      $MIGCTL $hint_subcmd \\"
+    echo "        --config $CONFIG_DIR/migration.yaml --mode $MODE \\"
     echo "        --out artifacts/${hint_outvar}_\$(date +%Y%m%d_%H%M%S)"
     echo ""
     echo "  (See docs/INVOCATION_REFERENCE.md for other subcommands and full env-var list.)"
@@ -2366,12 +2383,12 @@ else
   # exist. Seed an empty map, not the example: its placeholders (TGT_SSH_HOST
   # among them) act as feature guards in the phase scripts.
   mkdir -p config
-  [[ -f "config/migration.yaml" ]] || printf 'env: {}\n' > config/migration.yaml
+  [[ -f "$CONFIG_DIR/migration.yaml" ]] || printf 'env: {}\n' > $CONFIG_DIR/migration.yaml
 fi
 
 TS="$(date +%Y%m%d_%H%M%S)"
-ASSESS_DIR="artifacts/assess_${TS}"
-PLAN_DIR="artifacts/plan_${TS}"
+ASSESS_DIR="$ARTIFACTS_DIR/assess_${TS}"
+PLAN_DIR="$ARTIFACTS_DIR/plan_${TS}"
 RUN_DIR_FILE=".migration_last_run"
 RUN_SIG_FILE=".migration_last_signature"
 STATUS=0
@@ -2430,11 +2447,11 @@ print_continue_hint() {
     [[ -f ".venv/bin/activate" ]] && echo "      source .venv/bin/activate && \\"
     if [[ -n "$env_prefix" ]]; then
       echo "      $env_prefix \\"
-      echo "          python3 -m orchestrator.migrationctl $next \\"
+      echo "          $MIGCTL $next \\"
     else
-      echo "      python3 -m orchestrator.migrationctl $next \\"
+      echo "      $MIGCTL $next \\"
     fi
-    echo "          --config config/migration.yaml --mode $MODE \\"
+    echo "          --config $CONFIG_DIR/migration.yaml --mode $MODE \\"
     if [[ "$next" == "run" ]]; then
       echo "          --out artifacts/run_${MODE}_\$(date +%Y%m%d_%H%M%S)"
     else
@@ -2450,21 +2467,21 @@ print_continue_hint() {
 }
 
 if [[ "$PHASE_MODE" == "assess" ]]; then
-  if [[ -f "config/source.yaml" ]]; then
+  if [[ -f "$CONFIG_DIR/source.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
-    python3 -m orchestrator.migrationctl assess --config config/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
+    $MIGCTL assess --config $CONFIG_DIR/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
     STATUS=$?
-  elif [[ -f "config/migration.yaml" ]]; then
+  elif [[ -f "$CONFIG_DIR/migration.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
-    python3 -m orchestrator.migrationctl assess --config config/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
+    $MIGCTL assess --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
     STATUS=$?
   else
-    echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
+    echo "==> Skipping assess ($CONFIG_DIR/source.yaml and $CONFIG_DIR/migration.yaml not found)"
     STATUS=0
   fi
 elif [[ "$PHASE_MODE" == "plan" ]]; then
   echo "==> Planning: $MODE (out: $PLAN_DIR)"
-  python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
+  $MIGCTL plan --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
   STATUS=$?
 elif [[ "$PHASE_MODE" == "run" ]]; then
   # Final confirmation before the migration actually starts. The default flow
@@ -2479,12 +2496,12 @@ elif [[ "$PHASE_MODE" == "run" ]]; then
   if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
     echo "==> Resuming: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
-    python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    $MIGCTL resume --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$RUN_DIR"
     STATUS=$?
   elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" && "${FORCE_NEW_RUN:-0}" != "1" && "$MODE" != "two_step" ]]; then
     echo "==> Resuming: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
-    python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    $MIGCTL resume --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$RUN_DIR"
     STATUS=$?
   else
     if [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" == "1" ]]; then
@@ -2498,12 +2515,12 @@ elif [[ "$PHASE_MODE" == "run" ]]; then
       fi
     fi
     rm -f "$RUN_DIR_FILE" "$RUN_SIG_FILE"
-    RUN_DIR="artifacts/run_${MODE}_${TS}"
+    RUN_DIR="$ARTIFACTS_DIR/run_${MODE}_${TS}"
     echo "$RUN_DIR" > "$RUN_DIR_FILE"
     printf "%s" "$CURRENT_SIG" > "$RUN_SIG_FILE"
     echo "==> Running: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
-    python3 -m orchestrator.migrationctl run --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    $MIGCTL run --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$RUN_DIR"
     STATUS=$?
   fi
 elif [[ "$PHASE_MODE" == "assess_plan" ]]; then
@@ -2512,16 +2529,16 @@ elif [[ "$PHASE_MODE" == "assess_plan" ]]; then
   # plan phase and stops. No run-phase invocation. CLI flags (--assess / --plan)
   # remain atomic and do not set this PHASE_MODE; only the interactive menu
   # selects it.
-  if [[ -f "config/source.yaml" ]]; then
+  if [[ -f "$CONFIG_DIR/source.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
-    python3 -m orchestrator.migrationctl assess --config config/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
+    $MIGCTL assess --config $CONFIG_DIR/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
     STATUS=$?
-  elif [[ -f "config/migration.yaml" ]]; then
+  elif [[ -f "$CONFIG_DIR/migration.yaml" ]]; then
     echo "==> Assessing (out: $ASSESS_DIR)"
-    python3 -m orchestrator.migrationctl assess --config config/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
+    $MIGCTL assess --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
     STATUS=$?
   else
-    echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
+    echo "==> Skipping assess ($CONFIG_DIR/source.yaml and $CONFIG_DIR/migration.yaml not found)"
     STATUS=0
   fi
 
@@ -2534,7 +2551,7 @@ elif [[ "$PHASE_MODE" == "assess_plan" ]]; then
       exit 0
     fi
     echo "==> Planning: $MODE (out: $PLAN_DIR)"
-    python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
+    $MIGCTL plan --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
     STATUS=$?
     # assess_plan intentionally stops after plan with no run-confirm. Without a
     # hint the operator is left at a dead end (the success summary below is
@@ -2548,12 +2565,12 @@ else
   if [[ ( "$MODE" == "binlog" || "$MODE" == "replace_slave" ) && -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" != "1" ]]; then
     echo "==> Resuming: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
-    python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    $MIGCTL resume --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$RUN_DIR"
     STATUS=$?
   elif [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && -n "$LAST_SIG" && "$CURRENT_SIG" == "$LAST_SIG" && "${FORCE_NEW_RUN:-0}" != "1" && "$MODE" != "two_step" ]]; then
     echo "==> Resuming: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
-    python3 -m orchestrator.migrationctl resume --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    $MIGCTL resume --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$RUN_DIR"
     STATUS=$?
   else
     if [[ -n "$RUN_DIR" && -d "$RUN_DIR" && -f "$RUN_DIR/state.json" && "${FORCE_NEW_RUN:-0}" == "1" ]]; then
@@ -2568,14 +2585,14 @@ else
     fi
     # Drop stale resume pointers before a fresh assess/plan/run attempt.
     rm -f "$RUN_DIR_FILE" "$RUN_SIG_FILE"
-    if [[ -f "config/source.yaml" ]]; then
+    if [[ -f "$CONFIG_DIR/source.yaml" ]]; then
       echo "==> Assessing (out: $ASSESS_DIR)"
-      python3 -m orchestrator.migrationctl assess --config config/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
-    elif [[ -f "config/migration.yaml" ]]; then
+      $MIGCTL assess --config $CONFIG_DIR/source.yaml --mode "$MODE" --out "$ASSESS_DIR"
+    elif [[ -f "$CONFIG_DIR/migration.yaml" ]]; then
       echo "==> Assessing (out: $ASSESS_DIR)"
-      python3 -m orchestrator.migrationctl assess --config config/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
+      $MIGCTL assess --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
     else
-      echo "==> Skipping assess (config/source.yaml and config/migration.yaml not found)"
+      echo "==> Skipping assess ($CONFIG_DIR/source.yaml and $CONFIG_DIR/migration.yaml not found)"
     fi
 
     if ! confirm_proceed "Proceed to plan phase now?"; then
@@ -2585,7 +2602,7 @@ else
     fi
 
     echo "==> Planning: $MODE (out: $PLAN_DIR)"
-    python3 -m orchestrator.migrationctl plan --config config/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
+    $MIGCTL plan --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
 
     if ! confirm_proceed "Proceed to run phase now?"; then
       echo "Stopped after plan by user choice."
@@ -2593,12 +2610,12 @@ else
       exit 0
     fi
 
-    RUN_DIR="artifacts/run_${MODE}_${TS}"
+    RUN_DIR="$ARTIFACTS_DIR/run_${MODE}_${TS}"
     echo "$RUN_DIR" > "$RUN_DIR_FILE"
     printf "%s" "$CURRENT_SIG" > "$RUN_SIG_FILE"
     echo "==> Running: $MODE (out: $RUN_DIR)"
     print_progress_hint "$RUN_DIR"
-    python3 -m orchestrator.migrationctl run --config config/migration.yaml --mode "$MODE" --out "$RUN_DIR"
+    $MIGCTL run --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$RUN_DIR"
     STATUS=$?
   fi
 fi

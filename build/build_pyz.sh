@@ -53,6 +53,10 @@ mkdir -p "${BUILD_DIR}/_payload/orchestrator"
 cp -R "${PHASE_DIR}" "${BUILD_DIR}/_payload/"
 cp -R "${SQL_DIR}" "${BUILD_DIR}/_payload/"
 cp "${ORCH_DIR}/step_map.yaml" "${BUILD_DIR}/_payload/orchestrator/"
+cp mariadb-migrator "${BUILD_DIR}/_payload/"
+mkdir -p "${BUILD_DIR}/_payload/config"
+cp config/migration.yaml.example "${BUILD_DIR}/_payload/config/"
+chmod +x "${BUILD_DIR}/_payload/mariadb-migrator"
 
 # Entry point.
 cp build/pyz_main.py "${BUILD_DIR}/__main__.py"

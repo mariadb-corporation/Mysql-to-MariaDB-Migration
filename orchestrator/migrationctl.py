@@ -90,8 +90,16 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
-def _ensure_outdir(outdir: Path) -> None:
+def _ensure_outdir(outdir: Path) -> Path:
+    """Create the output directory and return it as an absolute path.
+
+    Phase scripts run with cwd set to the tool root, which is not the user's
+    working directory under the zipapp bundle. A relative --out would make the
+    scripts write somewhere the orchestrator never reads from.
+    """
+    outdir = outdir.resolve()
     outdir.mkdir(parents=True, exist_ok=True)
+    return outdir
 
 def _repo_root() -> Path:
     env = os.environ.get("MARIADB_MIGRATOR_ROOT")
@@ -201,7 +209,7 @@ def assess(
 ):
     """Run read-only assessment: safety gates + warnings + inventory."""
     repo_root = _repo_root()
-    _ensure_outdir(out)
+    out = _ensure_outdir(out)
 
     # Initialize state + report
     state_path = out / DEFAULT_STATE
@@ -363,7 +371,7 @@ def plan(
 ):
     """Generate a plan from config + step map (no execution)."""
     repo_root = _repo_root()
-    _ensure_outdir(out)
+    out = _ensure_outdir(out)
 
     report = Report(out / DEFAULT_REPORT, out / DEFAULT_LOG)
     report.start_run(mode="plan", config_path=str(config))
@@ -490,7 +498,7 @@ def run(
 ):
     """Execute migration steps (offline mode) with resume-safe state tracking."""
     repo_root = _repo_root()
-    _ensure_outdir(out)
+    out = _ensure_outdir(out)
 
     state = StateStore(out / DEFAULT_STATE)
     report = Report(out / DEFAULT_REPORT, out / DEFAULT_LOG)

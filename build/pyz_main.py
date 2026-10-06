@@ -76,15 +76,40 @@ def _extract(archive, dest):
     return dest
 
 
+SUBCOMMANDS = ("assess", "plan", "run", "resume")
+
+
+def _exec_launcher(root, archive):
+    """Hand off to the interactive bash launcher.
+
+    The launcher calls back into this same archive for assess/plan/run/resume
+    via MIGCTL, so one artifact serves both the menu and the direct commands.
+    """
+    launcher = os.path.join(root, "mariadb-migrator")
+    if not os.path.exists(launcher):
+        sys.exit("ERROR: launcher missing from bundle: %s" % launcher)
+
+    env = dict(os.environ)
+    env[ENV_VAR] = root
+    env.setdefault("REPO_ROOT", root)
+    env["MIGCTL"] = os.path.abspath(archive) if archive else sys.executable
+
+    os.execve("/bin/bash", ["bash", launcher] + sys.argv[1:], env)
+
+
 def main():
     archive = _archive_path()
     if archive is not None:
-        scripts = _extract(archive, _share_dir(_version(archive)))
+        root = _extract(archive, _share_dir(_version(archive)))
     else:
-        scripts = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_payload")
+        root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_payload")
+
+    argv = sys.argv[1:]
+    if not argv or argv[0] not in SUBCOMMANDS:
+        _exec_launcher(root, archive)  # does not return
 
     # Let the orchestrator find the phase scripts without __file__ math.
-    os.environ.setdefault(ENV_VAR, scripts)
+    os.environ.setdefault(ENV_VAR, root)
 
     from orchestrator import migrationctl
     return migrationctl.app()
