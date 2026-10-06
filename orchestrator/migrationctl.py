@@ -94,6 +94,9 @@ def _ensure_outdir(outdir: Path) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
 
 def _repo_root() -> Path:
+    env = os.environ.get("MARIADB_MIGRATOR_ROOT")
+    if env:
+        return Path(env)
     return Path(__file__).resolve().parents[1]
 
 def _load_step_map(repo_root: Path) -> Dict[str, Any]:

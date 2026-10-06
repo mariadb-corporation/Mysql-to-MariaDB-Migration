@@ -27,3 +27,6 @@ config/source.yaml
 .claude/
 CLAUDE.md
 mariadb-migrator.tar.gz
+build/pyz/
+dist/
+*.pyz
