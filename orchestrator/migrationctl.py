@@ -644,7 +644,13 @@ def run(
             continue
 
         report.log(f"RUN  {step_id} ({name}) -> {script}")
-        ok, meta = run_step(repo_root, script, args=args, extra_env=env, log=report.log)
+        step_env = dict(env)
+        if step_id == "precheck":
+            # Without these the script falls back to paths relative to its own
+            # root, which under the zipapp bundle is a read-only cache dir.
+            step_env["OUTDIR"] = str(out / "precheck")
+            step_env["CHECKS_DIR"] = str(repo_root / "sql" / "checks")
+        ok, meta = run_step(repo_root, script, args=args, extra_env=step_env, log=report.log)
         if ok:
             state.mark_done(step_id, meta=meta)
             report.add_step(step_id, name, StepStatus.DONE, details=meta)
