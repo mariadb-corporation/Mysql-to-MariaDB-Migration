@@ -18,6 +18,9 @@ fi
 MIG_TOOL_VERSION="1.5.1"
 MIG_TOOL_BUILD="20261007"
 
+# How this tool was invoked, for help text. The bundle overrides it.
+MIG_SELF="${MIG_INVOKED_AS:-$(basename "${BASH_SOURCE[0]}")}"
+
 REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
 # How to invoke the orchestrator. Defaults to the module in this checkout;
@@ -224,10 +227,10 @@ usage() {
   cat << EOF
 
 Usage:
-  ./migration
-  ./migration --assess
-  ./migration --plan
-  ./migration --run
+  ./$MIG_SELF
+  ./$MIG_SELF --assess
+  ./$MIG_SELF --plan
+  ./$MIG_SELF --run
 
 Default behavior (no flag): present an interactive top-level menu with two
 choices: 'Assess & Plan' (run assess + plan, stop before run) or 'Assess +
