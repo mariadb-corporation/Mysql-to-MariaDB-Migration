@@ -256,6 +256,8 @@ dependencies, so it needs no pip, no virtual environment and no network
 access on the host — suitable for air-gapped environments.
 
 ```bash
+mkdir -p ~/migration && cd ~/migration
+# place mariadb-migrator.pyz here
 chmod +x mariadb-migrator.pyz
 ./mariadb-migrator.pyz
 ```
@@ -264,6 +266,11 @@ The first run unpacks the tool to `~/.local/share/mariadb-migrator/<version>/`
 and goes straight to the menu. Your files stay where you run it: configuration
 is read from `./config` and all artifacts, logs and reports are written to
 `./artifacts`.
+
+Run the bundle from a working directory you have set aside for the migration,
+not from your home directory — `config/` and `artifacts/` are created beside
+it, and `artifacts/` grows with every run. One directory per migration keeps
+each run's reports and logs together.
 
 Older unpacked versions are removed automatically when you run a newer bundle.
 To reset completely, delete `~/.local/share/mariadb-migrator` — it is rebuilt

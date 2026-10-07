@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.5.1] - 2026-10-07
+## [1.6.0] - 2026-10-07
 
 ### Added
 - Single-file zipapp distribution (`mariadb-migrator.pyz`) for air-gapped
@@ -40,7 +40,7 @@
 
 ### Changed
 - Removed the "Supported Sources" line from the launcher banner.
-- Launcher version bumped to 1.5.1 (build 20261007).
+- Launcher version bumped to 1.6.0 (build 20261007).
 - The build now produces `mariadb-migrator.pyz` without the version in the
   filename. Releases also carry a versioned copy of the same artifact.
 
