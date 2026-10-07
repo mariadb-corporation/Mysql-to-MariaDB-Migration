@@ -16,6 +16,83 @@ Private repository to design, execute, and validate end-to-end MySQL to MariaDB 
 - Authentication plugin compatibility
 - Validation & rollback planning
 
+## Installation and first run
+
+Two distributions are available from the
+[releases page](https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration/releases).
+
+### Single-file bundle (recommended)
+
+`mariadb-migrator.pyz` is self-contained. It carries its own Python
+dependencies, so it needs no pip, no virtual environment and no network
+access on the host — suitable for air-gapped environments.
+
+```bash
+mkdir -p ~/migration && cd ~/migration
+# place mariadb-migrator.pyz here
+chmod +x mariadb-migrator.pyz
+./mariadb-migrator.pyz
+```
+
+The first run unpacks the tool to `~/.local/share/mariadb-migrator/<version>/`
+and goes straight to the menu. Your files stay where you run it: configuration
+is read from `./config` and all artifacts, logs and reports are written to
+`./artifacts`.
+
+Run the bundle from a working directory you have set aside for the migration,
+not from your home directory — `config/` and `artifacts/` are created beside
+it, and `artifacts/` grows with every run. One directory per migration keeps
+each run's reports and logs together.
+
+Older unpacked versions are removed automatically when you run a newer bundle.
+To reset completely, delete `~/.local/share/mariadb-migrator` — it is rebuilt
+on the next run.
+
+Requires Python 3.9 or newer and bash 4.4 or newer.
+
+### Release archive
+
+The archive is the full source tree and bootstraps its own Python environment
+on first run.
+
+```bash
+tar -xzf MariaDB-migrator-<version>.tar.gz
+cd MariaDB-migrator
+./mariadb-migrator
+```
+
+The `.zip` archive is equivalent.
+
+On first run the launcher will:
+
+1. Create a project-local virtual environment at `./.venv` (unless one is
+   already active) and install the Python dependencies (`typer`, `click`,
+   `rich`, `PyYAML`) into it. Your system Python is never modified.
+2. Detect the `mariadb` client and, if it is missing, show the correct install
+   command for your platform and offer to run it. `pv` (optional) is offered
+   the same way, without blocking the run.
+3. Present the interactive menu.
+
+Subsequent runs reuse `./.venv` and go straight to the menu. `.venv` is
+git-ignored and must not be committed or included in a release archive — it is
+recreated automatically.
+
+### Both distributions
+
+The data-transfer engine used by Parallel Restartable Streaming Copy —
+**`mariadb-mtk`** (the MariaDB-packaged SQLines Data engine) — is a separate
+download. Put it on `PATH` as `mariadb-mtk` (the legacy `sqldata` name is also
+detected) or point `SQLINESDATA_BIN` at its full path (see
+[Prerequisites](#prerequisites-required) below).
+
+First-run prompts can be controlled for unattended or CI hosts:
+
+- `MIGRATOR_ASSUME_YES=1` — accept install prompts automatically.
+- `MIGRATOR_NO_SYSTEM_INSTALL=1` — never run system installs; print the
+  commands only.
+- `MIGRATOR_NO_AUTO_VENV=1` — do not auto-create `.venv`; print manual venv
+  steps and exit.
+
 ## Supported Versions
 - MySQL: 5.7, 8.0, 8.4
 - MariaDB: Supported Enterprise and Community editions
@@ -243,83 +320,6 @@ Best when source and target are not directly network-reachable, or when a checkp
 - Auto-detects most recent `artifacts/run_staged_*/dumps/` as the `load_only` default — re-runs are one Enter press.
 - **Caveat**: offline mode. Writes to source during dump are not captured. Use Replication (`binlog`) if downtime is unacceptable.
 - **Caveat**: target connections currently negotiate TLS where the server requires it (e.g. MariaDB Cloud), but server-certificate verification is not yet configurable on the target side. Connections are encrypted in transit but not authenticated against a trusted CA. Source-side TLS verification works as expected via `SRC_SSL_MODE`. Configurable target TLS is planned for a future release.
-
-## Installation and first run
-
-Two distributions are available from the
-[releases page](https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration/releases).
-
-### Single-file bundle (recommended)
-
-`mariadb-migrator.pyz` is self-contained. It carries its own Python
-dependencies, so it needs no pip, no virtual environment and no network
-access on the host — suitable for air-gapped environments.
-
-```bash
-mkdir -p ~/migration && cd ~/migration
-# place mariadb-migrator.pyz here
-chmod +x mariadb-migrator.pyz
-./mariadb-migrator.pyz
-```
-
-The first run unpacks the tool to `~/.local/share/mariadb-migrator/<version>/`
-and goes straight to the menu. Your files stay where you run it: configuration
-is read from `./config` and all artifacts, logs and reports are written to
-`./artifacts`.
-
-Run the bundle from a working directory you have set aside for the migration,
-not from your home directory — `config/` and `artifacts/` are created beside
-it, and `artifacts/` grows with every run. One directory per migration keeps
-each run's reports and logs together.
-
-Older unpacked versions are removed automatically when you run a newer bundle.
-To reset completely, delete `~/.local/share/mariadb-migrator` — it is rebuilt
-on the next run.
-
-Requires Python 3.9 or newer and bash 4.4 or newer.
-
-### Release archive
-
-The archive is the full source tree and bootstraps its own Python environment
-on first run.
-
-```bash
-tar -xzf MariaDB-migrator-<version>.tar.gz
-cd MariaDB-migrator
-./mariadb-migrator
-```
-
-The `.zip` archive is equivalent.
-
-On first run the launcher will:
-
-1. Create a project-local virtual environment at `./.venv` (unless one is
-   already active) and install the Python dependencies (`typer`, `click`,
-   `rich`, `PyYAML`) into it. Your system Python is never modified.
-2. Detect the `mariadb` client and, if it is missing, show the correct install
-   command for your platform and offer to run it. `pv` (optional) is offered
-   the same way, without blocking the run.
-3. Present the interactive menu.
-
-Subsequent runs reuse `./.venv` and go straight to the menu. `.venv` is
-git-ignored and must not be committed or included in a release archive — it is
-recreated automatically.
-
-### Both distributions
-
-The data-transfer engine used by Parallel Restartable Streaming Copy —
-**`mariadb-mtk`** (the MariaDB-packaged SQLines Data engine) — is a separate
-download. Put it on `PATH` as `mariadb-mtk` (the legacy `sqldata` name is also
-detected) or point `SQLINESDATA_BIN` at its full path (see
-[Prerequisites](#prerequisites-required) above).
-
-First-run prompts can be controlled for unattended or CI hosts:
-
-- `MIGRATOR_ASSUME_YES=1` — accept install prompts automatically.
-- `MIGRATOR_NO_SYSTEM_INSTALL=1` — never run system installs; print the
-  commands only.
-- `MIGRATOR_NO_AUTO_VENV=1` — do not auto-create `.venv`; print manual venv
-  steps and exit.
 
 ## Orchestrator usage
 
