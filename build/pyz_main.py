@@ -147,7 +147,10 @@ def _exec_launcher(root, archive):
     if archive:
         env["MIG_INVOKED_AS"] = os.path.basename(archive)
 
-    os.execve("/bin/bash", ["bash", launcher] + sys.argv[1:], env)
+    # Prefer a bash from PATH: the launcher needs 4.4+, and on macOS
+    # /bin/bash is 3.2. Fall back to /bin/bash if PATH has none.
+    bash = shutil.which("bash") or "/bin/bash"
+    os.execve(bash, [bash, launcher] + sys.argv[1:], env)
 
 
 def main():
