@@ -10,13 +10,14 @@ ORCH_DIR="orchestrator"          # python sources
 PHASE_DIR="${PHASE_DIR:-scripts}" # numbered bash phase scripts
 SQL_DIR="${SQL_DIR:-sql}"        # check SQL consumed by phase scripts
 APP_NAME="mariadb-migrator"
-VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || echo 0.0.0-dev)}"
+# Single source of truth: the launcher's MIG_TOOL_VERSION.
+VERSION="${VERSION:-$(sed -n 's/^MIG_TOOL_VERSION="\(.*\)"$/\1/p' "${REPO_ROOT:-.}/mariadb-migrator")}"
 VERSION="${VERSION#v}"
 # -----------------------------------------------------------------------------
 
 BUILD_DIR="build/pyz"
 DIST_DIR="dist"
-OUT="${DIST_DIR}/${APP_NAME}-${VERSION}.pyz"
+OUT="${DIST_DIR}/${APP_NAME}.pyz"
 
 # 3.9 is the floor; building on a newer interpreter can emit 3.10+ bytecode
 # assumptions into the vendored tree.

@@ -4,15 +4,19 @@ Phase scripts cannot be exec'd from inside the archive, so they are unpacked
 once into ~/.local/share/<app>/<version>/ and run from there. That path is
 user-owned and not mounted noexec, unlike /tmp on hardened RHEL builds.
 """
+import hashlib
 import os
 import shutil
 import sys
 import tempfile
+import time
 import zipfile
 
 APP_NAME = "mariadb-migrator"
 PAYLOAD_PREFIX = "_payload/"
 ENV_VAR = "MARIADB_MIGRATOR_ROOT"
+# Payload dirs idle this long are pruned when a new version installs.
+KEEP_UNUSED_HOURS = 24
 
 
 def _archive_path():
@@ -38,11 +42,55 @@ def _share_dir(version):
     return os.path.join(base, APP_NAME, version)
 
 
+def _stamp(archive):
+    """Content hash of the archive, so a rebuilt bundle re-extracts."""
+    h = hashlib.sha256()
+    with open(archive, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _prune(current, keep_hours=KEEP_UNUSED_HOURS):
+    """Drop payload dirs for other versions. Never fatal."""
+    parent = os.path.dirname(current)
+    cutoff = time.time() - keep_hours * 3600
+    try:
+        names = os.listdir(parent)
+    except OSError:
+        return
+    for name in names:
+        path = os.path.join(parent, name)
+        if path == current or not os.path.isdir(path):
+            continue
+        # Only touch dirs we wrote: they carry a completion marker.
+        if not os.path.exists(os.path.join(path, ".complete")):
+            continue
+        try:
+            if keep_hours and os.path.getmtime(path) > cutoff:
+                continue
+            shutil.rmtree(path)
+        except OSError as exc:
+            sys.stderr.write("WARNING: could not remove %s: %s\n" % (path, exc))
+
+
 def _extract(archive, dest):
     """Unpack the payload into dest atomically. Safe to race."""
     marker = os.path.join(dest, ".complete")
+    stamp = _stamp(archive)
     if os.path.exists(marker):
-        return dest
+        try:
+            if open(marker).read().strip() == stamp:
+                return dest
+        except OSError:
+            pass
+        # Same version, different build: replace the payload.
+        stale = "%s.stale-%d" % (dest, os.getpid())
+        try:
+            os.rename(dest, stale)
+            shutil.rmtree(stale, ignore_errors=True)
+        except OSError:
+            shutil.rmtree(dest, ignore_errors=True)
 
     parent = os.path.dirname(dest)
     os.makedirs(parent, exist_ok=True)
@@ -63,8 +111,10 @@ def _extract(archive, dest):
                 if rel.endswith(".sh"):
                     os.chmod(target, 0o755)
 
-        open(os.path.join(staging, ".complete"), "w").close()
+        with open(os.path.join(staging, ".complete"), "w") as fh:
+            fh.write(stamp + "\n")
         os.rename(staging, dest)
+        _prune(dest)
     except OSError:
         # Lost the race; another process finished first.
         shutil.rmtree(staging, ignore_errors=True)
