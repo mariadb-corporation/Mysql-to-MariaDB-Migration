@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag (e.g. v1.5.0)"
+        description: "Existing release tag (e.g. v1.5.1)"
         required: true
 
 permissions:
@@ -19,16 +19,71 @@ jobs:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Validate tag
+        run: |
+          test -n "$TAG" || { echo "TAG is empty" >&2; exit 1; }
+          echo "Building $TAG"
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.TAG }}
+          fetch-depth: 0
 
-      - name: Build bundle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Build source archive
         run: |
           NAME="MariaDB-migrator-${TAG#v}.tar.gz"
           git archive --format=tar.gz --prefix=MariaDB-migrator/ -o "$NAME" HEAD
           sha256sum "$NAME" > "$NAME.sha256"
           tar tzf "$NAME" | head
 
+      - name: Build bundle
+        run: |
+          pip cache purge || true
+          bash build/build_pyz.sh
+
+      - name: Verify bundle
+        run: |
+          PYZ=dist/mariadb-migrator.pyz
+          test -f "$PYZ" || { echo "bundle not built" >&2; exit 1; }
+
+          # Architecture independence: no compiled extensions in the payload.
+          if [ "$(unzip -l "$PYZ" | grep -c '\.so$')" != "0" ]; then
+            echo "compiled extension found in bundle" >&2
+            unzip -l "$PYZ" | grep '\.so$' >&2
+            exit 1
+          fi
+
+          # The bundle version is read from the launcher, not from git, so
+          # cross-check it against the tag being released.
+          BUNDLED="$(unzip -p "$PYZ" _version.txt | tr -d '[:space:]')"
+          if [ "$BUNDLED" != "${TAG#v}" ]; then
+            echo "version mismatch: bundle=$BUNDLED tag=${TAG#v}" >&2
+            echo "check MIG_TOOL_VERSION in mariadb-migrator" >&2
+            exit 1
+          fi
+
+          cp "$PYZ" "dist/mariadb-migrator-${TAG#v}.pyz"
+          (cd dist && sha256sum ./*.pyz > SHA256SUMS)
+          cat dist/SHA256SUMS
+
+      - name: Smoke test bundle
+        run: |
+          mkdir -p /tmp/smoke && cd /tmp/smoke
+          "$GITHUB_WORKSPACE/dist/mariadb-migrator.pyz" --help > help.out 2>&1 || true
+          grep -q "Tool Version: ${TAG#v}" help.out || {
+            echo "banner did not report ${TAG#v}" >&2
+            head -20 help.out >&2
+            exit 1
+          }
+
       - name: Attach to release
-        run: gh release upload "$TAG" MariaDB-migrator-*.tar.gz* --clobber
+        run: |
+          gh release upload "$TAG" \
+            MariaDB-migrator-*.tar.gz* \
+            dist/mariadb-migrator.pyz \
+            "dist/mariadb-migrator-${TAG#v}.pyz" \
+            dist/SHA256SUMS --clobber

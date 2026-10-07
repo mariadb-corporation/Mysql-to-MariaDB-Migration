@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.5.1] - 2026-10-07
+
+### Added
+- Single-file zipapp distribution (`mariadb-migrator.pyz`) for air-gapped
+  installs. Provides the full interactive launcher with no pip, no venv and
+  no network access.
+- `build/build_pyz.sh` vendors the dependency closure from
+  `orchestrator/requirements.lock`. PyYAML is forced pure-Python so the
+  artifact is architecture-independent; the build fails if a compiled
+  extension ends up in the bundle.
+- On first run the bundle extracts its payload to
+  `~/.local/share/mariadb-migrator/<version>/`. Configuration is read from
+  `./config` and artifacts are written to `./artifacts`, keeping customer
+  files out of the shared install directory.
+- Older payload directories are removed when a new version is installed.
+  Directories modified in the last 24 hours are left alone, so a migration
+  started from a previous bundle is not disturbed.
+- The release workflow builds and attaches the bundle and its checksums to
+  the GitHub release; a CI workflow builds and verifies it on every pull
+  request.
+
+### Fixed
+- `migrationctl --out` is now resolved to an absolute path, so the
+  orchestrator can be run from any working directory.
+- The run phase's `precheck_only` step received no output directory and
+  wrote its results alongside the installed tool; it now inherits `OUTDIR`
+  and `CHECKS_DIR`.
+- The launcher's dependency and system checks used paths relative to the
+  current directory. The dependency check is skipped when
+  `MARIADB_MIGRATOR_ROOT` is set, as dependencies are vendored.
+- Rebuilding the bundle without changing the version left the previously
+  extracted payload in place, so the old code kept running. The extraction
+  marker now records the archive's checksum and the payload is refreshed
+  when it differs.
+- The bundle filename and the launcher reported different versions, as the
+  build derived its version from the most recent git tag. Both now come from
+  `MIG_TOOL_VERSION` in the launcher.
+
+### Changed
+- Removed the "Supported Sources" line from the launcher banner.
+- Launcher version bumped to 1.5.1 (build 20261007).
+- The build now produces `mariadb-migrator.pyz` without the version in the
+  filename. Releases also carry a versioned copy of the same artifact.
+
 ## [1.5.0] - 2026-09-21
 ### Changed
 - Promoted to general availability. No functional change from 1.4.2-beta; the

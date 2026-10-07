@@ -1,0 +1,104 @@
+name: CI bundle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mariadb-migrator'
+      - 'build/**'
+      - 'orchestrator/**'
+      - 'scripts/**'
+      - 'sql/**'
+      - '.github/workflows/ci-bundle.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mariadb-migrator'
+      - 'build/**'
+      - 'orchestrator/**'
+      - 'scripts/**'
+      - 'sql/**'
+      - '.github/workflows/ci-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-bundle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mariadb-client pv
+
+      - name: Build bundle
+        run: bash build/build_pyz.sh
+
+      - name: Verify bundle
+        run: |
+          PYZ=dist/mariadb-migrator.pyz
+          test -f "$PYZ" || { echo "bundle not built" >&2; exit 1; }
+
+          # Architecture independence: no compiled extensions in the payload.
+          if [ "$(unzip -l "$PYZ" | grep -c '\.so$')" != "0" ]; then
+            echo "compiled extension found in bundle" >&2
+            unzip -l "$PYZ" | grep '\.so$' >&2
+            exit 1
+          fi
+
+          # The stamped version must match the launcher it was built from.
+          BUNDLED="$(unzip -p "$PYZ" _version.txt | tr -d '[:space:]')"
+          LAUNCHER="$(sed -n 's/^MIG_TOOL_VERSION="\(.*\)"$/\1/p' mariadb-migrator)"
+          if [ "$BUNDLED" != "$LAUNCHER" ]; then
+            echo "version mismatch: bundle=$BUNDLED launcher=$LAUNCHER" >&2
+            exit 1
+          fi
+
+          echo "VERSION=$BUNDLED" >> "$GITHUB_ENV"
+          sha256sum "$PYZ"
+
+      - name: Smoke test - first run (cold share dir)
+        run: |
+          rm -rf "$HOME/.local/share/mariadb-migrator"
+          mkdir -p /tmp/smoke1 && cd /tmp/smoke1
+          "$GITHUB_WORKSPACE/dist/mariadb-migrator.pyz" --help > help.out 2>&1 || true
+          grep -q "Tool Version: ${VERSION}" help.out || {
+            echo "banner did not report ${VERSION}" >&2
+            head -30 help.out >&2
+            exit 1
+          }
+          test -d "$HOME/.local/share/mariadb-migrator/${VERSION}" || {
+            echo "payload was not extracted to the share dir" >&2
+            ls -R "$HOME/.local/share/mariadb-migrator" >&2 || true
+            exit 1
+          }
+
+      - name: Smoke test - second run (warm share dir)
+        run: |
+          mkdir -p /tmp/smoke2 && cd /tmp/smoke2
+          "$GITHUB_WORKSPACE/dist/mariadb-migrator.pyz" --help > help.out 2>&1 || true
+          grep -q "Tool Version: ${VERSION}" help.out || {
+            echo "second run did not report ${VERSION}" >&2
+            head -30 help.out >&2
+            exit 1
+          }
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mariadb-migrator-${{ env.VERSION }}-${{ github.sha }}
+          path: dist/mariadb-migrator.pyz
+          retention-days: 14
+          if-no-files-found: error

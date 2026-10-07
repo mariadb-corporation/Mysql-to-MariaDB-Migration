@@ -90,10 +90,21 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
-def _ensure_outdir(outdir: Path) -> None:
+def _ensure_outdir(outdir: Path) -> Path:
+    """Create the output directory and return it as an absolute path.
+
+    Phase scripts run with cwd set to the tool root, which is not the user's
+    working directory under the zipapp bundle. A relative --out would make the
+    scripts write somewhere the orchestrator never reads from.
+    """
+    outdir = outdir.resolve()
     outdir.mkdir(parents=True, exist_ok=True)
+    return outdir
 
 def _repo_root() -> Path:
+    env = os.environ.get("MARIADB_MIGRATOR_ROOT")
+    if env:
+        return Path(env)
     return Path(__file__).resolve().parents[1]
 
 def _load_step_map(repo_root: Path) -> Dict[str, Any]:
@@ -198,7 +209,7 @@ def assess(
 ):
     """Run read-only assessment: safety gates + warnings + inventory."""
     repo_root = _repo_root()
-    _ensure_outdir(out)
+    out = _ensure_outdir(out)
 
     # Initialize state + report
     state_path = out / DEFAULT_STATE
@@ -360,7 +371,7 @@ def plan(
 ):
     """Generate a plan from config + step map (no execution)."""
     repo_root = _repo_root()
-    _ensure_outdir(out)
+    out = _ensure_outdir(out)
 
     report = Report(out / DEFAULT_REPORT, out / DEFAULT_LOG)
     report.start_run(mode="plan", config_path=str(config))
@@ -487,7 +498,7 @@ def run(
 ):
     """Execute migration steps (offline mode) with resume-safe state tracking."""
     repo_root = _repo_root()
-    _ensure_outdir(out)
+    out = _ensure_outdir(out)
 
     state = StateStore(out / DEFAULT_STATE)
     report = Report(out / DEFAULT_REPORT, out / DEFAULT_LOG)
@@ -633,7 +644,13 @@ def run(
             continue
 
         report.log(f"RUN  {step_id} ({name}) -> {script}")
-        ok, meta = run_step(repo_root, script, args=args, extra_env=env, log=report.log)
+        step_env = dict(env)
+        if step_id == "precheck":
+            # Without these the script falls back to paths relative to its own
+            # root, which under the zipapp bundle is a read-only cache dir.
+            step_env["OUTDIR"] = str(out / "precheck")
+            step_env["CHECKS_DIR"] = str(repo_root / "sql" / "checks")
+        ok, meta = run_step(repo_root, script, args=args, extra_env=step_env, log=report.log)
         if ok:
             state.mark_done(step_id, meta=meta)
             report.add_step(step_id, name, StepStatus.DONE, details=meta)
