@@ -143,6 +143,9 @@ def _exec_launcher(root, archive):
     env[ENV_VAR] = root
     env.setdefault("REPO_ROOT", root)
     env["MIGCTL"] = os.path.abspath(archive) if archive else sys.executable
+    # So help text names the artifact the user actually ran.
+    if archive:
+        env["MIG_INVOKED_AS"] = os.path.basename(archive)
 
     os.execve("/bin/bash", ["bash", launcher] + sys.argv[1:], env)
 

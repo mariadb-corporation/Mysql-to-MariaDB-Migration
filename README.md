@@ -246,33 +246,73 @@ Best when source and target are not directly network-reachable, or when a checkp
 
 ## Installation and first run
 
-The MySQL to MariaDB Migrator is distributed as a release archive (`.tar.gz` or `.zip`) from the [MariaDB community downloads page](https://mariadb.com/downloads/community/) or [MariaDB Enterprise GIT](https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration/releases). Download the latest version (e.g. `v1.3.2-beta`), extract it, and run the launcher — it bootstraps its own Python environment, so there is no manual setup beyond the prerequisites above.
+Two distributions are available from the
+[releases page](https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration/releases).
+
+### Single-file bundle (recommended)
+
+`mariadb-migrator.pyz` is self-contained. It carries its own Python
+dependencies, so it needs no pip, no virtual environment and no network
+access on the host — suitable for air-gapped environments.
 
 ```bash
-# Download the release archive from https://github.com/mariadb-corporation/Mysql-to-MariaDB-Migration/releases
-# Extract and run (replace <version> with the release you downloaded, e.g. v1.3.2-beta):
-tar -xzf Mysql-to-MariaDB-Migration-<version>.tar.gz
-cd Mysql-to-MariaDB-Migration-<version>
+chmod +x mariadb-migrator.pyz
+./mariadb-migrator.pyz
+```
+
+The first run unpacks the tool to `~/.local/share/mariadb-migrator/<version>/`
+and goes straight to the menu. Your files stay where you run it: configuration
+is read from `./config` and all artifacts, logs and reports are written to
+`./artifacts`.
+
+Older unpacked versions are removed automatically when you run a newer bundle.
+To reset completely, delete `~/.local/share/mariadb-migrator` — it is rebuilt
+on the next run.
+
+Requires Python 3.9 or newer and bash 4.4 or newer.
+
+### Release archive
+
+The archive is the full source tree and bootstraps its own Python environment
+on first run.
+
+```bash
+tar -xzf MariaDB-migrator-<version>.tar.gz
+cd MariaDB-migrator
 ./mariadb-migrator
 ```
 
-The `.zip` archive is equivalent (`unzip Mysql-to-MariaDB-Migration-<version>.zip`, then `cd` into the extracted directory). The version embedded in the archive and directory names matches the release you download.
-
-The data-transfer engine used by Parallel Restartable Streaming Copy — **`mariadb-mtk`** (the MariaDB-packaged SQLines Data engine) — is available from the same downloads page. Put it on `PATH` as `mariadb-mtk` (the legacy `sqldata` name is also detected) or point `SQLINESDATA_BIN` at its full path (see [Prerequisites](#prerequisites-required) above).
+The `.zip` archive is equivalent.
 
 On first run the launcher will:
 
-1. Create a project-local virtual environment at `./.venv` (unless one is already active) and install the Python dependencies (`typer`, `click`, `rich`, `PyYAML`) into it. Your system Python is never modified.
-2. Detect the `mariadb` client and, if it is missing, show the correct install command for your platform and offer to run it. `pv` (optional) is offered the same way, without blocking the run.
+1. Create a project-local virtual environment at `./.venv` (unless one is
+   already active) and install the Python dependencies (`typer`, `click`,
+   `rich`, `PyYAML`) into it. Your system Python is never modified.
+2. Detect the `mariadb` client and, if it is missing, show the correct install
+   command for your platform and offer to run it. `pv` (optional) is offered
+   the same way, without blocking the run.
 3. Present the interactive menu.
 
-Subsequent runs reuse `./.venv` and go straight to the menu. `.venv` is git-ignored and must not be committed or included in a release archive — it is recreated automatically.
+Subsequent runs reuse `./.venv` and go straight to the menu. `.venv` is
+git-ignored and must not be committed or included in a release archive — it is
+recreated automatically.
+
+### Both distributions
+
+The data-transfer engine used by Parallel Restartable Streaming Copy —
+**`mariadb-mtk`** (the MariaDB-packaged SQLines Data engine) — is a separate
+download. Put it on `PATH` as `mariadb-mtk` (the legacy `sqldata` name is also
+detected) or point `SQLINESDATA_BIN` at its full path (see
+[Prerequisites](#prerequisites-required) above).
 
 First-run prompts can be controlled for unattended or CI hosts:
 
 - `MIGRATOR_ASSUME_YES=1` — accept install prompts automatically.
-- `MIGRATOR_NO_SYSTEM_INSTALL=1` — never run system installs; print the commands only.
-- `MIGRATOR_NO_AUTO_VENV=1` — do not auto-create `.venv`; print manual venv steps and exit.
+- `MIGRATOR_NO_SYSTEM_INSTALL=1` — never run system installs; print the
+  commands only.
+- `MIGRATOR_NO_AUTO_VENV=1` — do not auto-create `.venv`; print manual venv
+  steps and exit.
 
 ## Orchestrator usage
 
