@@ -2475,9 +2475,7 @@ load_failure_gate() {
     question="Proceed anyway?"
   else
     # Sign-off only: nothing will break, but someone should have read it.
-    echo "    $signoff item(s) will load and then behave differently on MariaDB."
-    echo "    Nothing will stop; this is the point at which someone accepts the"
-    echo "    change before it reaches production."
+    echo "    $signoff item(s) will load, then behave differently on MariaDB."
     question="Sign off on these and continue?"
   fi
   echo ""
