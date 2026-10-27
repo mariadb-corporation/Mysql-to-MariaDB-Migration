@@ -1,0 +1,823 @@
+===== port 3311 =====
+server_version
+11.8.9-MariaDB
+probe
+--- probe: json ->> operator ---
+--------------
+SELECT t.doc ->> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t
+--------------
+
+ERROR 1064 (42000) at line 38: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '>> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t' at line 1
+probe
+--- probe: json -> operator ---
+--------------
+SELECT t.doc -> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t
+--------------
+
+ERROR 1064 (42000) at line 41: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t' at line 1
+probe
+--- probe: LATERAL ---
+--------------
+SELECT d.n FROM (SELECT 1 AS id) b, LATERAL (SELECT 1 AS n) d
+--------------
+
+ERROR 1064 (42000) at line 44: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '(SELECT 1 AS n) d' at line 1
+probe
+--- probe: MEMBER OF ---
+--------------
+SELECT 1 MEMBER OF (CAST('[1,2,3]' AS JSON)) AS result
+--------------
+
+ERROR 1064 (42000) at line 47: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'OF (CAST('[1,2,3]' AS JSON)) AS result' at line 1
+probe
+--- probe: UUID_TO_BIN ---
+--------------
+SELECT UUID_TO_BIN('6ccd780c-baba-1026-9564-5b8c656024db') IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 54: FUNCTION mysql.UUID_TO_BIN does not exist
+probe
+--- probe: BIN_TO_UUID ---
+--------------
+SELECT BIN_TO_UUID(UNHEX(REPEAT('00',16))) AS result
+--------------
+
+ERROR 1305 (42000) at line 57: FUNCTION mysql.BIN_TO_UUID does not exist
+probe
+--- probe: IS_UUID ---
+--------------
+SELECT IS_UUID('6ccd780c-baba-1026-9564-5b8c656024db') AS result
+--------------
+
+ERROR 1305 (42000) at line 60: FUNCTION mysql.IS_UUID does not exist
+probe
+--- probe: REGEXP_LIKE ---
+--------------
+SELECT REGEXP_LIKE('abc','b') AS result
+--------------
+
+ERROR 1305 (42000) at line 63: FUNCTION mysql.REGEXP_LIKE does not exist
+probe
+--- probe: ANY_VALUE ---
+--------------
+SELECT ANY_VALUE(1) AS result
+--------------
+
+ERROR 1305 (42000) at line 66: FUNCTION mysql.ANY_VALUE does not exist
+probe
+--- probe: GROUPING ---
+--------------
+SELECT GROUPING(c) AS result FROM (SELECT 1 AS c) t GROUP BY c WITH ROLLUP
+--------------
+
+ERROR 1305 (42000) at line 72: FUNCTION mysql.GROUPING does not exist
+probe
+--- probe: JSON_STORAGE_SIZE ---
+--------------
+SELECT JSON_STORAGE_SIZE('{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 75: FUNCTION mysql.JSON_STORAGE_SIZE does not exist
+probe
+--- probe: JSON_STORAGE_FREE ---
+--------------
+SELECT JSON_STORAGE_FREE('{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 78: FUNCTION mysql.JSON_STORAGE_FREE does not exist
+probe
+--- probe: JSON_SCHEMA_VALID ---
+result
+1
+probe
+--- probe: JSON_SCHEMA_VALIDATION_REPORT ---
+--------------
+SELECT JSON_SCHEMA_VALIDATION_REPORT('{"type":"object"}','{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 84: FUNCTION mysql.JSON_SCHEMA_VALIDATION_REPORT does not exist
+probe
+--- probe: FORMAT_BYTES ---
+result
+1.00 KiB
+probe
+--- probe: FORMAT_PICO_TIME ---
+result
+1.00 ns
+probe
+--- probe: PS_THREAD_ID ---
+--------------
+SELECT PS_THREAD_ID(CONNECTION_ID()) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 93: FUNCTION mysql.PS_THREAD_ID does not exist
+probe
+--- probe: VALIDATE_PASSWORD_STRENGTH ---
+--------------
+SELECT VALIDATE_PASSWORD_STRENGTH('abc') AS result
+--------------
+
+ERROR 1305 (42000) at line 96: FUNCTION mysql.VALIDATE_PASSWORD_STRENGTH does not exist
+probe
+--- probe: GTID_SUBSET ---
+--------------
+SELECT GTID_SUBSET('','') AS result
+--------------
+
+ERROR 1305 (42000) at line 99: FUNCTION mysql.GTID_SUBSET does not exist
+probe
+--- probe: GTID_SUBTRACT ---
+--------------
+SELECT GTID_SUBTRACT('','') AS result
+--------------
+
+ERROR 1305 (42000) at line 102: FUNCTION mysql.GTID_SUBTRACT does not exist
+probe
+--- probe: WAIT_FOR_EXECUTED_GTID_SET ---
+--------------
+SELECT WAIT_FOR_EXECUTED_GTID_SET('', 0) AS result
+--------------
+
+ERROR 1305 (42000) at line 105: FUNCTION mysql.WAIT_FOR_EXECUTED_GTID_SET does not exist
+probe
+--- probe: SOURCE_POS_WAIT ---
+--------------
+SELECT SOURCE_POS_WAIT('', 0, 0) AS result
+--------------
+
+ERROR 1305 (42000) at line 108: FUNCTION mysql.SOURCE_POS_WAIT does not exist
+probe
+--- probe: ST_Collect ---
+--------------
+SELECT ST_Collect(ST_GeomFromText('POINT(1 1)')) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 111: FUNCTION mysql.ST_Collect does not exist
+probe
+--- probe: ST_IsValid ---
+--------------
+SELECT ST_IsValid(ST_GeomFromText('POINT(1 1)')) AS result
+--------------
+
+ERROR 1305 (42000) at line 114: FUNCTION mysql.ST_IsValid does not exist
+probe
+--- probe: ST_Simplify ---
+--------------
+SELECT ST_Simplify(ST_GeomFromText('LINESTRING(0 0,1 1,2 2)'), 0.5) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 117: FUNCTION mysql.ST_Simplify does not exist
+probe
+--- probe: ST_Validate ---
+--------------
+SELECT ST_Validate(ST_GeomFromText('POINT(1 1)')) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 120: FUNCTION mysql.ST_Validate does not exist
+probe
+--- probe: ST_GeoHash ---
+--------------
+SELECT ST_GeoHash(1, 1, 10) AS result
+--------------
+
+ERROR 1305 (42000) at line 123: FUNCTION mysql.ST_GeoHash does not exist
+probe
+--- probe: ST_Latitude ---
+--------------
+SELECT ST_Latitude(ST_GeomFromText('POINT(1 1)', 4326)) AS result
+--------------
+
+ERROR 1305 (42000) at line 126: FUNCTION mysql.ST_Latitude does not exist
+probe
+--- probe: ST_PointAtDistance ---
+--------------
+SELECT ST_PointAtDistance(ST_GeomFromText('LINESTRING(0 0,1 1)'), 0.5) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 129: FUNCTION mysql.ST_PointAtDistance does not exist
+probe
+--- probe: ENCRYPTION=Y (MySQL spelling) ---
+probe
+--- probe: ENCRYPTED=YES (MariaDB spelling) ---
+probe
+--- probe: AUTOEXTEND_SIZE ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_aes (c INT) AUTOEXTEND_SIZE=4194304'
+--------------
+
+ERROR 1064 (42000) at line 144: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'AUTOEXTEND_SIZE=4194304' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 145: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: TABLESPACE clause ---
+probe
+--- probe: CREATE TABLESPACE ---
+--------------
+PREPARE p FROM 'CREATE TABLESPACE _probe_space ADD DATAFILE ''_probe_space.ibd'' ENGINE=InnoDB'
+--------------
+
+ERROR 1064 (42000) at line 152: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'TABLESPACE _probe_space ADD DATAFILE '_probe_space.ibd' ENGINE=InnoDB' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 153: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: column INVISIBLE ---
+probe
+--- probe: index INVISIBLE ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_invidx (c INT, INDEX i (c) INVISIBLE)'
+--------------
+
+ERROR 1064 (42000) at line 160: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'INVISIBLE)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 161: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: SRID on column ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_srid (g POINT SRID 4326 NOT NULL)'
+--------------
+
+ERROR 1064 (42000) at line 164: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '4326 NOT NULL)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 165: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: CHECK NOT ENFORCED ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_chk (c INT, CONSTRAINT k CHECK (c > 0) NOT ENFORCED)'
+--------------
+
+ERROR 1064 (42000) at line 168: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'NOT ENFORCED)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 169: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: DEFAULT ENCRYPTION on database ---
+--------------
+PREPARE p FROM 'CREATE DATABASE _probe_db DEFAULT ENCRYPTION=''Y'''
+--------------
+
+ERROR 1064 (42000) at line 172: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'ENCRYPTION='Y'' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 173: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: generated invisible primary key ---
+--------------
+PREPARE p FROM 'SET SESSION sql_generate_invisible_primary_key = ON'
+--------------
+
+ERROR 1193 (HY000) at line 176: Unknown system variable 'sql_generate_invisible_primary_key'
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 177: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+note
+probes complete
+===== port 3312 =====
+server_version
+12.3.3-MariaDB
+probe
+--- probe: json ->> operator ---
+--------------
+SELECT t.doc ->> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t
+--------------
+
+ERROR 1064 (42000) at line 38: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '>> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t' at line 1
+probe
+--- probe: json -> operator ---
+--------------
+SELECT t.doc -> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t
+--------------
+
+ERROR 1064 (42000) at line 41: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t' at line 1
+probe
+--- probe: LATERAL ---
+--------------
+SELECT d.n FROM (SELECT 1 AS id) b, LATERAL (SELECT 1 AS n) d
+--------------
+
+ERROR 1064 (42000) at line 44: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '(SELECT 1 AS n) d' at line 1
+probe
+--- probe: MEMBER OF ---
+--------------
+SELECT 1 MEMBER OF (CAST('[1,2,3]' AS JSON)) AS result
+--------------
+
+ERROR 1064 (42000) at line 47: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'OF (CAST('[1,2,3]' AS JSON)) AS result' at line 1
+probe
+--- probe: UUID_TO_BIN ---
+--------------
+SELECT UUID_TO_BIN('6ccd780c-baba-1026-9564-5b8c656024db') IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 54: FUNCTION mysql.UUID_TO_BIN does not exist
+probe
+--- probe: BIN_TO_UUID ---
+--------------
+SELECT BIN_TO_UUID(UNHEX(REPEAT('00',16))) AS result
+--------------
+
+ERROR 1305 (42000) at line 57: FUNCTION mysql.BIN_TO_UUID does not exist
+probe
+--- probe: IS_UUID ---
+--------------
+SELECT IS_UUID('6ccd780c-baba-1026-9564-5b8c656024db') AS result
+--------------
+
+ERROR 1305 (42000) at line 60: FUNCTION mysql.IS_UUID does not exist
+probe
+--- probe: REGEXP_LIKE ---
+--------------
+SELECT REGEXP_LIKE('abc','b') AS result
+--------------
+
+ERROR 1305 (42000) at line 63: FUNCTION mysql.REGEXP_LIKE does not exist
+probe
+--- probe: ANY_VALUE ---
+--------------
+SELECT ANY_VALUE(1) AS result
+--------------
+
+ERROR 1305 (42000) at line 66: FUNCTION mysql.ANY_VALUE does not exist
+probe
+--- probe: GROUPING ---
+--------------
+SELECT GROUPING(c) AS result FROM (SELECT 1 AS c) t GROUP BY c WITH ROLLUP
+--------------
+
+ERROR 1305 (42000) at line 72: FUNCTION mysql.GROUPING does not exist
+probe
+--- probe: JSON_STORAGE_SIZE ---
+--------------
+SELECT JSON_STORAGE_SIZE('{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 75: FUNCTION mysql.JSON_STORAGE_SIZE does not exist
+probe
+--- probe: JSON_STORAGE_FREE ---
+--------------
+SELECT JSON_STORAGE_FREE('{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 78: FUNCTION mysql.JSON_STORAGE_FREE does not exist
+probe
+--- probe: JSON_SCHEMA_VALID ---
+result
+1
+probe
+--- probe: JSON_SCHEMA_VALIDATION_REPORT ---
+--------------
+SELECT JSON_SCHEMA_VALIDATION_REPORT('{"type":"object"}','{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 84: FUNCTION mysql.JSON_SCHEMA_VALIDATION_REPORT does not exist
+probe
+--- probe: FORMAT_BYTES ---
+result
+1.00 KiB
+probe
+--- probe: FORMAT_PICO_TIME ---
+result
+1.00 ns
+probe
+--- probe: PS_THREAD_ID ---
+--------------
+SELECT PS_THREAD_ID(CONNECTION_ID()) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 93: FUNCTION mysql.PS_THREAD_ID does not exist
+probe
+--- probe: VALIDATE_PASSWORD_STRENGTH ---
+--------------
+SELECT VALIDATE_PASSWORD_STRENGTH('abc') AS result
+--------------
+
+ERROR 1305 (42000) at line 96: FUNCTION mysql.VALIDATE_PASSWORD_STRENGTH does not exist
+probe
+--- probe: GTID_SUBSET ---
+--------------
+SELECT GTID_SUBSET('','') AS result
+--------------
+
+ERROR 1305 (42000) at line 99: FUNCTION mysql.GTID_SUBSET does not exist
+probe
+--- probe: GTID_SUBTRACT ---
+--------------
+SELECT GTID_SUBTRACT('','') AS result
+--------------
+
+ERROR 1305 (42000) at line 102: FUNCTION mysql.GTID_SUBTRACT does not exist
+probe
+--- probe: WAIT_FOR_EXECUTED_GTID_SET ---
+--------------
+SELECT WAIT_FOR_EXECUTED_GTID_SET('', 0) AS result
+--------------
+
+ERROR 1305 (42000) at line 105: FUNCTION mysql.WAIT_FOR_EXECUTED_GTID_SET does not exist
+probe
+--- probe: SOURCE_POS_WAIT ---
+--------------
+SELECT SOURCE_POS_WAIT('', 0, 0) AS result
+--------------
+
+ERROR 1305 (42000) at line 108: FUNCTION mysql.SOURCE_POS_WAIT does not exist
+probe
+--- probe: ST_Collect ---
+result
+1
+probe
+--- probe: ST_IsValid ---
+result
+1
+probe
+--- probe: ST_Simplify ---
+result
+1
+probe
+--- probe: ST_Validate ---
+result
+1
+probe
+--- probe: ST_GeoHash ---
+result
+s00twy01mt
+probe
+--- probe: ST_Latitude ---
+--------------
+SELECT ST_Latitude(ST_GeomFromText('POINT(1 1)', 4326)) AS result
+--------------
+
+ERROR 1305 (42000) at line 126: FUNCTION mysql.ST_Latitude does not exist
+probe
+--- probe: ST_PointAtDistance ---
+--------------
+SELECT ST_PointAtDistance(ST_GeomFromText('LINESTRING(0 0,1 1)'), 0.5) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 129: FUNCTION mysql.ST_PointAtDistance does not exist
+probe
+--- probe: ENCRYPTION=Y (MySQL spelling) ---
+probe
+--- probe: ENCRYPTED=YES (MariaDB spelling) ---
+probe
+--- probe: AUTOEXTEND_SIZE ---
+probe
+--- probe: TABLESPACE clause ---
+probe
+--- probe: CREATE TABLESPACE ---
+--------------
+PREPARE p FROM 'CREATE TABLESPACE _probe_space ADD DATAFILE ''_probe_space.ibd'' ENGINE=InnoDB'
+--------------
+
+ERROR 1064 (42000) at line 152: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'TABLESPACE _probe_space ADD DATAFILE '_probe_space.ibd' ENGINE=InnoDB' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 153: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: column INVISIBLE ---
+probe
+--- probe: index INVISIBLE ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_invidx (c INT, INDEX i (c) INVISIBLE)'
+--------------
+
+ERROR 1064 (42000) at line 160: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'INVISIBLE)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 161: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: SRID on column ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_srid (g POINT SRID 4326 NOT NULL)'
+--------------
+
+ERROR 1064 (42000) at line 164: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '4326 NOT NULL)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 165: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: CHECK NOT ENFORCED ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_chk (c INT, CONSTRAINT k CHECK (c > 0) NOT ENFORCED)'
+--------------
+
+ERROR 1064 (42000) at line 168: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'NOT ENFORCED)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 169: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: DEFAULT ENCRYPTION on database ---
+--------------
+PREPARE p FROM 'CREATE DATABASE _probe_db DEFAULT ENCRYPTION=''Y'''
+--------------
+
+ERROR 1064 (42000) at line 172: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'ENCRYPTION='Y'' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 173: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: generated invisible primary key ---
+--------------
+PREPARE p FROM 'SET SESSION sql_generate_invisible_primary_key = ON'
+--------------
+
+ERROR 1193 (HY000) at line 176: Unknown system variable 'sql_generate_invisible_primary_key'
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 177: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+note
+probes complete
+===== port 3313 =====
+server_version
+13.1.1-MariaDB
+probe
+--- probe: json ->> operator ---
+--------------
+SELECT t.doc ->> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t
+--------------
+
+ERROR 1064 (42000) at line 38: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'JSON) AS doc) t' at line 1
+probe
+--- probe: json -> operator ---
+--------------
+SELECT t.doc -> '$.a' AS result FROM (SELECT CAST('{"a":1}' AS JSON) AS doc) t
+--------------
+
+ERROR 1064 (42000) at line 41: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'JSON) AS doc) t' at line 1
+probe
+--- probe: LATERAL ---
+--------------
+SELECT d.n FROM (SELECT 1 AS id) b, LATERAL (SELECT 1 AS n) d
+--------------
+
+ERROR 1064 (42000) at line 44: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '(SELECT 1 AS n) d' at line 1
+probe
+--- probe: MEMBER OF ---
+--------------
+SELECT 1 MEMBER OF (CAST('[1,2,3]' AS JSON)) AS result
+--------------
+
+ERROR 1064 (42000) at line 47: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'OF (CAST('[1,2,3]' AS JSON)) AS result' at line 1
+probe
+--- probe: UUID_TO_BIN ---
+--------------
+SELECT UUID_TO_BIN('6ccd780c-baba-1026-9564-5b8c656024db') IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 54: FUNCTION mysql.UUID_TO_BIN does not exist
+probe
+--- probe: BIN_TO_UUID ---
+--------------
+SELECT BIN_TO_UUID(UNHEX(REPEAT('00',16))) AS result
+--------------
+
+ERROR 1305 (42000) at line 57: FUNCTION mysql.BIN_TO_UUID does not exist
+probe
+--- probe: IS_UUID ---
+--------------
+SELECT IS_UUID('6ccd780c-baba-1026-9564-5b8c656024db') AS result
+--------------
+
+ERROR 1305 (42000) at line 60: FUNCTION mysql.IS_UUID does not exist
+probe
+--- probe: REGEXP_LIKE ---
+--------------
+SELECT REGEXP_LIKE('abc','b') AS result
+--------------
+
+ERROR 1305 (42000) at line 63: FUNCTION mysql.REGEXP_LIKE does not exist
+probe
+--- probe: ANY_VALUE ---
+--------------
+SELECT ANY_VALUE(1) AS result
+--------------
+
+ERROR 1305 (42000) at line 66: FUNCTION mysql.ANY_VALUE does not exist
+probe
+--- probe: GROUPING ---
+--------------
+SELECT GROUPING(c) AS result FROM (SELECT 1 AS c) t GROUP BY c WITH ROLLUP
+--------------
+
+ERROR 1305 (42000) at line 72: FUNCTION mysql.GROUPING does not exist
+probe
+--- probe: JSON_STORAGE_SIZE ---
+--------------
+SELECT JSON_STORAGE_SIZE('{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 75: FUNCTION mysql.JSON_STORAGE_SIZE does not exist
+probe
+--- probe: JSON_STORAGE_FREE ---
+--------------
+SELECT JSON_STORAGE_FREE('{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 78: FUNCTION mysql.JSON_STORAGE_FREE does not exist
+probe
+--- probe: JSON_SCHEMA_VALID ---
+result
+1
+probe
+--- probe: JSON_SCHEMA_VALIDATION_REPORT ---
+--------------
+SELECT JSON_SCHEMA_VALIDATION_REPORT('{"type":"object"}','{"a":1}') AS result
+--------------
+
+ERROR 1305 (42000) at line 84: FUNCTION mysql.JSON_SCHEMA_VALIDATION_REPORT does not exist
+probe
+--- probe: FORMAT_BYTES ---
+result
+1.00 KiB
+probe
+--- probe: FORMAT_PICO_TIME ---
+result
+1.00 ns
+probe
+--- probe: PS_THREAD_ID ---
+--------------
+SELECT PS_THREAD_ID(CONNECTION_ID()) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 93: FUNCTION mysql.PS_THREAD_ID does not exist
+probe
+--- probe: VALIDATE_PASSWORD_STRENGTH ---
+--------------
+SELECT VALIDATE_PASSWORD_STRENGTH('abc') AS result
+--------------
+
+ERROR 1305 (42000) at line 96: FUNCTION mysql.VALIDATE_PASSWORD_STRENGTH does not exist
+probe
+--- probe: GTID_SUBSET ---
+--------------
+SELECT GTID_SUBSET('','') AS result
+--------------
+
+ERROR 1305 (42000) at line 99: FUNCTION mysql.GTID_SUBSET does not exist
+probe
+--- probe: GTID_SUBTRACT ---
+--------------
+SELECT GTID_SUBTRACT('','') AS result
+--------------
+
+ERROR 1305 (42000) at line 102: FUNCTION mysql.GTID_SUBTRACT does not exist
+probe
+--- probe: WAIT_FOR_EXECUTED_GTID_SET ---
+--------------
+SELECT WAIT_FOR_EXECUTED_GTID_SET('', 0) AS result
+--------------
+
+ERROR 1305 (42000) at line 105: FUNCTION mysql.WAIT_FOR_EXECUTED_GTID_SET does not exist
+probe
+--- probe: SOURCE_POS_WAIT ---
+--------------
+SELECT SOURCE_POS_WAIT('', 0, 0) AS result
+--------------
+
+ERROR 1305 (42000) at line 108: FUNCTION mysql.SOURCE_POS_WAIT does not exist
+probe
+--- probe: ST_Collect ---
+result
+1
+probe
+--- probe: ST_IsValid ---
+result
+1
+probe
+--- probe: ST_Simplify ---
+result
+1
+probe
+--- probe: ST_Validate ---
+result
+1
+probe
+--- probe: ST_GeoHash ---
+result
+s00twy01mt
+probe
+--- probe: ST_Latitude ---
+--------------
+SELECT ST_Latitude(ST_GeomFromText('POINT(1 1)', 4326)) AS result
+--------------
+
+ERROR 1305 (42000) at line 126: FUNCTION mysql.ST_Latitude does not exist
+probe
+--- probe: ST_PointAtDistance ---
+--------------
+SELECT ST_PointAtDistance(ST_GeomFromText('LINESTRING(0 0,1 1)'), 0.5) IS NOT NULL AS result
+--------------
+
+ERROR 1305 (42000) at line 129: FUNCTION mysql.ST_PointAtDistance does not exist
+probe
+--- probe: ENCRYPTION=Y (MySQL spelling) ---
+probe
+--- probe: ENCRYPTED=YES (MariaDB spelling) ---
+probe
+--- probe: AUTOEXTEND_SIZE ---
+probe
+--- probe: TABLESPACE clause ---
+probe
+--- probe: CREATE TABLESPACE ---
+--------------
+PREPARE p FROM 'CREATE TABLESPACE _probe_space ADD DATAFILE ''_probe_space.ibd'' ENGINE=InnoDB'
+--------------
+
+ERROR 1064 (42000) at line 152: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'TABLESPACE _probe_space ADD DATAFILE '_probe_space.ibd' ENGINE=InnoDB' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 153: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: column INVISIBLE ---
+probe
+--- probe: index INVISIBLE ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_invidx (c INT, INDEX i (c) INVISIBLE)'
+--------------
+
+ERROR 1064 (42000) at line 160: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'INVISIBLE)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 161: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: SRID on column ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_srid (g POINT SRID 4326 NOT NULL)'
+--------------
+
+ERROR 1064 (42000) at line 164: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '4326 NOT NULL)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 165: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: CHECK NOT ENFORCED ---
+--------------
+PREPARE p FROM 'CREATE TABLE _probe_chk (c INT, CONSTRAINT k CHECK (c > 0) NOT ENFORCED)'
+--------------
+
+ERROR 1064 (42000) at line 168: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'NOT ENFORCED)' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 169: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: DEFAULT ENCRYPTION on database ---
+--------------
+PREPARE p FROM 'CREATE DATABASE _probe_db DEFAULT ENCRYPTION=''Y'''
+--------------
+
+ERROR 1064 (42000) at line 172: You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'ENCRYPTION='Y'' at line 1
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 173: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+probe
+--- probe: generated invisible primary key ---
+--------------
+PREPARE p FROM 'SET SESSION sql_generate_invisible_primary_key = ON'
+--------------
+
+ERROR 1193 (HY000) at line 176: Unknown system variable 'sql_generate_invisible_primary_key'
+--------------
+DEALLOCATE PREPARE p
+--------------
+
+ERROR 1243 (HY000) at line 177: Unknown prepared statement handler (p) given to DEALLOCATE PREPARE
+note
+probes complete

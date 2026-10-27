@@ -30,11 +30,15 @@ from 5.7 onward, so no existence probe is needed.
 -- Object bodies are joined against the construct table below, so adding a
 -- construct is one row and it is scanned across all four object types.
 --
--- The construct list tracks the "Present in MySQL Only" section of
--- https://mariadb.com/kb/en/function-differences-between-mariadb-11-4-and-mysql-8-0/
--- That page is published per MariaDB release, so this list is pinned to a
--- target version even though the check itself is not. Re-check it when the
--- supported target range moves.
+-- This finds what the SOURCE uses. Whether a given construct actually fails
+-- is decided later, by orchestrator/probes.py asking the target directly --
+-- support varies by build in ways no list can express (ST_IsValid resolves on
+-- 12.3 and 13.1 but not 11.8; ->> parses on 13.1 but not 11.8 or 12.3).
+--
+-- The list below is therefore a superset of candidates, not a verdict.
+-- Entries removed after probing 11.8.9/12.3.3/13.1.1: JSON_SCHEMA_VALID,
+-- FORMAT_BYTES and FORMAT_PICO_TIME all resolve on every MariaDB version
+-- tested and were false positives.
 
 SELECT o.obj_schema, p.feature, p.mysql_error, o.object_type, o.object_name, p.label
 FROM (
@@ -77,10 +81,7 @@ JOIN (
     UNION ALL SELECT 'mysql_only_function', '1305', 'ANY_VALUE',      'ANY_VALUE',      'word'
     UNION ALL SELECT 'mysql_only_function', '1305', 'JSON_STORAGE_SIZE',  'JSON_STORAGE_SIZE',  'word'
     UNION ALL SELECT 'mysql_only_function', '1305', 'JSON_STORAGE_FREE',  'JSON_STORAGE_FREE',  'word'
-    UNION ALL SELECT 'mysql_only_function', '1305', 'JSON_SCHEMA_VALID',  'JSON_SCHEMA_VALID',  'word'
     UNION ALL SELECT 'mysql_only_function', '1305', 'JSON_SCHEMA_VALIDATION_REPORT', 'JSON_SCHEMA_VALIDATION_REPORT', 'word'
-    UNION ALL SELECT 'mysql_only_function', '1305', 'FORMAT_BYTES',   'FORMAT_BYTES',   'word'
-    UNION ALL SELECT 'mysql_only_function', '1305', 'FORMAT_PICO_TIME', 'FORMAT_PICO_TIME', 'word'
     UNION ALL SELECT 'mysql_only_function', '1305', 'PS_THREAD_ID',   'PS_THREAD_ID',   'word'
     UNION ALL SELECT 'mysql_only_function', '1305', 'PS_CURRENT_THREAD_ID', 'PS_CURRENT_THREAD_ID', 'word'
     UNION ALL SELECT 'mysql_only_function', '1305', 'SOURCE_POS_WAIT', 'SOURCE_POS_WAIT', 'word'

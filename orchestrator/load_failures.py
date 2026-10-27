@@ -221,6 +221,9 @@ class LoadFailureSet:
     # makes collation and charset findings approximate rather than certain.
     target_verified: bool = True
     target_version: str = ""
+    # Whether construct findings were confirmed against the target
+    # rather than taken from the static table.
+    capabilities_probed: bool = False
 
     @property
     def will_fail(self) -> List[LoadFailure]:
@@ -265,6 +268,7 @@ class LoadFailureSet:
             "will_fail": len(self.will_fail),
             "unverified": len(self.unverified),
             "target_verified": self.target_verified,
+            "capabilities_probed": self.capabilities_probed,
             "by_feature": by_feature,
             "findings": [f.as_dict() for f in self.findings],
         }
@@ -375,6 +379,44 @@ def _collect_collations(
     return out
 
 
+def _apply_capabilities(
+    findings: List[LoadFailure],
+    capabilities: Optional[Dict[str, Any]],
+    log=None,
+) -> List[LoadFailure]:
+    """Drop or downgrade construct findings the target turns out to support.
+
+    load_fail_objects.sql reports every candidate it finds in the source; the
+    probes decide which of them actually matter for THIS target. A construct
+    the target supports is not a finding at all, so it is dropped rather than
+    demoted -- there is nothing for the operator to do about it.
+
+    An inconclusive or missing probe leaves the finding in place and marks it
+    unverified. Erring toward reporting is deliberate: a false positive costs
+    someone a minute, a false negative costs them a failed load.
+    """
+    if not capabilities:
+        return findings
+
+    kept: List[LoadFailure] = []
+    dropped: Dict[str, int] = {}
+    for f in findings:
+        cap = capabilities.get(f.detail)
+        if cap and cap.get("supported") is True:
+            dropped[f.detail] = dropped.get(f.detail, 0) + 1
+            continue
+        if cap and cap.get("supported") is None:
+            f.status = STATUS_UNVERIFIED
+            f.note = (f.note + "; " if f.note else "") + "target capability not confirmed"
+        kept.append(f)
+
+    if dropped and log:
+        for detail, count in sorted(dropped.items()):
+            log(f"NOTE: {detail} is supported on this target; "
+                f"{count} finding(s) dropped.")
+    return kept
+
+
 def collect(
     object_rows: Sequence[Sequence[str]],
     not_enforced_rows: Sequence[Sequence[str]],
@@ -383,6 +425,7 @@ def collect(
     source_collations: Optional[Sequence[Sequence[str]]] = None,
     target_catalog: Optional[Dict[str, Any]] = None,
     sign_off_rows: Optional[Dict[str, Sequence[Sequence[str]]]] = None,
+    capabilities: Optional[Dict[str, Any]] = None,
 ) -> LoadFailureSet:
     """Build the finding list from the two precheck TSVs.
 
@@ -402,10 +445,11 @@ def collect(
     result.findings.extend(_collect_collations(source_collations or [], target_catalog))
     result.findings.extend(_collect_sign_off(sign_off_rows or {}))
 
+    object_findings: List[LoadFailure] = []
     for row in object_rows:
         if len(row) < 6:
             continue
-        result.findings.append(
+        object_findings.append(
             LoadFailure(
                 feature=row[1].strip(),
                 error=row[2].strip(),
@@ -415,6 +459,8 @@ def collect(
                 detail=row[5].strip(),
             )
         )
+    result.capabilities_probed = bool(capabilities)
+    result.findings.extend(_apply_capabilities(object_findings, capabilities, _log))
 
     if not not_enforced_rows:
         return result

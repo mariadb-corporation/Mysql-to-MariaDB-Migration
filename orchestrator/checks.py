@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .report import Gate, GateStatus, WarningItem, Report
 from . import load_failures as lf
+from . import probes as cap_probes
 
 
 def _default_mysql_bin() -> str:
@@ -517,6 +518,27 @@ def _query_target_catalog(cfg: Dict[str, Any], log) -> Optional[Dict[str, Any]]:
     }
 
 
+def _probe_target_capabilities(cfg: Dict[str, Any], log) -> Optional[Dict[str, Any]]:
+    """Ask the target which MySQL-only constructs it actually supports.
+
+    Shares the credentials _query_target_catalog uses. Creates nothing: every
+    probe is a SELECT, and a failure is the answer rather than an error. See
+    orchestrator/probes.py for why only parser-reaching constructs are probed
+    and version-comment-wrapped attributes are not.
+    """
+    env_cfg = _effective_env_cfg(cfg)
+    host = str(env_cfg.get("TGT_HOST", os.environ.get("TGT_HOST", "")) or "")
+    port = str(env_cfg.get("TGT_PORT", os.environ.get("TGT_PORT", "3306")) or "3306")
+    user = str(env_cfg.get("TGT_ADMIN_USER", os.environ.get("TGT_ADMIN_USER", "")) or "")
+    password = str(env_cfg.get("TGT_ADMIN_PASS", os.environ.get("TGT_ADMIN_PASS", "")) or "")
+    if not host or not user:
+        return None
+
+    client = cfg.get("client", {}) or {}
+    mariadb_bin = str(env_cfg.get("MARIADB_BIN", client.get("mariadb_bin", "mariadb")))
+    return cap_probes.run_probes(mariadb_bin, host, port, user, password, log=log)
+
+
 def _make_violation_counter(cfg: Dict[str, Any], log) -> Optional[Any]:
     """Return a callable counting rows that violate a CHECK predicate.
 
@@ -832,6 +854,7 @@ def run_assessment_checks(
     # gates: the operator is shown the full list and asked whether to proceed,
     # because several are backportable on request and the call is theirs.
     target_catalog = _query_target_catalog(cfg, report.log)
+    capabilities = _probe_target_capabilities(cfg, report.log)
     load_fail_set = lf.collect(
         load_fail_objs,
         not_enforced,
@@ -839,6 +862,7 @@ def run_assessment_checks(
         log=report.log,
         source_collations=src_collations,
         target_catalog=target_catalog,
+        capabilities=capabilities,
         sign_off_rows={
             "invisible_columns": invisible_cols_rows,
             "invisible_indexes": invisible_idx,

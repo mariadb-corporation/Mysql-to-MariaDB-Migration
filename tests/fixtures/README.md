@@ -93,6 +93,49 @@ encrypted by inheritance is distinguished from one carrying the attribute
 itself by the absence of `ENCRYPTION='Y'` in its own `CREATE_OPTIONS`; the
 first is silent on MariaDB, the second fails with 1911.
 
+## How findings are classified
+
+Whether a construct actually breaks depends on whether it reaches the target's
+parser, and that is decided by the dump rather than by either server. Reading
+the dump settles it:
+
+```bash
+mariadb-dump -h <src> -u <user> -p --ssl-verify-server-cert=OFF --no-data \
+  --databases gap_zoo gap_zoo_enc > /tmp/gap_zoo_schema.sql
+grep -nE "INVISIBLE|NOT ENFORCED|AUTOEXTEND|TABLESPACE|SRID|ENCRYPTION" \
+  /tmp/gap_zoo_schema.sql
+```
+
+Confirmed against MySQL 8.4.7:
+
+| Construct | In the dump | Consequence |
+|---|---|---|
+| `AUTOEXTEND_SIZE` | `/*!80023 */` | skipped, dropped |
+| `NOT ENFORCED` | `/*!80016 */` | skipped; constraint arrives enforced |
+| column `INVISIBLE` | `/*!80023 */` | skipped, column visible (MDEV-41696) |
+| index `INVISIBLE` | `/*!80000 */` | skipped, index visible |
+| `SRID` | `/*!80003 */` | skipped, restriction gone |
+| `TABLESPACE` | `/*!50100 */` | skipped, file-per-table |
+| database `DEFAULT ENCRYPTION` | `/*!80016 */` | skipped; future tables unencrypted |
+| table `ENCRYPTION='Y'` | **bare** | reaches parser, fails 1911 |
+
+MariaDB skips version comments numbered 50700-99999 (MDEV-5009), so everything
+wrapped is dropped on every MariaDB version regardless of what that version
+supports. Probing those would mislead: `AUTOEXTEND_SIZE` parses on 12.3+, yet
+the dump hides it there too.
+
+A table that inherits encryption from its database gets a **bare**
+`ENCRYPTION='Y'` written into its own DDL, so it fails with 1911 like any
+other encrypted table. Only the database's own clause is silently dropped,
+which affects tables created after the migration.
+
+Constructs that do reach the parser -- routine and view bodies, collations,
+character sets -- are probed against the target at assess time rather than
+assumed. Support varies by build: `ST_IsValid` resolves on 12.3.3 and 13.1.1
+but not 11.8.9; `->>` parses on 13.1.1 but not 11.8.9 or 12.3.3.
+`collation_support.sql` and the probe set in `orchestrator/probes.py` are how
+those answers were obtained.
+
 ## Known gaps
 
 Not yet represented, to add as the related tickets land: reserved words,
