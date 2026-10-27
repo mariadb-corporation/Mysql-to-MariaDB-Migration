@@ -634,7 +634,26 @@ def render_report(
         lines.append("#" * 72)
         lines.append("")
         for feature, items in info.items():
-            _render_group(lines, items, feature, sample)
+            meta = FEATURES.get(feature, {})
+            lines.append("-" * 72)
+            lines.append(f"{meta.get('title', feature)}  -- {len(items)} object(s)")
+            lines.append("-" * 72)
+            # One line per distinct value rather than per object: a server
+            # whose default collation is utf8mb4_0900_ai_ci puts it on every
+            # table and most columns, and a thousand identical lines bury the
+            # sections that need reading.
+            by_value: Dict[str, int] = {}
+            for item in items:
+                by_value[item.detail] = by_value.get(item.detail, 0) + 1
+            for value, count in sorted(by_value.items(), key=lambda kv: -kv[1]):
+                lines.append(f"  {value:<32} {count} object(s)")
+            change = meta.get("change")
+            if change:
+                lines.append("")
+                lines.append(f"  What changes: {change}")
+            lines.append("")
+        lines.append("  Per-object detail is in report.json.")
+        lines.append("")
 
     lines.append("=" * 72)
     lines.append(

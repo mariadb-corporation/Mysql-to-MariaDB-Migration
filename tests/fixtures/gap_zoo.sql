@@ -112,10 +112,14 @@ CREATE TABLE z_tablespace_general (id INT PRIMARY KEY) TABLESPACE zoo_ts1;
 CREATE TABLE z_autoextend (id INT PRIMARY KEY) AUTOEXTEND_SIZE=4194304;
 
 -- LOAD_FAIL (1064) on 11.8, works on 13.1 -- MDEV-13594
+-- MySQL's ->> only accepts a column identifier on the left, so this needs a
+-- real JSON column; CAST(...) ->> '$.a' is a syntax error on MySQL itself.
+CREATE TABLE z_json_doc (id INT PRIMARY KEY, doc JSON);
+INSERT INTO z_json_doc VALUES (1, '{"a":1}');
 DELIMITER //
 CREATE PROCEDURE z_json_arrow()
 BEGIN
-  SELECT CAST('{"a":1}' AS JSON) ->> '$.a';
+  SELECT doc ->> '$.a' AS val FROM z_json_doc;
 END //
 DELIMITER ;
 

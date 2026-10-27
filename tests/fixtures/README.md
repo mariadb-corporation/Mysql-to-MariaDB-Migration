@@ -74,6 +74,17 @@ SET collation_connection = DEFAULT;
 Expected: `LOAD_FAIL` (1273), reported against the routine rather than a
 column.
 
+## Confirmed on 8.4.7
+
+`AUTOEXTEND_SIZE` does not appear in `TABLES.CREATE_OPTIONS` — that column is
+empty for such tables. The value is on
+`information_schema.INNODB_TABLESPACES.AUTOEXTEND_SIZE`, which is what the
+check reads. `SHOW CREATE TABLE` shows it inside a `/*!80023 ... */` version
+comment, which MariaDB skips, hence `SIGN_OFF` rather than a load failure.
+
+Likewise a table's general tablespace is not visible in `CREATE_OPTIONS`;
+it takes a join from `INNODB_TABLES` to `INNODB_TABLESPACES`.
+
 ## Known gaps
 
 Not yet represented, to add as the related tickets land: reserved words,
