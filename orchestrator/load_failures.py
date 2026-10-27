@@ -86,8 +86,11 @@ FEATURES: Dict[str, Dict[str, str]] = {
     "table_encryption": {
         "title": "Table ENCRYPTION='Y'",
         "error": "1911",
-        "remedy": "Drop the table-level ENCRYPTION attribute before dumping and use "
-                  "MariaDB's own encryption on the target.",
+        "remedy": "Drop the ENCRYPTION attribute before dumping and use MariaDB's "
+                  "own encryption (ENCRYPTED=YES) on the target. If the table "
+                  "inherited it from a database created with DEFAULT "
+                  "ENCRYPTION='Y', drop it there too or it returns on the next "
+                  "dump. Decrypting the data first is only needed for inplace.",
     },
     "not_enforced_check": {
         "title": "CHECK ... NOT ENFORCED with rows that violate it",
@@ -340,6 +343,19 @@ def _collect_collations(
     tgt_coll = (target_catalog or {}).get("collations", set())
     tgt_chars = (target_catalog or {}).get("charsets", set())
 
+    # A missing character set implies its collations are missing too, and the
+    # load hits one error, not two. Report the charset and suppress the
+    # collation line for the same object -- otherwise a single gb18030 column
+    # counts twice and inflates the number the operator is asked about.
+    missing_charset_objects = set()
+    for row in rows:
+        if len(row) < 5:
+            continue
+        schema, obj_type, obj_name, kind, value = (c.strip() for c in row[:5])
+        if kind.upper() == "CHARSET" and have_target and value \
+                and value.lower() not in tgt_chars:
+            missing_charset_objects.add((schema, obj_type, obj_name))
+
     for row in rows:
         if len(row) < 5:
             continue
@@ -368,6 +384,9 @@ def _collect_collations(
                     obj_schema=schema, object_type=obj_type,
                     object_name=obj_name, detail=value,
                 ))
+            continue
+
+        if is_collation and (schema, obj_type, obj_name) in missing_charset_objects:
             continue
 
         out.append(LoadFailure(

@@ -513,6 +513,6 @@ Join the [MariaDB Community on Slack](https://mariadb.com/docs/general-resources
 
 ## License
 
-[MariaDB Software License Terms](https://legal.mariadb.com/agreements/enterprise/MariaDB_Software_License_Terms_2026-05-15.pdf) apply to all MariaDB Software unless otherwise stated. They do not alter the license terms of any free and open-source software (FOSS) or software subject to the Business Source License (BSL) (see Section 7 of the MariaDB Software License Terms).
+[MariaDB Software License Terms](https://legal.mariadb.com/agreements/enterprise/MariaDB_Software_License_Terms_2026-10-16.pdf) apply to all MariaDB Software unless otherwise stated. They do not alter the license terms of any free and open-source software (FOSS) or software subject to the Business Source License (BSL) (see Section 7 of the MariaDB Software License Terms).
 
 For additional legal information, see [MariaDB Terms](https://mariadb.com/terms/).
