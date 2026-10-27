@@ -39,6 +39,11 @@ from typing import Any, Dict, List, Optional, Tuple
 # (capability id, probe SQL). The id is what load_fail_objects.sql emits as
 # its label, so a finding can be matched to its probe result directly.
 #
+# Every probe must return a SCALAR. A function that returns a geometry or a
+# BINARY value emits raw bytes on a server that HAS it, which is not valid
+# UTF-8 -- so the probe crashes on exactly the targets where it succeeds.
+# Hence the IS NOT NULL wrappers.
+#
 # The JSON arrow operators need a column identifier on the left; an expression
 # is a syntax error on MySQL too, so the value comes from a derived table.
 # CAST(... AS JSON) is deliberately absent: it parses differently on MariaDB
@@ -48,8 +53,9 @@ PROBES: List[Tuple[str, str]] = [
     ("-> operator", "SELECT t.doc -> '$.a' FROM (SELECT '{\"a\":1}' AS doc) t"),
     ("LATERAL", "SELECT d.n FROM (SELECT 1 AS id) b, LATERAL (SELECT 1 AS n) d"),
     ("MEMBER OF", "SELECT 1 MEMBER OF ('[1,2,3]')"),
-    ("UUID_TO_BIN", "SELECT UUID_TO_BIN('6ccd780c-baba-1026-9564-5b8c656024db')"),
-    ("BIN_TO_UUID", "SELECT BIN_TO_UUID(UNHEX(REPEAT('00',16)))"),
+    ("UUID_TO_BIN",
+     "SELECT UUID_TO_BIN('6ccd780c-baba-1026-9564-5b8c656024db') IS NOT NULL"),
+    ("BIN_TO_UUID", "SELECT BIN_TO_UUID(UNHEX(REPEAT('00',16))) IS NOT NULL"),
     ("IS_UUID", "SELECT IS_UUID('6ccd780c-baba-1026-9564-5b8c656024db')"),
     ("REGEXP_LIKE", "SELECT REGEXP_LIKE('abc','b')"),
     ("ANY_VALUE", "SELECT ANY_VALUE(1)"),
@@ -66,14 +72,15 @@ PROBES: List[Tuple[str, str]] = [
     ("GTID_SUBTRACT", "SELECT GTID_SUBTRACT('','')"),
     ("WAIT_FOR_EXECUTED_GTID_SET", "SELECT WAIT_FOR_EXECUTED_GTID_SET('', 0)"),
     ("SOURCE_POS_WAIT", "SELECT SOURCE_POS_WAIT('', 0, 0)"),
-    ("ST_Collect", "SELECT ST_Collect(ST_GeomFromText('POINT(1 1)'))"),
+    ("ST_Collect", "SELECT ST_Collect(ST_GeomFromText('POINT(1 1)')) IS NOT NULL"),
     ("ST_IsValid", "SELECT ST_IsValid(ST_GeomFromText('POINT(1 1)'))"),
-    ("ST_Simplify", "SELECT ST_Simplify(ST_GeomFromText('LINESTRING(0 0,1 1,2 2)'), 0.5)"),
-    ("ST_Validate", "SELECT ST_Validate(ST_GeomFromText('POINT(1 1)'))"),
+    ("ST_Simplify",
+     "SELECT ST_Simplify(ST_GeomFromText('LINESTRING(0 0,1 1,2 2)'), 0.5) IS NOT NULL"),
+    ("ST_Validate", "SELECT ST_Validate(ST_GeomFromText('POINT(1 1)')) IS NOT NULL"),
     ("ST_GeoHash", "SELECT ST_GeoHash(1, 1, 10)"),
     ("ST_Latitude", "SELECT ST_Latitude(ST_GeomFromText('POINT(1 1)', 4326))"),
     ("ST_PointAtDistance",
-     "SELECT ST_PointAtDistance(ST_GeomFromText('LINESTRING(0 0,1 1)'), 0.5)"),
+     "SELECT ST_PointAtDistance(ST_GeomFromText('LINESTRING(0 0,1 1)'), 0.5) IS NOT NULL"),
 ]
 
 # 1064 (syntax) and 1305 (no such function) mean the construct is absent.
@@ -124,7 +131,8 @@ def run_probes(
     # rather than as 26 individual failures that look like 26 missing features.
     try:
         check = subprocess.run(base + ["-e", "SELECT 1"],
-                               capture_output=True, text=True, env=env, timeout=30)
+                               capture_output=True, text=True, errors="replace",
+                               env=env, timeout=30)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         _log("NOTE: target not reachable for capability probes; findings will be "
              "classified from the static table and marked unverified.")
@@ -138,7 +146,8 @@ def run_probes(
     for capability, sql in PROBES:
         try:
             proc = subprocess.run(base + ["-e", sql],
-                                  capture_output=True, text=True, env=env, timeout=30)
+                                  capture_output=True, text=True, errors="replace",
+                               env=env, timeout=30)
         except subprocess.TimeoutExpired:
             results[capability] = {"supported": None, "evidence": "probe timed out"}
             continue

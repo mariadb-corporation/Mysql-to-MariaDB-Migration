@@ -344,7 +344,7 @@ def _binlog_source_compatibility_gate(
                 [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
                  "--batch", "--skip-column-names",
                  "-e", "SELECT VERSION();"],
-                capture_output=True, text=True, env=env,
+                capture_output=True, text=True, errors="replace", env=env,
             )
             if pv.returncode == 0:
                 ver_lines = (pv.stdout or "").strip().splitlines()[:1]
@@ -386,7 +386,7 @@ def _binlog_source_compatibility_gate(
                 [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
                  "--batch", "--skip-column-names",
                  "-e", "SHOW VARIABLES LIKE 'binlog_format';"],
-                capture_output=True, text=True, env=env,
+                capture_output=True, text=True, errors="replace", env=env,
             )
             if p.returncode == 0:
                 # Output is "binlog_format<tab>VALUE"
@@ -437,7 +437,7 @@ def _source_has_process_priv(cfg: Dict[str, Any]) -> bool:
         proc = subprocess.run(
             [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
              "--batch", "--skip-column-names", "-e", "SHOW GRANTS;"],
-            capture_output=True, text=True, env=env,
+            capture_output=True, text=True, errors="replace", env=env,
         )
     except FileNotFoundError:
         return True
@@ -490,7 +490,7 @@ def _query_target_catalog(cfg: Dict[str, Any], log) -> Optional[Dict[str, Any]]:
             [mariadb_bin, f"-h{host}", f"-P{port}", f"-u{user}",
              "--batch", "--skip-column-names", "--ssl-verify-server-cert=OFF",
              "-e", query],
-            capture_output=True, text=True, env=env,
+            capture_output=True, text=True, errors="replace", env=env,
         )
     except FileNotFoundError:
         log(f"WARN: {mariadb_bin} not found; cannot verify collations against the target.")
@@ -581,7 +581,7 @@ def _make_violation_counter(cfg: Dict[str, Any], log) -> Optional[Any]:
             p = subprocess.run(
                 [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
                  "--batch", "--skip-column-names", "-e", query],
-                capture_output=True, text=True, env=base_env,
+                capture_output=True, text=True, errors="replace", env=base_env,
             )
         except FileNotFoundError:
             return None
@@ -853,8 +853,20 @@ def run_assessment_checks(
     # carry their own severity and their own report. They are deliberately NOT
     # gates: the operator is shown the full list and asked whether to proceed,
     # because several are backportable on request and the call is theirs.
-    target_catalog = _query_target_catalog(cfg, report.log)
-    capabilities = _probe_target_capabilities(cfg, report.log)
+    # Neither of these may abort the assessment: both reach out to the target
+    # and are advisory. Without them findings fall back to the static table
+    # and are marked unverified, which is a worse report but still a report.
+    try:
+        target_catalog = _query_target_catalog(cfg, report.log)
+    except Exception as exc:
+        report.log(f"WARN: target catalog query failed ({exc}); collations unverified.")
+        target_catalog = None
+    try:
+        capabilities = _probe_target_capabilities(cfg, report.log)
+    except Exception as exc:
+        report.log(f"WARN: capability probes failed ({exc}); "
+                   "constructs classified from the static table.")
+        capabilities = None
     load_fail_set = lf.collect(
         load_fail_objs,
         not_enforced,
