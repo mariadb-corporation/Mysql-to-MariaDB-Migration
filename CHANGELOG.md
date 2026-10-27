@@ -65,6 +65,16 @@
   with a space -- after every preflight had passed. The list is now normalised
   at the prompt, so the prompt, the saved config and every consumer agree.
 
+### Fixed (continued)
+- MySQL-only functions in stored code were classed as load failures. Function
+  names resolve at execution rather than at parse, so the object loads, the
+  migration reports success, and the first call fails with 1305. Confirmed on
+  12.3.3: `z_uuid_fn` migrated intact and `SELECT z_uuid_fn()` raised
+  `FUNCTION gap_zoo.UUID_TO_BIN does not exist`. These now carry a class of
+  `RUNTIME_FAIL` and are reported under BREAKS WHEN USED. Syntax constructs
+  (`LATERAL`, `->>`, `MEMBER OF`) are unaffected -- the parser rejects those at
+  load time, as verified by a real load against 12.3.3.
+
 ### Known limitations
 - Matching against object bodies is textual, so a construct named inside a
   string literal or comment is reported.

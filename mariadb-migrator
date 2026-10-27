@@ -2466,9 +2466,10 @@ load_failure_gate() {
 
   local question
   if [[ "$count" != "0" ]]; then
-    echo "    $count load-time failure(s) will stop the load partway through,"
-    echo "    leaving the target partly migrated. Addressing them on the source"
-    echo "    first is the recommended path."
+    echo "    $count finding(s) must be addressed before this migration is"
+    echo "    usable: some stop the load partway through, leaving the target"
+    echo "    partly migrated; others load and then fail when first called."
+    echo "    Addressing them on the source first is the recommended path."
     # One answer covers both, so say so rather than leaving the operator to
     # infer that the sign-off items are handled elsewhere.
     [[ "$signoff" != "0" ]] && echo "    Proceeding also accepts the $signoff SIGN-OFF changes listed above."

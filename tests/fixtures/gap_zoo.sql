@@ -138,7 +138,9 @@ BEGIN
 END //
 DELIMITER ;
 
--- LOAD_FAIL (1305) -- MySQL-only function in a routine
+-- RUNTIME_FAIL (1305) -- loads fine; fails on CALL, not at load time.
+-- Function names resolve at execution, so the migration reports success and
+-- SELECT z_uuid_fn() then raises 1305. Verified on 12.3.3.
 DELIMITER //
 CREATE FUNCTION z_uuid_fn() RETURNS BINARY(16) DETERMINISTIC
 BEGIN

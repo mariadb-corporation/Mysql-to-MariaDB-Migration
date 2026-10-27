@@ -35,6 +35,15 @@ STATUS_UNVERIFIED = "UNVERIFIED"
 #              acknowledged, does not gate.
 #   INFO       resolved on the target; recorded so the report is complete.
 CLASS_LOAD_FAIL = "LOAD_FAIL"
+#   RUNTIME_FAIL  the object loads and the migration reports success; it
+#                 fails the first time something calls it. Function names
+#                 resolve at execution, not at parse, so a body calling
+#                 UUID_TO_BIN stores fine and then raises 1305 on use.
+#                 Confirmed on 12.3.3: the migration passed, SHOW CREATE
+#                 FUNCTION returned the object, and SELECT raised 1305.
+#                 Syntax constructs (LATERAL, ->>, MEMBER OF) are different --
+#                 those are rejected by the parser at load time.
+CLASS_RUNTIME_FAIL = "RUNTIME_FAIL"
 CLASS_SIGN_OFF = "SIGN_OFF"
 CLASS_INFO = "INFO"
 
@@ -67,9 +76,13 @@ FEATURES: Dict[str, Dict[str, str]] = {
     },
     "mysql_only_function": {
         "title": "MySQL-only function in stored code",
+        "class": CLASS_RUNTIME_FAIL,
+        "severity": "HIGH",
         "error": "1305",
-        "remedy": "The function does not exist on MariaDB. Rewrite the object, or "
-                  "define a compatibility function on the target before loading.",
+        "remedy": "The object loads and the migration reports success. The "
+                  "function does not exist on MariaDB, so the first call fails "
+                  "with 1305. Rewrite the object, or define a compatibility "
+                  "function on the target.",
     },
     "lang_0900_collation": {
         "title": "Language-specific _0900_ collation",
@@ -254,9 +267,18 @@ class LoadFailureSet:
         return self.of_class(CLASS_INFO)
 
     @property
+    def runtime_fail_findings(self) -> List[LoadFailure]:
+        return self.of_class(CLASS_RUNTIME_FAIL)
+
+    @property
     def count(self) -> int:
-        """Load failures only. This is what the gate prompt is about."""
-        return len(self.load_fail_findings)
+        """What the gate prompt is about: anything that must be fixed.
+
+        Runtime failures count even though the load completes -- the object is
+        broken, and a migration that reports success while leaving it that way
+        is the worse outcome, not the better one.
+        """
+        return len(self.load_fail_findings) + len(self.runtime_fail_findings)
 
     @property
     def sign_off_count(self) -> int:
@@ -268,6 +290,8 @@ class LoadFailureSet:
             by_feature[f.feature] = by_feature.get(f.feature, 0) + 1
         return {
             "count": self.count,
+            "load_fail_count": len(self.load_fail_findings),
+            "runtime_fail_count": len(self.runtime_fail_findings),
             "sign_off_count": self.sign_off_count,
             "info_count": len(self.info_findings),
             "will_fail": len(self.will_fail),
@@ -680,7 +704,7 @@ def render_report(
 
     if load_fail:
         lines.append("#" * 72)
-        lines.append(f"# LOAD FAILURES -- {result.count} finding(s)")
+        lines.append(f"# LOAD FAILURES -- {len(result.load_fail_findings)} finding(s)")
         lines.append("#" * 72)
         lines.append("")
         lines.append(
@@ -690,6 +714,21 @@ def render_report(
         )
         lines.append("")
         for feature, items in load_fail.items():
+            _render_group(lines, items, feature, sample)
+
+    runtime = _group(result.runtime_fail_findings)
+    if runtime:
+        lines.append("#" * 72)
+        lines.append(f"# BREAKS WHEN USED -- {len(result.runtime_fail_findings)} finding(s)")
+        lines.append("#" * 72)
+        lines.append("")
+        lines.append(
+            "These load without error and the migration reports success. They "
+            "fail the first time something calls them, which may be long after "
+            "anyone is watching. Fix or remove them before going live."
+        )
+        lines.append("")
+        for feature, items in runtime.items():
             _render_group(lines, items, feature, sample)
 
     if sign_off:
@@ -748,14 +787,22 @@ def render_summary(result: LoadFailureSet) -> List[str]:
     if not result.findings:
         return []
     lines: List[str] = [""]
-    if result.count:
-        lines.append(f"LOAD FAILURES: {result.count} finding(s) that will stop the load on MariaDB.")
+    if result.load_fail_findings:
+        lines.append(f"LOAD FAILURES: {len(result.load_fail_findings)} finding(s) that will "
+                     "stop the load on MariaDB.")
         for feature, items in _group(result.load_fail_findings).items():
             meta = FEATURES.get(feature, {})
             fx = meta.get("fixed_in")
             ver = fx.get("version") if isinstance(fx, dict) else fx
             suffix = f" [fixed in {ver}]" if ver else ""
             lines.append(f"  - {meta.get('title', feature)} (error {meta.get('error', items[0].error)}): {len(items)}{suffix}")
+        lines.append("")
+    if result.runtime_fail_findings:
+        lines.append(f"BREAKS WHEN USED: {len(result.runtime_fail_findings)} finding(s) that load, "
+                     "then fail when called.")
+        for feature, items in _group(result.runtime_fail_findings).items():
+            meta = FEATURES.get(feature, {})
+            lines.append(f"  - {meta.get('title', feature)} (error {meta.get('error', items[0].error)}): {len(items)}")
         lines.append("")
     if result.sign_off_count:
         lines.append(f"SIGN-OFF: {result.sign_off_count} finding(s) that load, then behave differently.")
