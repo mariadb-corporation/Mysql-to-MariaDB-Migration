@@ -2469,7 +2469,9 @@ load_failure_gate() {
     echo "    $count load-time failure(s) will stop the load partway through,"
     echo "    leaving the target partly migrated. Addressing them on the source"
     echo "    first is the recommended path."
-    [[ "$signoff" != "0" ]] && echo "    $signoff further item(s) load, then behave differently -- see SIGN-OFF."
+    # One answer covers both, so say so rather than leaving the operator to
+    # infer that the sign-off items are handled elsewhere.
+    [[ "$signoff" != "0" ]] && echo "    Proceeding also accepts the $signoff SIGN-OFF changes listed above."
     question="Proceed anyway?"
   else
     # Sign-off only: nothing will break, but someone should have read it.
