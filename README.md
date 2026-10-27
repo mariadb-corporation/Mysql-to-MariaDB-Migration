@@ -158,6 +158,17 @@ Admin users (`SRC_ADMIN_USER` / `TGT_ADMIN_USER`):
 - Must be able to run dump/restore and configure replication where applicable.
 - In practice, this means admin-level privileges, including grant capability.
 
+The source admin user additionally needs `PROCESS` for the assessment to read
+`information_schema.INNODB_TABLESPACES`. Without it that view returns an empty
+result rather than an error, so the general-tablespace, `AUTOEXTEND_SIZE` and
+inherited-encryption checks cannot tell "nothing found" from "could not look".
+The assessment warns when it detects this, but the warning depends on being
+able to read `SHOW GRANTS`. Grant it explicitly:
+
+```sql
+GRANT PROCESS ON *.* TO '<src_admin_user>'@'%';
+```
+
 ## Prerequisites (Parallel Restartable Streaming Copy data load)
 If you hit foreign key / unique constraint ordering errors during `two_step_parallel_data`, run the following on the **target MariaDB** before starting Parallel Restartable Streaming Copy (`two_step`):
 
@@ -261,6 +272,55 @@ Behavior and controls:
 
 ## Status
 Beta. All four modes have been exercised end-to-end against representative source/target pairs. Offline Copy (`staged`) has been validated against AWS RDS sources and MariaDB Cloud targets. In v1.2.0-beta, mode selection moved from a free-text prompt to a numbered interactive menu. Restartable, chunked loading is now native to `mariadb-mtk`, so the earlier experimental resumable load variant has been retired (v1.2.9-beta).
+
+## Migration findings (assess phase)
+
+The assess phase inspects the source and reports anything that will not survive
+the migration unchanged, in three groups. The full report is written to
+`load_failure_report.txt` in the assess output directory, with counts in
+`load_failures.count` and `sign_off.count` and the structured form under
+`inventory.load_failures` in `report.json`.
+
+**LOAD FAILURES** stop the load partway through, leaving the target partly
+migrated. A character set or collation the target does not have (1115, 1273),
+`LATERAL` or the JSON `->`/`->>` operators or `MEMBER OF` in a view, routine,
+trigger or event (1064), a table carrying `ENCRYPTION='Y'` (1911), or a
+`CHECK ... NOT ENFORCED` constraint whose table holds rows that violate it
+(4025).
+
+**BREAKS WHEN USED** load without error — the migration reports success — and
+fail the first time something calls them. MySQL-only functions in stored code
+behave this way: function names resolve at execution rather than at parse, so
+the object stores fine and the first call raises 1305.
+
+**SIGN-OFF** items load and then behave differently. Invisible columns and
+indexes become visible, a column's `SRID` restriction is dropped, a table in a
+general tablespace moves to file-per-table, `AUTOEXTEND_SIZE` is dropped, a
+database's `DEFAULT ENCRYPTION` is discarded so later tables are unencrypted,
+and an unenforced `CHECK` starts enforcing. These arrive inside MySQL version
+comments, which MariaDB skips (MDEV-5009), so nothing errors and nothing
+warns.
+
+The interactive launcher shows the report at the assess/plan boundary and asks
+before continuing, defaulting to no. Running a phase directly through
+`migrationctl` does not prompt. Non-interactive sessions continue with the
+report logged; set `MIGRATOR_BLOCK_ON_LOAD_FAILURES=1` to stop instead.
+
+In Offline Copy (`staged`), the dump phase copies the report into the dump
+directory so the operator running `load_only` on another host — where there is
+no source to assess — sees the findings, stamped with the source and the time
+it was assessed.
+
+### Checking against the target
+
+Collations, character sets and MySQL-only constructs are checked against the
+target itself rather than against a version number, because support varies by
+build: `ST_IsValid` resolves on 12.3.3 and 13.1.1 but not 11.8.9, and the JSON
+`->>` operator parses on 13.1.1 but not on 11.8.9 or 12.3.3. The assessment
+reads the target's `information_schema.COLLATIONS` and runs a set of read-only
+probes, creating nothing. A construct the target supports produces no finding
+at all. If the target cannot be reached, findings fall back to a static table
+and are marked unverified.
 
 ## Migration playbooks
 
@@ -481,6 +541,14 @@ SRC_DBS: "sakila,world"
 
 ## Testing
 
+`tests/fixtures/gap_zoo.sql` creates one object per known-risk feature, each
+annotated with the class it should be reported as, so a migration can be run
+end to end and every check confirmed against what actually happens.
+`tests/fixtures/README.md` covers the keyring, `CREATE TABLESPACE` and session
+variables three of the objects need, and records what the dump actually emits
+for each construct. `collation_support.sql` checks a target's `_0900_`
+collation support by hand.
+
 A phase-equivalence test exists for Offline Copy (`staged`) under `tests/test_staged_phase_matrix.sh`. It runs `dump_and_load` once and `dump_only` + `load_only` separately against the same source, then compares target signatures (schema DDL via `mariadb-dump --no-data`, per-table `CHECKSUM TABLE`) to verify both paths produce identical targets.
 
 ```bash
@@ -504,6 +572,9 @@ tests/test_staged_phase_matrix.sh
 - Offline Copy (`staged`) per-DB load resume is not supported in v1. If a load fails partway through a multi-DB run, drop the partially-loaded databases on the target and re-run with `STAGED_PHASE=load_only`.
 - `pv` fallback in Serial Streaming Copy (`one_step`) is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in Offline Copy (`staged`) where the dump is on disk.
 - Target-side TLS verification is not yet configurable. Connections to TLS-required targets (e.g. MariaDB Cloud) are encrypted but not server-verified. Source-side TLS works as expected via `SRC_SSL_MODE`.
+- Assessment findings that match against view, routine, trigger and event bodies are textual, so a construct named inside a string literal or a comment is reported.
+- UCA 9.0.0 versus 14.0.0 weight differences between MySQL's `_0900_` collations and MariaDB's `uca1400` aliases are not detected. Strings that compare equal on one may not on the other, which on a unique index changes which rows collide.
+- The `SRID` check covers `geometry`, `point`, `linestring` and `polygon` columns. A constrained `multipoint`, `multipolygon` or `geometrycollection` column is not reported.
 - Client-tool noise (the `mysql: Deprecated program name` banner and the `--ssl-verify-server-cert is disabled` warning) has been removed from the Serial Streaming Copy (`one_step`) run path as of 1.2.6-beta, except for one source-side check in its preflight. The other modes' preflight and phase scripts still emit these cosmetic lines; full cleanup is planned for a later release. They are presentation-only and do not affect migration correctness.
 
 ## Feedback
