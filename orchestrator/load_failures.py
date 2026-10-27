@@ -138,7 +138,9 @@ FEATURES: Dict[str, Dict[str, str]] = {
         "class": CLASS_SIGN_OFF,
         "severity": "MEDIUM",
         "change": "The column's SRID restriction is dropped; values in other "
-                  "reference systems become insertable.",
+                  "reference systems become insertable, so distance and "
+                  "containment results stop being comparable. Columns with no "
+                  "declared SRID (SRS_ID 0) are unaffected and not listed.",
     },
     "not_enforced_check_clean": {
         "title": "CHECK ... NOT ENFORCED with no violating rows",
@@ -311,6 +313,14 @@ def _collect_sign_off(rows_by_feature: Dict[str, Sequence[Sequence[str]]]) -> Li
                 detail = row[detail_idx].strip() if detail_idx is not None and len(row) > detail_idx else ""
             except IndexError:
                 continue
+            # SRID 0 is the absence of a reference system, which is what every
+            # spatial column gets when none is declared. There is no
+            # constraint to lose, so it is not a sign-off item -- and stock
+            # schemas are full of them (sakila.address.location), which would
+            # bury the columns that really are constrained.
+            if feature == "srid_columns" and detail.strip() in ("0", ""):
+                continue
+
             out.append(
                 LoadFailure(
                     feature=feature,

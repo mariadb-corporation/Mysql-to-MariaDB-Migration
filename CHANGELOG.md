@@ -56,6 +56,9 @@
   missing functions. All three resolve on every MariaDB version tested.
 - A column using a character set the target lacks produced two findings, one
   for the charset and one for its collation. The load hits one error.
+- Spatial columns with no declared SRID (`SRS_ID 0`) were reported as sign-off
+  items. There is no reference system to lose, and stock schemas are full of
+  them.
 
 ### Known limitations
 - Matching against object bodies is textual, so a construct named inside a

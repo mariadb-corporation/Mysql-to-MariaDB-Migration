@@ -136,6 +136,18 @@ but not 11.8.9; `->>` parses on 13.1.1 but not 11.8.9 or 12.3.3.
 `collation_support.sql` and the probe set in `orchestrator/probes.py` are how
 those answers were obtained.
 
+## Spatial columns
+
+Only a column with a declared SRID is a sign-off item. `SRS_ID = 0` means no
+reference system was specified, which is what every plain `GEOMETRY` column
+gets, so there is no constraint to lose. Stock schemas are full of these --
+`sakila.address.location` is SRS_ID 0 -- and listing them buries the columns
+that really are constrained.
+
+`gis_srid_usage.sql` also matches only `geometry`, `point`, `linestring` and
+`polygon`. A constrained `multipoint`, `multipolygon` or `geometrycollection`
+column would not be found; worth adding a zoo case before relying on it.
+
 ## Known gaps
 
 Not yet represented, to add as the related tickets land: reserved words,
