@@ -107,10 +107,11 @@ FEATURES: Dict[str, Dict[str, str]] = {
         "remedy": "Convert the affected objects on the source before migrating.",
     },
     "schema_default_encryption": {
-        "title": "Database DEFAULT ENCRYPTION='Y'",
+        "title": "Tables encrypted by a database DEFAULT ENCRYPTION='Y'",
         "error": "-",
-        "remedy": "MariaDB drops the clause silently and new tables land "
-                  "unencrypted. Set encryption on the target explicitly; for "
+        "remedy": "Nothing errors: MariaDB drops the clause and these tables "
+                  "arrive unencrypted, as does anything created in the database "
+                  "afterwards. Enable encryption explicitly on the target; for "
                   "inplace, decrypt on the source first.",
     },
 
@@ -281,6 +282,8 @@ SIGN_OFF_LAYOUT: Dict[str, Dict[str, Any]] = {
     "srid_columns": {"type": "COLUMN", "name": (1, 2), "detail": 3},
     "general_tablespace": {"type": "TABLE", "name": (1,), "detail": 2},
     "autoextend_size": {"type": "TABLE", "name": (1,), "detail": 2},
+    # row is (schema, encrypted_table_count) -- the finding is the database's
+    # default, so the count lands in detail rather than an object name.
     "schema_default_encryption": {"type": "SCHEMA", "name": (), "detail": 1},
 }
 

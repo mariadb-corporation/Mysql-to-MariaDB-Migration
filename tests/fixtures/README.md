@@ -85,6 +85,14 @@ comment, which MariaDB skips, hence `SIGN_OFF` rather than a load failure.
 Likewise a table's general tablespace is not visible in `CREATE_OPTIONS`;
 it takes a join from `INNODB_TABLES` to `INNODB_TABLESPACES`.
 
+`SCHEMATA_EXTENSIONS.OPTIONS` is empty for a database created with
+`DEFAULT ENCRYPTION='Y'` — identical to a database with no encryption, so it
+cannot be used to detect the case. The only visible evidence is
+`INNODB_TABLESPACES.ENCRYPTION = 'Y'` on the tables that inherited it. A table
+encrypted by inheritance is distinguished from one carrying the attribute
+itself by the absence of `ENCRYPTION='Y'` in its own `CREATE_OPTIONS`; the
+first is silent on MariaDB, the second fails with 1911.
+
 ## Known gaps
 
 Not yet represented, to add as the related tickets land: reserved words,
