@@ -1757,14 +1757,27 @@ fi
 if [[ "$MODE" == "inplace" ]]; then
   source_version_check_inplace
 fi
+# Normalise a comma-separated database list: drop whitespace around the commas
+# and any leading/trailing space, and collapse empty entries from a trailing
+# comma. Operators naturally type "a, b, c", and the assess phase tolerated it
+# because its own filtering trims each name -- but the dump passes the list
+# straight to mariadb-dump, which then looks for a database literally called
+# " gap_zoo" and fails with 1049. Normalising at the prompt fixes the prompt,
+# the saved config and every consumer downstream at once.
+normalize_db_list() {
+  printf "%s" "$1" \
+    | tr -d '[:space:]' \
+    | sed -e 's/,\+/,/g' -e 's/^,//' -e 's/,$//'
+}
+
 SRC_USER="$SRC_ADMIN_USER"
 SRC_PASS="$SRC_ADMIN_PASS"
 SRC_DBS_INPUT=""
 if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
-  SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "")"
-  while [[ -z "$(printf "%s" "$SRC_DBS_INPUT" | xargs)" ]]; do
+  SRC_DBS_INPUT="$(normalize_db_list "$(prompt "Database name(s) (comma-separated)" "")")"
+  while [[ -z "$SRC_DBS_INPUT" ]]; do
     echo "ERROR: Database name is required for $MODE mode."
-    SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "")"
+    SRC_DBS_INPUT="$(normalize_db_list "$(prompt "Database name(s) (comma-separated)" "")")"
   done
 
   # Verify DBs exist on source; loop on missing. Then print the full Source ready banner.
@@ -1772,7 +1785,7 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
     while ! source_dbs_exist_check; do
       echo ""
       echo "Re-enter the database name(s) (or Ctrl-C to abort)."
-      SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
+      SRC_DBS_INPUT="$(normalize_db_list "$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")")"
       if [[ -z "$SRC_DBS_INPUT" ]]; then
         echo "ERROR: Database name is required for $MODE mode."
         exit 1
@@ -1809,7 +1822,7 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
         exit 1
       fi
       echo "Re-enter the database name(s) to retry $MODE mode (or Ctrl-C to abort)."
-      SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
+      SRC_DBS_INPUT="$(normalize_db_list "$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")")"
       if [[ -z "$SRC_DBS_INPUT" ]]; then
         echo "ERROR: Database name is required for $MODE mode."
         exit 1
@@ -2291,6 +2304,10 @@ if [[ -n "$TGT_SSH_USER" ]]; then export TGT_SSH_USER; fi
 # cleared. For a single DB, both carry the same value so legacy single-DB
 # consumers still find SRC_DB populated.
 if [[ "$MODE" != "inplace" ]]; then
+  # Catch a list supplied through the environment rather than the prompt --
+  # that path never passed through normalize_db_list, and a stray space makes
+  # mariadb-dump look for a database whose name starts with one.
+  SRC_DBS_INPUT="$(normalize_db_list "$SRC_DBS_INPUT")"
   if [[ "$SRC_DBS_INPUT" == *","* ]]; then
     export SRC_DBS="$SRC_DBS_INPUT"
     export SRC_DB=""

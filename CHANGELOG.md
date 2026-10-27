@@ -59,6 +59,11 @@
 - Spatial columns with no declared SRID (`SRS_ID 0`) were reported as sign-off
   items. There is no reference system to lose, and stock schemas are full of
   them.
+- A database list typed as `a, b, c` kept the spaces. Assess tolerated it
+  because its own filtering trims each name, but the dump passed them through
+  and `mariadb-dump` failed with 1049 looking for a database whose name began
+  with a space -- after every preflight had passed. The list is now normalised
+  at the prompt, so the prompt, the saved config and every consumer agree.
 
 ### Known limitations
 - Matching against object bodies is textual, so a construct named inside a
