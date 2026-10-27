@@ -1,5 +1,62 @@
 # Changelog
 
+## [1.6.1] - 2026-10-27
+
+### Added
+- Load-failure and sign-off prechecks in the assess phase. Constructs that
+  stop a MariaDB load partway through are now detected before anything moves,
+  and reported separately from constructs that load and then behave
+  differently.
+- `sql/checks/load_fail_objects.sql` scans views, procedures, functions,
+  triggers and events against one construct table: `LATERAL`, the JSON `->`
+  and `->>` operators, `MEMBER OF`, and the MySQL-only function list from the
+  MariaDB KB. Triggers and events were not scanned by any check before.
+- `sql/checks/source_collations.sql` inventories every collation and character
+  set in use, including the `COLLATION_CONNECTION` and `DATABASE_COLLATION`
+  stored on routines, triggers and events. `checks.py` compares it against the
+  target's own `information_schema.COLLATIONS`, so the result is exact for
+  whatever MariaDB build is receiving the data rather than approximated from a
+  hardcoded list.
+- `sql/checks/not_enforced_constraints.sql` plus a source-side probe that
+  counts rows where the predicate `IS FALSE`. A constraint with violating rows
+  fails the load; one without loads and then starts enforcing. The two are
+  reported differently.
+- New checks for invisible indexes, InnoDB general tablespaces,
+  `AUTOEXTEND_SIZE`, and database-level `DEFAULT ENCRYPTION='Y'`.
+- `load_failure_report.txt`, `load_failures.count` and `sign_off.count` in the
+  assess directory, plus a `load_failures` block in `report.json` carrying the
+  class, severity and fix version of every finding.
+- The launcher shows the report at the assess/plan boundary and asks before
+  continuing — "proceed anyway?" when the load will fail, "sign off and
+  continue?" when it will not. Defaults to no. Non-interactive runs continue
+  and log the report; `MIGRATOR_BLOCK_ON_LOAD_FAILURES=1` makes them stop.
+- Staged migrations carry the report into the dump directory, so the operator
+  running `load_only` on another host sees findings from a source they cannot
+  reach. The report names the source and the time it was assessed.
+- `tests/fixtures/gap_zoo.sql`, one object per known-risk feature with its
+  expected classification, and `collation_support.sql` for checking a new
+  target by hand.
+
+### Changed
+- Findings carry a `class` of `LOAD_FAIL`, `SIGN_OFF` or `INFO` alongside the
+  existing `HIGH`/`MEDIUM`/`LOW` severity. Existing checks are unchanged.
+- Untagged `utf8mb4_0900_*` collations are no longer treated as a problem.
+  MariaDB 11.4.5+ carries them as aliases for `utf8mb4_uca1400_nopad_*`;
+  tested on 11.8.9, all four load and keep their names. `ja`, `ru` and `zh`
+  are unsupported, as are the locales MySQL added in 8.0.30.
+- Table `ENCRYPTION='Y'` reports the MariaDB equivalent (`ENCRYPTED=YES`) in
+  its remedy, and notes that decrypting first is only required for inplace.
+
+### Known limitations
+- Matching against object bodies is textual, so a construct named inside a
+  string literal or comment is reported.
+- Reading `information_schema.INNODB_TABLESPACES` needs `PROCESS`. Without it
+  the view returns empty rather than erroring; the assessment warns rather
+  than reporting a clean result it cannot stand behind.
+- UCA 9.0.0 versus 14.0.0 weight differences between MySQL's `_0900_`
+  collations and MariaDB's `uca1400` aliases are not detected. On a unique
+  index this can change which rows collide.
+
 ## [1.6.0] - 2026-10-07
 
 ### Added

@@ -46,7 +46,9 @@ SCHEMA_SCOPED=(
   json_columns schema_charsets mysql8_collations mysql8_column_collations
   partitioned_tables functional_indexes functional_defaults invisible_columns
   check_constraints gis_srid_usage fk_name_lengths trigger_order
-  generated_columns
+  generated_columns load_fail_objects not_enforced_constraints
+  source_collations invisible_indexes general_tablespaces
+  autoextend_size schema_default_encryption
 )
 
 CHECKS_DIR="${CHECKS_DIR:-$ROOT/sql/checks}"
@@ -123,6 +125,13 @@ SQL_FILES=(
   "$CHECKS_DIR/generated_columns.sql"
   "$CHECKS_DIR/server_defaults.sql"
   "$CHECKS_DIR/view_routine_bodies.sql"
+  "$CHECKS_DIR/load_fail_objects.sql"
+  "$CHECKS_DIR/not_enforced_constraints.sql"
+  "$CHECKS_DIR/source_collations.sql"
+  "$CHECKS_DIR/invisible_indexes.sql"
+  "$CHECKS_DIR/general_tablespaces.sql"
+  "$CHECKS_DIR/autoextend_size.sql"
+  "$CHECKS_DIR/schema_default_encryption.sql"
 )
 
 _view_tmp="$(mktemp)"

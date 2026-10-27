@@ -77,6 +77,17 @@ if [[ -z "$STAGED_DUMP_DIR" ]]; then
 fi
 mkdir -p "$STAGED_DUMP_DIR"
 LOG_DIR="${STAGED_DUMP_DIR}/.logs"
+
+# Carry the assessment's findings with the dumps. The load happens on another
+# host, often days later, where there is no source to inspect and assess
+# short-circuits -- without this the operator loading the data never sees the
+# report. Skipped silently when assess did not run or predates this feature.
+if [[ -n "${ASSESS_DIR:-}" && -f "${ASSESS_DIR}/load_failure_report.txt" ]]; then
+  cp -f "${ASSESS_DIR}/load_failure_report.txt" "$STAGED_DUMP_DIR/" 2>/dev/null || true
+  cp -f "${ASSESS_DIR}/load_failures.count"     "$STAGED_DUMP_DIR/" 2>/dev/null || true
+  cp -f "${ASSESS_DIR}/sign_off.count"          "$STAGED_DUMP_DIR/" 2>/dev/null || true
+  echo "==> Carried assessment findings into $STAGED_DUMP_DIR"
+fi
 mkdir -p "$LOG_DIR"
 
 # ----- DB list -----
