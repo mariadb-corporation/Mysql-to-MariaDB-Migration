@@ -25,8 +25,8 @@ fi
 # -------------------------------------------------------------------------
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.6.0"
-MIG_TOOL_BUILD="20261007"
+MIG_TOOL_VERSION="1.6.1"
+MIG_TOOL_BUILD="20261026"
 
 # How this tool was invoked, for help text. The bundle overrides it.
 MIG_SELF="${MIG_INVOKED_AS:-$(basename "${BASH_SOURCE[0]}")}"
@@ -59,7 +59,7 @@ cat << EOF
  open-source software (FOSS) or software subject to the Business Source
  License (BSL) (see Section 7 of the MariaDB Software License Terms).
 
- License Terms: https://legal.mariadb.com/agreements/enterprise/MariaDB_Software_License_Terms_2026-05-15.pdf
+ License Terms: https://legal.mariadb.com/agreements/enterprise/MariaDB_Software_License_Terms_2026-10-16.pdf
  Additional Terms: https://mariadb.com/terms/
 ---------------------------------------------------------------------
 Type '--help' for usage instructions.
@@ -1757,14 +1757,27 @@ fi
 if [[ "$MODE" == "inplace" ]]; then
   source_version_check_inplace
 fi
+# Normalise a comma-separated database list: drop whitespace around the commas
+# and any leading/trailing space, and collapse empty entries from a trailing
+# comma. Operators naturally type "a, b, c", and the assess phase tolerated it
+# because its own filtering trims each name -- but the dump passes the list
+# straight to mariadb-dump, which then looks for a database literally called
+# " gap_zoo" and fails with 1049. Normalising at the prompt fixes the prompt,
+# the saved config and every consumer downstream at once.
+normalize_db_list() {
+  printf "%s" "$1" \
+    | tr -d '[:space:]' \
+    | sed -e 's/,\+/,/g' -e 's/^,//' -e 's/,$//'
+}
+
 SRC_USER="$SRC_ADMIN_USER"
 SRC_PASS="$SRC_ADMIN_PASS"
 SRC_DBS_INPUT=""
 if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
-  SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "")"
-  while [[ -z "$(printf "%s" "$SRC_DBS_INPUT" | xargs)" ]]; do
+  SRC_DBS_INPUT="$(normalize_db_list "$(prompt "Database name(s) (comma-separated)" "")")"
+  while [[ -z "$SRC_DBS_INPUT" ]]; do
     echo "ERROR: Database name is required for $MODE mode."
-    SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "")"
+    SRC_DBS_INPUT="$(normalize_db_list "$(prompt "Database name(s) (comma-separated)" "")")"
   done
 
   # Verify DBs exist on source; loop on missing. Then print the full Source ready banner.
@@ -1772,7 +1785,7 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
     while ! source_dbs_exist_check; do
       echo ""
       echo "Re-enter the database name(s) (or Ctrl-C to abort)."
-      SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
+      SRC_DBS_INPUT="$(normalize_db_list "$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")")"
       if [[ -z "$SRC_DBS_INPUT" ]]; then
         echo "ERROR: Database name is required for $MODE mode."
         exit 1
@@ -1809,7 +1822,7 @@ if [[ "$MODE" != "inplace" && "$STAGED_PHASE" != "load_only" ]]; then
         exit 1
       fi
       echo "Re-enter the database name(s) to retry $MODE mode (or Ctrl-C to abort)."
-      SRC_DBS_INPUT="$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")"
+      SRC_DBS_INPUT="$(normalize_db_list "$(prompt "Database name(s) (comma-separated)" "$SRC_DBS_INPUT")")"
       if [[ -z "$SRC_DBS_INPUT" ]]; then
         echo "ERROR: Database name is required for $MODE mode."
         exit 1
@@ -2291,6 +2304,10 @@ if [[ -n "$TGT_SSH_USER" ]]; then export TGT_SSH_USER; fi
 # cleared. For a single DB, both carry the same value so legacy single-DB
 # consumers still find SRC_DB populated.
 if [[ "$MODE" != "inplace" ]]; then
+  # Catch a list supplied through the environment rather than the prompt --
+  # that path never passed through normalize_db_list, and a stray space makes
+  # mariadb-dump look for a database whose name starts with one.
+  SRC_DBS_INPUT="$(normalize_db_list "$SRC_DBS_INPUT")"
   if [[ "$SRC_DBS_INPUT" == *","* ]]; then
     export SRC_DBS="$SRC_DBS_INPUT"
     export SRC_DB=""
@@ -2400,6 +2417,8 @@ fi
 
 TS="$(date +%Y%m%d_%H%M%S)"
 ASSESS_DIR="$ARTIFACTS_DIR/assess_${TS}"
+# Exported so 25_staged_dump.sh can copy the findings in beside the dumps.
+export ASSESS_DIR
 PLAN_DIR="$ARTIFACTS_DIR/plan_${TS}"
 RUN_DIR_FILE=".migration_last_run"
 RUN_SIG_FILE=".migration_last_signature"
@@ -2415,6 +2434,74 @@ LAST_SIG=""
 if [[ -f "$RUN_SIG_FILE" ]]; then
   LAST_SIG="$(cat "$RUN_SIG_FILE")"
 fi
+
+# Load-failure gate. The assess phase writes load_failures.count and
+# load_failure_report.txt into its output directory; this shows the report and
+# asks whether to keep going. Deliberately a prompt and not a hard gate:
+# several of these constructs are backportable on request, and an operator who
+# knows the affected objects are out of scope should not be blocked.
+#
+# Returns 0 to continue, 1 to stop. A missing .count means the assessment
+# predates this feature (or was skipped), so stay quiet and continue.
+# Non-interactive callers continue by default and are told what was found;
+# set MIGRATOR_BLOCK_ON_LOAD_FAILURES=1 to make them stop instead.
+load_failure_gate() {
+  local assess_dir="$1"
+  local count_file="$assess_dir/load_failures.count"
+  local signoff_file="$assess_dir/sign_off.count"
+  local report_file="$assess_dir/load_failure_report.txt"
+  local count signoff
+
+  [[ -f "$count_file" ]] || return 0
+  count="$(tr -dc '0-9' < "$count_file")"
+  signoff="$(tr -dc '0-9' < "$signoff_file" 2>/dev/null || echo 0)"
+  [[ -n "$count" ]] || count=0
+  [[ -n "$signoff" ]] || signoff=0
+  [[ "$count" != "0" || "$signoff" != "0" ]] || return 0
+
+  echo ""
+  [[ -f "$report_file" ]] && cat "$report_file"
+  echo "==> Report: $report_file"
+  echo ""
+
+  local question
+  if [[ "$count" != "0" ]]; then
+    echo "    $count finding(s) must be addressed before this migration is"
+    echo "    usable: some stop the load partway through, leaving the target"
+    echo "    partly migrated; others load and then fail when first called."
+    echo "    Addressing them on the source first is the recommended path."
+    # One answer covers both, so say so rather than leaving the operator to
+    # infer that the sign-off items are handled elsewhere.
+    [[ "$signoff" != "0" ]] && echo "    Proceeding also accepts the $signoff SIGN-OFF changes listed above."
+    question="Proceed anyway?"
+  else
+    # Sign-off only: nothing will break, but someone should have read it.
+    echo "    $signoff item(s) will load, then behave differently on MariaDB."
+    question="Sign off on these and continue?"
+  fi
+  echo ""
+
+  if [[ ! -t 0 ]]; then
+    if [[ "$count" != "0" && "${MIGRATOR_BLOCK_ON_LOAD_FAILURES:-0}" == "1" ]]; then
+      echo "==> Stopping: MIGRATOR_BLOCK_ON_LOAD_FAILURES=1 and the source has load failures."
+      return 1
+    fi
+    echo "==> Non-interactive session; continuing. Set MIGRATOR_BLOCK_ON_LOAD_FAILURES=1 to stop on load failures."
+    return 0
+  fi
+
+  if confirm_proceed "$question" "n"; then
+    if [[ "$count" != "0" ]]; then
+      echo "==> Continuing with $count unresolved load failure(s) at operator request."
+    else
+      echo "==> Sign-off recorded; continuing."
+    fi
+    return 0
+  fi
+
+  echo "==> Stopped at operator request."
+  return 1
+}
 
 # Emit next-step guidance when the operator bails out of the interactive
 # assess->plan->run flow before the migration completes. $1 is the phase they
@@ -2491,6 +2578,17 @@ if [[ "$PHASE_MODE" == "assess" ]]; then
     echo "==> Skipping assess ($CONFIG_DIR/source.yaml and $CONFIG_DIR/migration.yaml not found)"
     STATUS=0
   fi
+  # --assess is a single phase with nothing downstream to stop, so the report
+  # is shown without a prompt. load_failure_gate's own prompt is skipped by
+  # passing the report straight through.
+  if [[ $STATUS -eq 0 && -s "$ASSESS_DIR/load_failure_report.txt" ]]; then
+    load_failure_count="$(tr -dc '0-9' < "$ASSESS_DIR/load_failures.count" 2>/dev/null || true)"
+    if [[ -n "$load_failure_count" && "$load_failure_count" != "0" ]]; then
+      cat "$ASSESS_DIR/load_failure_report.txt"
+      echo "==> $load_failure_count load-time failure(s) detected. Report: $ASSESS_DIR/load_failure_report.txt"
+      echo ""
+    fi
+  fi
 elif [[ "$PHASE_MODE" == "plan" ]]; then
   echo "==> Planning: $MODE (out: $PLAN_DIR)"
   $MIGCTL plan --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$PLAN_DIR"
@@ -2557,6 +2655,10 @@ elif [[ "$PHASE_MODE" == "assess_plan" ]]; then
   if [[ $STATUS -ne 0 ]]; then
     echo "==> Assess failed (status $STATUS). Skipping plan phase."
   else
+    if ! load_failure_gate "$ASSESS_DIR"; then
+      print_continue_hint plan
+      exit 0
+    fi
     if ! confirm_proceed "Proceed to plan phase now?"; then
       echo "Stopped after assess by user choice."
       print_continue_hint plan
@@ -2605,6 +2707,11 @@ else
       $MIGCTL assess --config $CONFIG_DIR/migration.yaml --mode "$MODE" --out "$ASSESS_DIR"
     else
       echo "==> Skipping assess ($CONFIG_DIR/source.yaml and $CONFIG_DIR/migration.yaml not found)"
+    fi
+
+    if ! load_failure_gate "$ASSESS_DIR"; then
+      print_continue_hint plan
+      exit 0
     fi
 
     if ! confirm_proceed "Proceed to plan phase now?"; then

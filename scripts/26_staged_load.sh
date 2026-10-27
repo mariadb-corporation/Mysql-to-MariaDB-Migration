@@ -87,6 +87,21 @@ if [[ ! -d "$STAGED_DUMP_DIR" ]]; then
   exit 1
 fi
 
+# Findings carried over from the dump host. There is no source here to
+# re-assess, so this is the only chance the operator doing the load gets to
+# see them. The report names the source and the time it was assessed, since
+# by now it may be days old.
+staged_report="${STAGED_DUMP_DIR}/load_failure_report.txt"
+if [[ -r "$staged_report" ]]; then
+  staged_fails="$(tr -dc '0-9' < "${STAGED_DUMP_DIR}/load_failures.count" 2>/dev/null || echo 0)"
+  staged_signoff="$(tr -dc '0-9' < "${STAGED_DUMP_DIR}/sign_off.count" 2>/dev/null || echo 0)"
+  if [[ "${staged_fails:-0}" != "0" || "${staged_signoff:-0}" != "0" ]]; then
+    cat "$staged_report"
+    echo "==> Findings from the dump host. Report: $staged_report"
+    echo ""
+  fi
+fi
+
 manifest="${STAGED_DUMP_DIR}/manifest.txt"
 if [[ ! -r "$manifest" ]]; then
   echo "ERROR: Manifest not found or not readable: $manifest" >&2

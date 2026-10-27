@@ -1,5 +1,94 @@
 # Changelog
 
+## [1.6.1] - 2026-10-27
+
+### Added
+- Migration findings in the assess phase, split by what the operator has to do
+  about them: LOAD FAILURES stop the load partway through, SIGN-OFF items load
+  and then behave differently, INFORMATIONAL items are resolved on the target.
+  Written to `load_failure_report.txt` with counts in `load_failures.count` and
+  `sign_off.count`, and a `load_failures` block in `report.json`.
+- `orchestrator/probes.py` asks the target which MySQL-only constructs it
+  actually supports, rather than inferring it from a version number. 26 probes,
+  all plain SELECTs; nothing is created on the target. A construct the target
+  supports is dropped from the findings entirely.
+- `sql/checks/source_collations.sql` inventories every collation and character
+  set in use, including those stored on routines, triggers and events. These
+  are compared against the target's own `information_schema.COLLATIONS`.
+- `sql/checks/load_fail_objects.sql` scans views, procedures, functions,
+  triggers and events for `LATERAL`, the JSON `->`/`->>` operators,
+  `MEMBER OF` and MySQL-only functions. Triggers and events were not scanned
+  by any check before.
+- `sql/checks/not_enforced_constraints.sql` plus a source-side probe counting
+  rows where the predicate `IS FALSE`, which separates constraints that fail
+  the load from those that merely start enforcing afterwards.
+- New checks for invisible indexes, InnoDB general tablespaces,
+  `AUTOEXTEND_SIZE`, and tables encrypted by a database `DEFAULT ENCRYPTION`.
+- The launcher shows the report at the assess/plan boundary and asks before
+  continuing -- "proceed anyway?" when the load will fail, "sign off and
+  continue?" when it will not. Defaults to no. Non-interactive runs continue
+  and log the report; `MIGRATOR_BLOCK_ON_LOAD_FAILURES=1` makes them stop.
+- Staged migrations carry the report into the dump directory, so the operator
+  running `load_only` on another host sees findings from a source they cannot
+  reach. The report names the source and the time it was assessed.
+- `tests/fixtures/gap_zoo.sql`, one object per known-risk feature with its
+  expected classification, plus `collation_support.sql` for checking a target
+  by hand and a README recording what the dump actually emits.
+
+### Changed
+- Findings carry a `class` of `LOAD_FAIL`, `SIGN_OFF` or `INFO` alongside the
+  existing `HIGH`/`MEDIUM`/`LOW` severity. Existing checks are unchanged.
+- Untagged `utf8mb4_0900_*` collations are no longer treated as a problem.
+  Tested on 11.8.9: all four load and keep their names. `ja`, `ru` and `zh`
+  are unsupported, as are the locales MySQL added in 8.0.30.
+- Table `ENCRYPTION='Y'` names the MariaDB equivalent (`ENCRYPTED=YES`) and
+  notes that an attribute inherited from a database `DEFAULT ENCRYPTION` has
+  to be dropped there too, or it returns on the next dump.
+- License terms updated to the 2026-10-16 revision.
+
+### Fixed
+- `AUTOEXTEND_SIZE` was read from `TABLES.CREATE_OPTIONS`, which is empty for
+  such tables; it lives on `INNODB_TABLESPACES.AUTOEXTEND_SIZE`. The check
+  reported clean on a source that had it.
+- Database `DEFAULT ENCRYPTION` was read from `SCHEMATA_EXTENSIONS.OPTIONS`,
+  which stays empty on 8.4.7 and is indistinguishable from no encryption.
+- `JSON_SCHEMA_VALID`, `FORMAT_BYTES` and `FORMAT_PICO_TIME` were reported as
+  missing functions. All three resolve on every MariaDB version tested.
+- A column using a character set the target lacks produced two findings, one
+  for the charset and one for its collation. The load hits one error.
+- Spatial columns with no declared SRID (`SRS_ID 0`) were reported as sign-off
+  items. There is no reference system to lose, and stock schemas are full of
+  them.
+- A database list typed as `a, b, c` kept the spaces. Assess tolerated it
+  because its own filtering trims each name, but the dump passed them through
+  and `mariadb-dump` failed with 1049 looking for a database whose name began
+  with a space -- after every preflight had passed. The list is now normalised
+  at the prompt, so the prompt, the saved config and every consumer agree.
+
+### Fixed (continued)
+- MySQL-only functions in stored code were classed as load failures. Function
+  names resolve at execution rather than at parse, so the object loads, the
+  migration reports success, and the first call fails with 1305. Confirmed on
+  12.3.3: `z_uuid_fn` migrated intact and `SELECT z_uuid_fn()` raised
+  `FUNCTION gap_zoo.UUID_TO_BIN does not exist`. These now carry a class of
+  `RUNTIME_FAIL` and are reported under BREAKS WHEN USED. Syntax constructs
+  (`LATERAL`, `->>`, `MEMBER OF`) are unaffected -- the parser rejects those at
+  load time, as verified by a real load against 12.3.3.
+
+### Known limitations
+- Matching against object bodies is textual, so a construct named inside a
+  string literal or comment is reported.
+- Reading `INNODB_TABLESPACES` needs `PROCESS`. Without it the view returns
+  empty rather than erroring; the assessment warns rather than reporting a
+  clean result it cannot stand behind.
+- UCA 9.0.0 versus 14.0.0 weight differences between MySQL's `_0900_`
+  collations and MariaDB's `uca1400` aliases are not detected. On a unique
+  index this can change which rows collide.
+- Attributes the dump wraps in version comments (`INVISIBLE`, `NOT ENFORCED`,
+  `AUTOEXTEND_SIZE`, `TABLESPACE`, `SRID`, database `DEFAULT ENCRYPTION`) are
+  skipped by MariaDB regardless of what it supports, per MDEV-5009. These are
+  classified from tested behaviour and are not probed.
+
 ## [1.6.0] - 2026-10-07
 
 ### Added

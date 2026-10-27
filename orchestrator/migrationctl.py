@@ -8,12 +8,14 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 import typer
+from datetime import datetime, timezone
 import yaml
 
 from .state import StateStore
 from .report import Report, GateStatus, StepStatus
 from .runner import run_step
 from .checks import run_assessment_checks, AssessmentResult
+from . import load_failures as lf
 
 app = typer.Typer(add_completion=False, help="MySQL -> MariaDB migration orchestrator\n© 2026 MariaDB plc ")
 
@@ -194,6 +196,43 @@ def _prompt_required_env(env: Dict[str, str], mode_value: str, non_interactive: 
 
     # two_step uses installed sqldata by default; no SQLINESDATA_CMD* prompts required.
 
+def _write_load_failure_artifacts(result: Any, out: Path, report: Report) -> None:
+    """Write load_failure_report.txt and load_failures.count into the assess dir.
+
+    Both are written unconditionally, including a zero-finding report: the
+    launcher treats a missing .count as "assessment predates this feature"
+    and stays quiet, so an explicit 0 is what says the check actually ran.
+    """
+    load_set = getattr(result, "load_failures", None)
+    if load_set is None:
+        return
+
+    databases = getattr(result, "selected_dbs", []) or []
+    src = getattr(result, "source", {}) or {}
+    source_host = f"{src.get('host', '')}:{src.get('port', '')}".strip(":")
+    text = lf.render_report(
+        load_set, databases,
+        source_host=source_host,
+        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    )
+    try:
+        (out / "load_failure_report.txt").write_text(text, encoding="utf-8")
+        # Two integers: the gate prompts on the first, mentions the second.
+        (out / "load_failures.count").write_text(f"{load_set.count}\n", encoding="utf-8")
+        (out / "sign_off.count").write_text(f"{load_set.sign_off_count}\n", encoding="utf-8")
+    except OSError as exc:
+        report.log(f"WARN: could not write load failure report: {exc}")
+
+    for line in text.splitlines():
+        report.log(line)
+
+    for line in lf.render_summary(load_set):
+        typer.echo(line)
+    if load_set.count or load_set.sign_off_count:
+        typer.echo(f"Full report: {out / 'load_failure_report.txt'}")
+        typer.echo("")
+
+
 @app.command()
 def assess(
     config: Path = typer.Option(..., "--config", "-c", help="Source DB config YAML (read-only)."),
@@ -247,6 +286,12 @@ def assess(
     report.set_gates(result.gates)
     report.set_warnings(result.warnings)
     report.set_inventory(result.inventory)
+
+    # Load-failure report. Written before the gate decision below, so the
+    # operator still gets the list when some other gate fails the phase.
+    # The .count file is the launcher's hook: bash reads one integer rather
+    # than parsing report.json.
+    _write_load_failure_artifacts(result, out, report)
 
     # User assessment (read-only). Runs only when the operator opted into
     # user migration via MIGRATE_APP_USERS=1, and only for user-facing modes.

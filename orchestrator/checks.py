@@ -3,11 +3,13 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .report import Gate, GateStatus, WarningItem, Report
+from . import load_failures as lf
+from . import probes as cap_probes
 
 
 def _default_mysql_bin() -> str:
@@ -22,6 +24,8 @@ class AssessmentResult:
     gates: List[Gate]
     warnings: List[WarningItem]
     inventory: Dict[str, Any]
+    load_failures: Optional[lf.LoadFailureSet] = None
+    selected_dbs: List[str] = field(default_factory=list)
 
 
 def _read_tsv(path: Path) -> List[List[str]]:
@@ -340,7 +344,7 @@ def _binlog_source_compatibility_gate(
                 [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
                  "--batch", "--skip-column-names",
                  "-e", "SELECT VERSION();"],
-                capture_output=True, text=True, env=env,
+                capture_output=True, text=True, errors="replace", env=env,
             )
             if pv.returncode == 0:
                 ver_lines = (pv.stdout or "").strip().splitlines()[:1]
@@ -382,7 +386,7 @@ def _binlog_source_compatibility_gate(
                 [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
                  "--batch", "--skip-column-names",
                  "-e", "SHOW VARIABLES LIKE 'binlog_format';"],
-                capture_output=True, text=True, env=env,
+                capture_output=True, text=True, errors="replace", env=env,
             )
             if p.returncode == 0:
                 # Output is "binlog_format<tab>VALUE"
@@ -405,6 +409,193 @@ def _binlog_source_compatibility_gate(
             "failures": failures,
         },
     )
+
+
+def _source_has_process_priv(cfg: Dict[str, Any]) -> bool:
+    """Whether the assessment user can read the INNODB_* views.
+
+    Only used to tell "no general tablespaces" apart from "could not look".
+    Errs toward True: a false reassurance here is worse than a missing note,
+    so an unreadable grants query is treated as privileged rather than firing
+    a warning at every user whose grants cannot be parsed.
+    """
+    env_cfg = _effective_env_cfg(cfg)
+    client = cfg.get("client", {}) or {}
+    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", _default_mysql_bin())))
+    host = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
+    port = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
+    user, password, _ = _select_source_credentials(cfg, env_cfg)
+    if not user:
+        return True
+
+    env = dict(os.environ)
+    if password:
+        env["MYSQL_PWD"] = password
+    elif "MYSQL_PWD" in env:
+        del env["MYSQL_PWD"]
+    try:
+        proc = subprocess.run(
+            [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
+             "--batch", "--skip-column-names", "-e", "SHOW GRANTS;"],
+            capture_output=True, text=True, errors="replace", env=env,
+        )
+    except FileNotFoundError:
+        return True
+    if proc.returncode != 0:
+        return True
+    out = (proc.stdout or "").upper()
+    return "PROCESS" in out or "ALL PRIVILEGES" in out
+
+
+def _query_target_catalog(cfg: Dict[str, Any], log) -> Optional[Dict[str, Any]]:
+    """Read the target's collations and character sets.
+
+    The launcher exports TGT_HOST/TGT_PORT/TGT_ADMIN_USER/TGT_ADMIN_PASS
+    before any phase runs, so assess already has working target credentials --
+    no check used them until now. INSTALL_TARGET_MARIADB is dead code (the
+    target is always already running), so the only case where this returns
+    None is a staged dump host with no target in reach.
+
+    Asking the server is what makes the collation check exact. MariaDB 11.4.5+
+    carries most of MySQL's _0900_ collations as aliases for
+    utf8mb4_uca1400_nopad_*, but not ja/ru/zh, and not the locales MySQL added
+    in 8.0.30. Any hardcoded pattern is wrong for some target.
+    """
+    env_cfg = _effective_env_cfg(cfg)
+    host = str(env_cfg.get("TGT_HOST", os.environ.get("TGT_HOST", "")) or "")
+    port = str(env_cfg.get("TGT_PORT", os.environ.get("TGT_PORT", "3306")) or "3306")
+    user = str(env_cfg.get("TGT_ADMIN_USER", os.environ.get("TGT_ADMIN_USER", "")) or "")
+    password = str(env_cfg.get("TGT_ADMIN_PASS", os.environ.get("TGT_ADMIN_PASS", "")) or "")
+    if not host or not user:
+        log("NOTE: no target credentials available; collation and charset findings "
+            "will not be confirmed against the target.")
+        return None
+
+    client = cfg.get("client", {}) or {}
+    mariadb_bin = str(env_cfg.get("MARIADB_BIN", client.get("mariadb_bin", "mariadb")))
+
+    env = dict(os.environ)
+    if password:
+        env["MYSQL_PWD"] = password
+    elif "MYSQL_PWD" in env:
+        del env["MYSQL_PWD"]
+
+    query = (
+        "SELECT 'C', COLLATION_NAME FROM information_schema.COLLATIONS "
+        "UNION ALL "
+        "SELECT 'S', CHARACTER_SET_NAME FROM information_schema.CHARACTER_SETS;"
+    )
+    try:
+        proc = subprocess.run(
+            [mariadb_bin, f"-h{host}", f"-P{port}", f"-u{user}",
+             "--batch", "--skip-column-names", "--ssl-verify-server-cert=OFF",
+             "-e", query],
+            capture_output=True, text=True, errors="replace", env=env,
+        )
+    except FileNotFoundError:
+        log(f"WARN: {mariadb_bin} not found; cannot verify collations against the target.")
+        return None
+    if proc.returncode != 0:
+        err = (proc.stderr or "").strip().replace("\n", " ")
+        log(f"WARN: could not read the target catalog: {err[:200]}")
+        return None
+
+    collations, charsets = set(), set()
+    for line in (proc.stdout or "").splitlines():
+        parts = line.split("\t")
+        if len(parts) != 2 or not parts[1].strip():
+            continue
+        (collations if parts[0] == "C" else charsets).add(parts[1].strip().lower())
+    if not collations:
+        log("WARN: the target reported no collations; treating as unverified.")
+        return None
+
+    return {
+        "collations": collations,
+        "charsets": charsets,
+        "version": str(os.environ.get("TGT_VERSION_SHORT", "")
+                       or os.environ.get("TGT_VERSION_DETECTED", "")),
+    }
+
+
+def _probe_target_capabilities(cfg: Dict[str, Any], log) -> Optional[Dict[str, Any]]:
+    """Ask the target which MySQL-only constructs it actually supports.
+
+    Shares the credentials _query_target_catalog uses. Creates nothing: every
+    probe is a SELECT, and a failure is the answer rather than an error. See
+    orchestrator/probes.py for why only parser-reaching constructs are probed
+    and version-comment-wrapped attributes are not.
+    """
+    env_cfg = _effective_env_cfg(cfg)
+    host = str(env_cfg.get("TGT_HOST", os.environ.get("TGT_HOST", "")) or "")
+    port = str(env_cfg.get("TGT_PORT", os.environ.get("TGT_PORT", "3306")) or "3306")
+    user = str(env_cfg.get("TGT_ADMIN_USER", os.environ.get("TGT_ADMIN_USER", "")) or "")
+    password = str(env_cfg.get("TGT_ADMIN_PASS", os.environ.get("TGT_ADMIN_PASS", "")) or "")
+    if not host or not user:
+        return None
+
+    client = cfg.get("client", {}) or {}
+    mariadb_bin = str(env_cfg.get("MARIADB_BIN", client.get("mariadb_bin", "mariadb")))
+    return cap_probes.run_probes(mariadb_bin, host, port, user, password, log=log)
+
+
+def _make_violation_counter(cfg: Dict[str, Any], log) -> Optional[Any]:
+    """Return a callable counting rows that violate a CHECK predicate.
+
+    MariaDB enforces every CHECK it is given, so a constraint the source
+    carries as NOT ENFORCED only breaks the load when the table actually
+    holds rows the predicate rejects. Only a COUNT against the source can
+    tell the two apart.
+
+    A row violates iff the predicate evaluates to FALSE; NULL and TRUE both
+    pass, which is what `IS FALSE` expresses exactly. Returns None (rather
+    than raising) when the query cannot be evaluated, so the caller can
+    report the constraint as unverified instead of failing the assessment.
+    """
+    env_cfg = _effective_env_cfg(cfg)
+    client = cfg.get("client", {}) or {}
+    mysql_bin = str(env_cfg.get("MYSQL_BIN", client.get("mysql_bin", _default_mysql_bin())))
+    host = str(env_cfg.get("SRC_HOST", client.get("host", "127.0.0.1")))
+    port = str(env_cfg.get("SRC_PORT", client.get("port", 3306)))
+    user, password, _ = _select_source_credentials(cfg, env_cfg)
+    if not user:
+        return None
+
+    base_env = dict(os.environ)
+    if password:
+        base_env["MYSQL_PWD"] = password
+    elif "MYSQL_PWD" in base_env:
+        del base_env["MYSQL_PWD"]
+
+    def _ident(name: str) -> str:
+        return "`" + name.replace("`", "``") + "`"
+
+    def count_violations(schema: str, table: str, clause: str) -> Optional[int]:
+        if not schema or not table or not clause:
+            return None
+        query = (
+            f"SELECT COUNT(*) FROM {_ident(schema)}.{_ident(table)} "
+            f"WHERE ({clause}) IS FALSE;"
+        )
+        try:
+            p = subprocess.run(
+                [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
+                 "--batch", "--skip-column-names", "-e", query],
+                capture_output=True, text=True, errors="replace", env=base_env,
+            )
+        except FileNotFoundError:
+            return None
+        if p.returncode != 0:
+            err = (p.stderr or "").strip().replace("\n", " ")
+            log(f"WARN: violating-row probe failed for {schema}.{table}: {err[:200]}")
+            return None
+        out = (p.stdout or "").strip()
+        try:
+            return int(out.splitlines()[0])
+        except (ValueError, IndexError):
+            return None
+
+    return count_violations
 
 
 def run_assessment_checks(
@@ -455,6 +646,17 @@ def run_assessment_checks(
     gen_cols = _filter_by_schema(_read_tsv(pre / "generated_columns.tsv"), _sel_dbs)
     srv_defaults = _read_tsv(pre / "server_defaults.tsv")
     view_routine = _read_tsv(pre / "view_routine_bodies.tsv")
+
+    # Load-failure and sign-off checks
+    load_fail_objs = _filter_by_schema(_read_tsv(pre / "load_fail_objects.tsv"), _sel_dbs)
+    not_enforced = _filter_by_schema(_read_tsv(pre / "not_enforced_constraints.tsv"), _sel_dbs)
+    src_collations = _filter_by_schema(_read_tsv(pre / "source_collations.tsv"), _sel_dbs)
+    invisible_idx = _filter_by_schema(_read_tsv(pre / "invisible_indexes.tsv"), _sel_dbs)
+    general_ts = _filter_by_schema(_read_tsv(pre / "general_tablespaces.tsv"), _sel_dbs)
+    autoextend = _filter_by_schema(_read_tsv(pre / "autoextend_size.tsv"), _sel_dbs)
+    schema_enc = _filter_by_schema(_read_tsv(pre / "schema_default_encryption.tsv"), _sel_dbs)
+    invisible_cols_rows = _filter_by_schema(_read_tsv(pre / "invisible_columns.tsv"), _sel_dbs)
+    srid_rows = _filter_by_schema(_read_tsv(pre / "gis_srid_usage.tsv"), _sel_dbs)
 
     # Source/target
     version = mysql_version[0][0].strip() if mysql_version and mysql_version[0] else ""
@@ -646,4 +848,89 @@ def run_assessment_checks(
         warnings.append(WarningItem("mysql_only_syntax_in_views_routines", "HIGH", {"count": len(vr_lines), "rows_sample": vr_lines[:200], "note": "Views or routines contain MySQL-only syntax (JSON_TABLE, LATERAL, UUID_TO_BIN, etc.) that MariaDB does not support."}))
     inventory["mysql_only_views_routines"] = {"count": len(vr_lines)}
 
-    return AssessmentResult(source=source, target=target, gates=gates, warnings=warnings, inventory=inventory)
+    # --- Load failures ---
+    # These stop the load rather than changing behaviour afterwards, so they
+    # carry their own severity and their own report. They are deliberately NOT
+    # gates: the operator is shown the full list and asked whether to proceed,
+    # because several are backportable on request and the call is theirs.
+    # Neither of these may abort the assessment: both reach out to the target
+    # and are advisory. Without them findings fall back to the static table
+    # and are marked unverified, which is a worse report but still a report.
+    try:
+        target_catalog = _query_target_catalog(cfg, report.log)
+    except Exception as exc:
+        report.log(f"WARN: target catalog query failed ({exc}); collations unverified.")
+        target_catalog = None
+    try:
+        capabilities = _probe_target_capabilities(cfg, report.log)
+    except Exception as exc:
+        report.log(f"WARN: capability probes failed ({exc}); "
+                   "constructs classified from the static table.")
+        capabilities = None
+    load_fail_set = lf.collect(
+        load_fail_objs,
+        not_enforced,
+        count_violations=_make_violation_counter(cfg, report.log),
+        log=report.log,
+        source_collations=src_collations,
+        target_catalog=target_catalog,
+        capabilities=capabilities,
+        sign_off_rows={
+            "invisible_columns": invisible_cols_rows,
+            "invisible_indexes": invisible_idx,
+            "srid_columns": srid_rows,
+            "general_tablespace": general_ts,
+            "autoextend_size": autoextend,
+            "schema_default_encryption": schema_enc,
+        },
+    )
+
+    # INNODB_TABLESPACES needs PROCESS. Without it the view returns empty
+    # rather than erroring, so an unprivileged assess would report "no general
+    # tablespaces" on a source that has them. Say so rather than lie.
+    if not general_ts and not _source_has_process_priv(cfg):
+        warnings.append(WarningItem(
+            "tablespace_check_unprivileged", "MEDIUM",
+            {"note": "The assessment user lacks PROCESS, so information_schema."
+                     "INNODB_TABLESPACES is unreadable and the general-tablespace "
+                     "check cannot confirm its result. Grant PROCESS and re-run to "
+                     "be sure."}))
+    for feature, items in _group_findings(load_fail_set).items():
+        meta = lf.FEATURES.get(feature, {})
+        cls = lf.feature_class(feature)
+        warnings.append(
+            WarningItem(
+                f"{cls.lower()}_{feature}",
+                lf.feature_severity(feature),
+                {
+                    "class": cls,
+                    "fixed_in": meta.get("fixed_in"),
+                    "count": len(items),
+                    "mysql_error": meta.get("error", items[0].error),
+                    "rows_sample": [
+                        f"{i.obj_schema}.{i.object_name} ({i.detail})" if i.object_name
+                        else f"{i.obj_schema} ({i.detail})"
+                        for i in items[:200]
+                    ],
+                    "note": meta.get("remedy") or meta.get("change", ""),
+                },
+            )
+        )
+    inventory["load_failures"] = load_fail_set.as_dict()
+
+    return AssessmentResult(
+        source=source,
+        target=target,
+        gates=gates,
+        warnings=warnings,
+        inventory=inventory,
+        load_failures=load_fail_set,
+        selected_dbs=_sel_dbs,
+    )
+
+
+def _group_findings(result: "lf.LoadFailureSet") -> Dict[str, List[Any]]:
+    grouped: Dict[str, List[Any]] = {}
+    for f in result.findings:
+        grouped.setdefault(f.feature, []).append(f)
+    return grouped

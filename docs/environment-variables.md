@@ -63,6 +63,33 @@ For mode-specific *required* variables, see the corresponding section of `README
 | `PORT_SHA2_INSTALL_PLUGIN` | `"0"` | Set to `"1"` to let the tool load the `caching_sha2_password` plugin on the target when it isn't already loaded. Requires MariaDB 11.4.9 / 11.8.4 or later. |
 | `STRIP_DEFINERS` | `"1"` | Strip `DEFINER=` clauses from dumps so views/procedures load on targets where the source DEFINER doesn't exist. |
 
+## Assessment findings
+
+The assess phase reports constructs that will not survive the migration
+unchanged, grouped into LOAD FAILURES, BREAKS WHEN USED and SIGN-OFF. See
+README.md for what each group means. These variables tune how that assessment
+runs; none of them change what is detected, only how much work the assessment
+does and whether a non-interactive run stops on the result.
+
+| Name | Default | Description |
+|---|---|---|
+| `MIGRATOR_BLOCK_ON_LOAD_FAILURES` | `"0"` | Set to `"1"` to make a non-interactive run stop when the source has findings that must be addressed. Default continues with the report written to the log, on the basis that a caller invoking the tool without a terminal has usually already reviewed an assessment. Has no effect on interactive runs, which always prompt. |
+| `MIGRATOR_SKIP_CHECK_VIOLATION_PROBE` | `"0"` | Set to `"1"` to skip counting rows that violate each `CHECK ... NOT ENFORCED` constraint. The probe is one full table scan per such constraint, and it is what separates a constraint that fails the load (rows already violate it) from one that merely starts enforcing afterwards. Skipping it reports every unenforced constraint as unverified rather than resolving it either way. |
+| `MIGRATOR_MAX_CHECK_PROBE` | `"50"` | Maximum number of `CHECK ... NOT ENFORCED` constraints to probe for violating rows. Constraints beyond this limit are reported as unverified. Raise it on a source with many unenforced constraints, at the cost of more full table scans during assessment. |
+
+The assessment also reads the target's `information_schema.COLLATIONS` and runs
+a set of read-only capability probes against it, using the `TGT_*` credentials
+already set for the migration. Nothing is created on the target. If the target
+cannot be reached — as in `staged` `dump_only`, where there may be no target
+yet — findings fall back to a static table and are marked unverified in the
+report.
+
+Reading `information_schema.INNODB_TABLESPACES` on the source requires
+`PROCESS`. Without it the view returns an empty result rather than an error, so
+the general-tablespace, `AUTOEXTEND_SIZE` and inherited-encryption checks
+cannot distinguish "nothing found" from "could not look"; the assessment warns
+when it detects this.
+
 ## Binlog mode
 
 | Name | Default | Description |
