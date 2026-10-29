@@ -763,10 +763,23 @@ def run_assessment_checks(
 
     # --- Previously unwired checks ---
 
-    fi_lines = ["\t".join(r) for r in func_indexes if r]
-    if fi_lines:
-        warnings.append(WarningItem("functional_indexes_present", "HIGH", {"count": len(fi_lines), "rows_sample": fi_lines[:200], "note": "Expression-based indexes may use MySQL-only syntax unsupported by MariaDB."}))
-    inventory["functional_indexes"] = {"count": len(fi_lines)}
+    # One row per key part, so a composite expression index appears more than
+    # once. Count distinct indexes; keep the key-part total in inventory.
+    fi_rows = [r for r in func_indexes if r and len(r) >= 4]
+    fi_lines = ["\t".join(r) for r in fi_rows]
+    fi_idx = {}
+    for r in fi_rows:
+        fi_idx.setdefault((r[0], r[1], r[2]), r[3])
+    fi_unique = sorted(k for k, nu in fi_idx.items() if str(nu).strip() == "0")
+    if fi_idx:
+        warnings.append(WarningItem("functional_indexes_present", "HIGH", {
+            "count": len(fi_idx),
+            "unique_count": len(fi_unique),
+            "unique_sample": [".".join(k) for k in fi_unique[:200]],
+            "rows_sample": fi_lines[:200],
+            "note": "Expression-based indexes may use MySQL-only syntax unsupported by MariaDB. Behaviour on load not yet confirmed; no class assigned.",
+        }))
+    inventory["functional_indexes"] = {"count": len(fi_idx), "unique_count": len(fi_unique), "key_parts": len(fi_rows)}
 
     fd_lines = ["\t".join(r) for r in func_defaults if r]
     if fd_lines:
