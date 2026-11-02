@@ -94,23 +94,34 @@ itself rather than something in the dump.
 | `innodb_fast_shutdown_not_0` | MEDIUM | Precondition for inplace mode only. Procedural, not a property of the data. |
 | `tablespace_check_unprivileged` | MEDIUM | Fires when the assessment user lacks `PROCESS`, meaning the general-tablespace check could not confirm its own result. A statement about the assessment, not the source. |
 
-### Not yet classed
+### Classed from documented behaviour
 
-These are the remaining scope. None has been loaded against a target; the
-class column is left empty rather than filled with a guess.
+Settled without a load, on the same footing as the version-comment rows
+above: MariaDB documents the behaviour, with a version where one applies,
+and the mechanism leaves nothing for a sandbox to add. Checked against
+MariaDB's documentation on 2026-11-02.
 
 | Check | Severity | Class | Notes |
 |---|---|---|---|
-| `mysql_sha_or_caching_auth_users` | HIGH | — | Only reachable when application users are migrated. MariaDB has no `caching_sha2_password`; affected users would need a new auth plugin and password reset. Untested. |
+| `mysql_sha_or_caching_auth_users` | HIGH | INFO | Only reachable when application users are migrated. MariaDB ships a MySQL-compatible `caching_sha2_password` plugin from 11.4, as `auth_mysql_sha2`, added specifically to aid migrations. It needs `INSTALL SONAME 'auth_mysql_sha2'` on the target, after which the MySQL `authentication_string` from `mysql.user` transfers as-is, with no password reset. `sha256_password` is a separate plugin and is not covered by this. Severity HIGH overstates a one-command prerequisite; left unchanged to avoid touching the existing axis. |
+| `json_columns_present` | MEDIUM | SIGN_OFF | Loads: `mariadb-dump` writes JSON columns and MariaDB stores them as `LONGTEXT`. Confirmed in migration testing. Gated separately for mode 4 — `_binlog_source_compatibility_gate` blocks binlog replication when JSON columns are present, so that path stops before it starts rather than producing a finding. |
+| `multiple_triggers_per_event` | MEDIUM | INFO | MariaDB has supported multiple triggers per action time since 10.2, with `FOLLOWS`/`PRECEDES`. The clauses are not stored in the trigger definition, but trigger order is guaranteed stable and `mariadb-dump` does not change it, so ordering survives the migration. Verify with `ACTION_ORDER` in `information_schema.TRIGGERS` if it matters. |
+| `partitioned_tables_present` | MEDIUM | INFO | MariaDB's documented partitioning limits match MySQL's on every point that would affect a migrated table: 8192 partitions maximum, subpartitioning restricted to HASH and KEY, no foreign keys on or referencing a partitioned table, and every column in the partitioning expression must appear in every unique key. A table legal on the source is therefore legal on the target. One version-dependent exception: before 11.3.2 MariaDB could not partition tables containing GEOMETRY columns. |
+
+### Not yet classed
+
+These are the remaining scope: neither loaded against a target nor settled
+by documentation. The class column is left empty rather than filled with a
+guess.
+
+| Check | Severity | Class | Notes |
+|---|---|---|---|
 | `partial_revokes_detected` | HIGH | — | Same precondition. MariaDB has no partial revokes, so the privilege set cannot be reproduced; what the load actually does is unverified. |
-| `mysql_roles_in_use` | HIGH | — | Same precondition. `role_edges` does not transfer. |
-| `definer_objects_present` | MEDIUM | — | Same precondition in practice: whether a `DEFINER` clause fails depends on whether that user exists on the target. Untested either way. |
-| `json_columns_present` | MEDIUM | — | MySQL JSON is a binary type; MariaDB JSON is a `LONGTEXT` alias with a CHECK. Expected to load, with function and comparison behaviour differing. Untested. |
-| `generated_columns_present` | HIGH | — | The column loads; the risk is the expression. A MySQL-only function inside one would behave like `mysql_only_function` — RUNTIME_FAIL, not LOAD_FAIL — but that has not been confirmed for generated columns specifically. |
+| `mysql_roles_in_use` | HIGH | — | Same precondition. MariaDB has roles, so this is a semantic difference rather than an absence: MariaDB allows one active role at a time where MySQL allows several. `mysql.role_edges` does not transfer either way. Untested. |
+| `definer_objects_present` | MEDIUM | — | Same precondition in practice: whether a `DEFINER` clause fails depends on whether that user exists on the target and on the restoring account's privileges. `ER_NO_SUCH_USER` (1449) exists on both servers; which path the load takes is not documented and has not been tested. |
+| `generated_columns_present` | HIGH | — | The column itself is not the risk: MariaDB accepts both `STORED` and `PERSISTENT`, so the DDL arrives intact. The risk is the expression — a MySQL-only function inside one would behave like `mysql_only_function`, RUNTIME_FAIL rather than LOAD_FAIL — which has not been confirmed for generated columns specifically. |
 | `functional_defaults_present` | MEDIUM | — | `DEFAULT (expression)`. MariaDB supports expression defaults; whether the dump's form parses is untested. |
-| `partitioned_tables_present` | MEDIUM | — | MariaDB supports partitioning. Subpartitioning and `PARTITION BY KEY` algorithm differences are the likely findings, and neither has been tested. |
-| `long_fk_names_detected` | MEDIUM | — | Foreign key names over 60 characters. A length limit is the kind of thing a single `CREATE TABLE` settles; no zoo object exists yet. |
-| `multiple_triggers_per_event` | MEDIUM | — | MariaDB has supported multiple triggers per event since 10.2.4, so the question is `FOLLOWS`/`PRECEDES` ordering specifically. Untested. |
+| `long_fk_names_detected` | MEDIUM | — | Foreign key names over 60 characters. MariaDB's identifier limit is 64 (`ER_TOO_LONG_IDENT`, 1059), so the check's 60-character threshold implies a suffix or an engine-level limit the documentation does not describe. Worth recovering the reason before classing it; a single `CREATE TABLE` settles the behaviour either way. |
 | `resource_groups_in_use` | MEDIUM | — | No MariaDB equivalent. Not in 1.6.1 scope and never tested. This is the check the original ticket proposed a fourth class (`DECISION`) for; whether one is needed depends on what a load actually does. |
 | `xplugin_active` | HIGH | — | X Protocol on port 33060. Nothing in the dump carries it — the finding is about applications connecting over it, which no class describes well. May belong with the server-level checks above rather than here. |
 
