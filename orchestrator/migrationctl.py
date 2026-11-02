@@ -277,7 +277,8 @@ def assess(
         msg = f"Assessment failed during checks: {exc}"
         report.log(f"ERROR: {msg}")
         report.finish_run(success=False, message=msg)
-        typer.echo("ASSESSMENT: FAIL (see artifacts/report.json and run.log)")
+        typer.echo("ASSESSMENT: FAIL -- assessment did not complete")
+        typer.echo(f"  Detail:    {Path(out) / 'report.json'}, run.log")
         raise typer.Exit(code=2)
 
     # Persist summary
@@ -346,6 +347,8 @@ def assess(
                 failures = (g.details or {}).get("failures") or {}
                 json_cols = failures.get("json_columns") or []
                 bad_fmt = failures.get("binlog_format")
+                bad_rvo = failures.get("binlog_row_value_options")
+                bad_tc = failures.get("binlog_transaction_compression")
                 src_ver = failures.get("source_version")
                 if src_ver:
                     # Categorical version failure: the gate short-circuits on
@@ -388,6 +391,29 @@ def assess(
                     typer.echo("  [mysqld]")
                     typer.echo("  binlog_format = ROW")
                     typer.echo("")
+
+                if bad_rvo or bad_tc:
+                    typer.echo("Source replication settings MariaDB cannot apply:")
+                    typer.echo("")
+                    if bad_rvo:
+                        typer.echo(f"  binlog_row_value_options = '{bad_rvo}' (must be empty)")
+                    if bad_tc:
+                        typer.echo(f"  binlog_transaction_compression = {bad_tc} (must be OFF)")
+                    typer.echo("")
+                    typer.echo("Change them on the SOURCE MySQL server, live and in its config file so a")
+                    typer.echo("restart does not undo it. On a managed service (e.g. RDS), use the parameter group.")
+                    typer.echo("")
+                    if bad_rvo:
+                        typer.echo("  SET GLOBAL binlog_row_value_options = '';")
+                    if bad_tc:
+                        typer.echo("  SET GLOBAL binlog_transaction_compression = OFF;")
+                    typer.echo("")
+                    typer.echo("  [mysqld]")
+                    if bad_rvo:
+                        typer.echo("  (remove binlog_row_value_options, or leave it empty)")
+                    if bad_tc:
+                        typer.echo("  binlog_transaction_compression = OFF")
+                    typer.echo("")
                 break
         failed_names = _echo_failed_gates(result)
         for line in failed_names:
@@ -395,11 +421,33 @@ def assess(
         summary = "Assessment failed: " + ", ".join(failed_names) if failed_names else \
             "Assessment failed: one or more hard gates failed."
         report.finish_run(success=False, message=summary)
-        typer.echo("ASSESSMENT: FAIL (see artifacts/report.json and run.log)")
+        _out = Path(out)
+        _lf = getattr(result, "load_failures", None)
+        _nf = getattr(_lf, "count", 0) if _lf is not None else 0
+        _ns = getattr(_lf, "sign_off_count", 0) if _lf is not None else 0
+        _ng = len(failed_names)
+        typer.echo(
+            f"ASSESSMENT: FAIL -- {_ng} failed gate{'' if _ng == 1 else 's'}, "
+            f"{_nf} load failure{'' if _nf == 1 else 's'}, "
+            f"{_ns} sign-off item{'' if _ns == 1 else 's'}"
+        )
+        if (_out / "load_failure_report.txt").exists():
+            typer.echo(f"  Findings:  {_out / 'load_failure_report.txt'}")
+        typer.echo(f"  Detail:    {_out / 'report.json'}, run.log")
         raise typer.Exit(code=2)
 
     report.finish_run(success=True, message="Assessment passed. Ready to plan/run.")
-    typer.echo("ASSESSMENT: PASS (see artifacts/report.json and run.log)")
+    _lf = getattr(result, "load_failures", None)
+    _nf = getattr(_lf, "count", 0) if _lf is not None else 0
+    _ns = getattr(_lf, "sign_off_count", 0) if _lf is not None else 0
+    _out = Path(out)
+    typer.echo(
+        f"ASSESSMENT: PASS -- {_nf} load failure{'' if _nf == 1 else 's'}, "
+        f"{_ns} sign-off item{'' if _ns == 1 else 's'}"
+    )
+    if (_out / "load_failure_report.txt").exists():
+        typer.echo(f"  Findings:  {_out / 'load_failure_report.txt'}")
+    typer.echo(f"  Detail:    {_out / 'report.json'}, run.log")
 
 
 @app.command()
@@ -525,7 +573,7 @@ def plan(
 
     report.set_plan({"mode": mode_value, "phases": phases, "steps": steps})
     report.finish_run(success=True, message="Plan generated (no execution).")
-    typer.echo("PLAN: generated in artifacts/report.json")
+    typer.echo(f"PLAN: generated in {Path(out) / 'report.json'}")
 
 
 @app.command()

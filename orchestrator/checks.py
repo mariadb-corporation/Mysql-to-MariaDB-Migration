@@ -289,11 +289,13 @@ def _binlog_source_compatibility_gate(
     """
     Mode-aware gate. Returns a Gate only when mode == 'binlog'.
 
-    Composes two source-side compatibility checks into one gate:
+    Composes source-side compatibility checks into one gate:
       - JSON columns in any selected source schema cannot be replicated
         to a MariaDB target via binlog mode.
       - The source must be running binlog_format=ROW. MIXED and STATEMENT
         are both rejected.
+      - binlog_row_value_options must be empty and binlog_transaction_compression
+        must be OFF (MariaDB cannot apply partial-JSON or compressed events).
 
     Either failure trips the gate. When both fail, both are surfaced in
     the gate's details so the operator-facing message can render the
@@ -398,6 +400,34 @@ def _binlog_source_compatibility_gate(
         except FileNotFoundError:
             # mysql client missing; the source_databases_exist gate will
             # have already failed for the same reason. Skip silently.
+            pass
+
+    # Replication-compatibility variables. Absent on early 8.0 builds = pass.
+    # No strip() on the whole line: empty is the passing value for
+    # binlog_row_value_options and --batch leaves a trailing tab.
+    if user:
+        try:
+            p = subprocess.run(
+                [mysql_bin, f"-h{host}", f"-P{port}", f"-u{user}",
+                 "--batch", "--skip-column-names",
+                 "-e", "SHOW GLOBAL VARIABLES WHERE Variable_name IN "
+                       "('binlog_row_value_options','binlog_transaction_compression');"],
+                capture_output=True, text=True, errors="replace", env=env,
+            )
+            if p.returncode == 0:
+                seen: Dict[str, str] = {}
+                for line in (p.stdout or "").splitlines():
+                    name, sep, value = line.partition("\t")
+                    if sep:
+                        seen[name.strip()] = value.strip()
+                rvo = seen.get("binlog_row_value_options", "")
+                if rvo:
+                    failures["binlog_row_value_options"] = rvo
+                tc = seen.get("binlog_transaction_compression", "")
+                if tc and tc.upper() != "OFF":
+                    failures["binlog_transaction_compression"] = tc.upper()
+        except FileNotFoundError:
+            # mysql client missing; source_databases_exist already failed.
             pass
 
     return Gate(
