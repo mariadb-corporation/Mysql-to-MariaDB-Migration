@@ -2460,19 +2460,27 @@ load_failure_gate() {
   [[ "$count" != "0" || "$signoff" != "0" ]] || return 0
 
   echo ""
-  [[ -f "$report_file" ]] && cat "$report_file"
   echo "==> Report: $report_file"
   echo ""
 
   local question
   if [[ "$count" != "0" ]]; then
-    echo "    $count finding(s) must be addressed before this migration is"
-    echo "    usable: some stop the load partway through, leaving the target"
-    echo "    partly migrated; others load and then fail when first called."
-    echo "    Addressing them on the source first is the recommended path."
+    echo "    BLOCKERS -- $count finding(s) that make this migration unusable."
+    echo ""
+    echo "    Most stop the load outright: the restore runs until it reaches"
+    echo "    one, then the client reports the error and quits, leaving the"
+    echo "    target half-populated with no clean point to resume from."
+    echo ""
+    echo "    The rest load without complaint and the migration reports"
+    echo "    success. They fail the first time something calls them, which"
+    echo "    may be long after cutover and far from anyone watching."
+    echo ""
+    echo "    The counts per category are in the summary above; the objects"
+    echo "    and remedies are in the report. Fixing them on the source"
+    echo "    before migrating is the recommended path."
     # One answer covers both, so say so rather than leaving the operator to
     # infer that the sign-off items are handled elsewhere.
-    [[ "$signoff" != "0" ]] && echo "    Proceeding also accepts the $signoff SIGN-OFF changes listed above."
+    [[ "$signoff" != "0" ]] && { echo ""; echo "    Proceeding also accepts the $signoff SIGN-OFF changes in the report."; }
     question="Proceed anyway?"
   else
     # Sign-off only: nothing will break, but someone should have read it.
@@ -2492,7 +2500,7 @@ load_failure_gate() {
 
   if confirm_proceed "$question" "n"; then
     if [[ "$count" != "0" ]]; then
-      echo "==> Continuing with $count unresolved load failure(s) at operator request."
+      echo "==> Continuing with $count unresolved blocker(s) at operator request."
     else
       echo "==> Sign-off recorded; continuing."
     fi
