@@ -130,6 +130,21 @@ FEATURES: Dict[str, Dict[str, str]] = {
                   "afterwards. Enable encryption explicitly on the target; for "
                   "inplace, decrypt on the source first.",
     },
+    "functional_indexes": {
+        "title": "Functional (expression) index",
+        "class": CLASS_LOAD_FAIL,
+        "severity": "HIGH",
+        "error": "1064",
+        "remedy": "Replace the expression index with a stored generated column "
+                  "holding the expression and a plain index on that column. "
+                  "Where the expression index is UNIQUE the uniqueness moves "
+                  "onto the generated column, which is a deliberate change "
+                  "worth confirming rather than a mechanical rewrite.",
+        # Emitted bare, so the load stops at the CREATE TABLE. Tested on
+        # 11.8.9, 12.3.3 and 13.1.1: all three abort with 1064 and leave the
+        # schema empty. Not probed -- the probe needs a writable database
+        # that does not exist at assess time.
+    },
 
     # --- SIGN_OFF: these load, then behave differently ---
     "invisible_columns": {
@@ -315,6 +330,9 @@ SIGN_OFF_LAYOUT: Dict[str, Dict[str, Any]] = {
     "srid_columns": {"type": "COLUMN", "name": (1, 2), "detail": 3},
     "general_tablespace": {"type": "TABLE", "name": (1,), "detail": 2},
     "autoextend_size": {"type": "TABLE", "name": (1,), "detail": 2},
+    # (schema, table, index, non_unique, seq_in_index, expression). Deduped
+    # to one row per index by the caller -- the TSV has one row per key part.
+    "functional_indexes": {"type": "INDEX", "name": (1, 2), "detail": 5},
     # row is (schema, encrypted_table_count) -- the finding is the database's
     # default, so the count lands in detail rather than an object name.
     "schema_default_encryption": {"type": "SCHEMA", "name": (), "detail": 1},

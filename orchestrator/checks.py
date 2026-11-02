@@ -880,6 +880,19 @@ def run_assessment_checks(
         report.log(f"WARN: capability probes failed ({exc}); "
                    "constructs classified from the static table.")
         capabilities = None
+    # The TSV carries one row per key part, so a composite expression index
+    # would otherwise produce one finding per part. First part per index wins.
+    _fi_seen = set()
+    func_indexes_deduped = []
+    for _r in func_indexes:
+        if not _r or len(_r) < 6:
+            continue
+        _k = (_r[0], _r[1], _r[2])
+        if _k in _fi_seen:
+            continue
+        _fi_seen.add(_k)
+        func_indexes_deduped.append(_r)
+
     load_fail_set = lf.collect(
         load_fail_objs,
         not_enforced,
@@ -895,6 +908,7 @@ def run_assessment_checks(
             "general_tablespace": general_ts,
             "autoextend_size": autoextend,
             "schema_default_encryption": schema_enc,
+            "functional_indexes": func_indexes_deduped,
         },
     )
 
