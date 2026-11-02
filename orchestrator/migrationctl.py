@@ -436,13 +436,13 @@ def assess(
         typer.echo(f"  Detail:    {_out / 'report.json'}, run.log")
         raise typer.Exit(code=2)
 
-    report.finish_run(success=True, message="Assessment passed. Ready to plan/run.")
+    report.finish_run(success=True, message="Assessment complete. See findings before planning.")
     _lf = getattr(result, "load_failures", None)
     _nf = getattr(_lf, "count", 0) if _lf is not None else 0
     _ns = getattr(_lf, "sign_off_count", 0) if _lf is not None else 0
     _out = Path(out)
     typer.echo(
-        f"ASSESSMENT: PASS -- {_nf} load failure{'' if _nf == 1 else 's'}, "
+        f"ASSESSMENT: COMPLETE -- {_nf} blocker{'' if _nf == 1 else 's'}, "
         f"{_ns} sign-off item{'' if _ns == 1 else 's'}"
     )
     if (_out / "load_failure_report.txt").exists():
