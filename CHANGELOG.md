@@ -1,6 +1,10 @@
 # Changelog
 
-## [1.6.1] - 2026-10-27
+## [Unreleased]
+
+Ships as 1.6.0. Milestone tags (`v1.6.0-m.N`) are pre-releases on GitHub and
+carry generated notes; this file covers promoted releases, so this section is
+retitled when 1.6.0 is promoted and published to the downloads page.
 
 ### Added
 - Migration findings in the assess phase, split by what the operator has to do
@@ -34,10 +38,36 @@
 - `tests/fixtures/gap_zoo.sql`, one object per known-risk feature with its
   expected classification, plus `collation_support.sql` for checking a target
   by hand and a README recording what the dump actually emits.
+- Four functional-index objects in `gap_zoo.sql` (`z_fn_idx_arith`,
+  `z_fn_idx_unique`, `z_fn_idx_json`, `z_fn_idx_multi`), covering the
+  arithmetic, UNIQUE, JSON-expression and composite cases.
+- `docs/check-classes.md` records every check the assessment emits, classed
+  and unclassed, with the mechanism and the evidence behind each. Checks whose
+  class has not been established are listed with what is missing rather than
+  given a guessed class.
 
 ### Changed
 - Findings carry a `class` of `LOAD_FAIL`, `SIGN_OFF` or `INFO` alongside the
   existing `HIGH`/`MEDIUM`/`LOW` severity. Existing checks are unchanged.
+- `functional_indexes_present` is classed `LOAD_FAIL` (error 1064). MySQL
+  emits an expression index's key part bare, with no version comment, so
+  MariaDB's parser rejects it and the load stops at the `CREATE TABLE`,
+  leaving the target schema empty. Confirmed against 11.8.9, 12.3.3 and
+  13.1.1. The remedy is a stored generated column with a plain index on it;
+  where the expression index is UNIQUE the uniqueness moves onto the
+  generated column, which is a change worth confirming rather than a
+  mechanical rewrite.
+- `sql/checks/functional_indexes.sql` reports `NON_UNIQUE`, `SEQ_IN_INDEX`
+  and the expression, and the finding counts distinct indexes rather than key
+  parts -- a composite expression index previously counted more than once.
+  Expressions are flattened in SQL because the precheck client runs `--raw`.
+- Four further checks classed from MariaDB's documented behaviour:
+  `json_columns_present` (SIGN_OFF -- loads as `LONGTEXT`),
+  `multiple_triggers_per_event` and `partitioned_tables_present` (INFO), and
+  `mysql_sha_or_caching_auth_users` (INFO -- MariaDB ships a MySQL-compatible
+  `caching_sha2_password` plugin from 11.4, so these users transfer with
+  their existing hashes).
+- `MIG_TOOL_VERSION` is `1.6.0-m.1`, for the milestone tagging scheme.
 - Untagged `utf8mb4_0900_*` collations are no longer treated as a problem.
   Tested on 11.8.9: all four load and keep their names. `ja`, `ru` and `zh`
   are unsupported, as are the locales MySQL added in 8.0.30.
