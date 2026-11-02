@@ -152,4 +152,51 @@ DELIMITER ;
 CREATE VIEW z_member_of AS
   SELECT 1 AS hit WHERE 1 MEMBER OF (CAST('[1,2,3]' AS JSON));
 
+-- LOAD_FAIL (1064) -- functional (expression) indexes. SHOW CREATE TABLE
+-- emits the key part bare, with no /*!8xxxx */ wrapper, so MariaDB's parser
+-- sees it and the load stops at the CREATE TABLE. Confirmed on 11.8.9,
+-- 12.3.3 and 13.1.1: all three abort and leave the schema empty, so the key
+-- is never silently dropped. Not probed -- the probe would need a writable
+-- database, and the target schema does not exist at assess time.
+CREATE TABLE z_fn_idx_arith (
+  id  INT PRIMARY KEY,
+  qty INT NOT NULL,
+  KEY k_qty ((qty * 2))
+);
+INSERT INTO z_fn_idx_arith VALUES (1,10),(2,20);
+
+-- LOAD_FAIL (1064) -- same, but UNIQUE. Separate object because the remedy
+-- differs: rewriting as a generated column moves a uniqueness constraint,
+-- not just an access path, which is a change someone should confirm.
+CREATE TABLE z_fn_idx_unique (
+  id    INT PRIMARY KEY,
+  email VARCHAR(64) NOT NULL,
+  UNIQUE KEY u_email ((LOWER(email)))
+);
+INSERT INTO z_fn_idx_unique VALUES (1,'A@x.com'),(2,'b@x.com');
+
+-- LOAD_FAIL (1064) -- JSON expression. Confounded with the ->> finding
+-- above: ->> parses on 13.1 but not 11.8 or 12.3, so a failure here has two
+-- candidate causes. z_fn_idx_arith is the unambiguous case; this one proves
+-- the expression text survives the TSV intact (quotes and a CAST ... CHARSET
+-- clause, which --raw does not escape).
+CREATE TABLE z_fn_idx_json (
+  id  INT PRIMARY KEY,
+  doc JSON NOT NULL,
+  KEY k_sku ((CAST(doc->>'$.sku' AS CHAR(32))))
+);
+INSERT INTO z_fn_idx_json VALUES (1,'{"sku":"abc"}');
+
+-- LOAD_FAIL (1064) -- composite: two expression key parts on one index.
+-- INFORMATION_SCHEMA.STATISTICS emits one row per key part, so this object
+-- is what proves the assess count reports 1 index rather than 2. Only the
+-- first part's expression reaches the finding; the second is not shown.
+CREATE TABLE z_fn_idx_multi (
+  id INT PRIMARY KEY,
+  a  INT NOT NULL,
+  b  INT NOT NULL,
+  KEY k_ab ((a + b), (a - b))
+);
+INSERT INTO z_fn_idx_multi VALUES (1,5,3);
+
 SELECT 'gap_zoo loaded. See README.md for the objects this file cannot create alone.' AS note;
