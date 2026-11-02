@@ -45,6 +45,11 @@ retitled when 1.6.0 is promoted and published to the downloads page.
   and unclassed, with the mechanism and the evidence behind each. Checks whose
   class has not been established are listed with what is missing rather than
   given a guessed class.
+- Replication mode: the source compatibility check now also requires
+  `binlog_row_value_options` to be empty and `binlog_transaction_compression`
+  to be OFF. MariaDB cannot apply partial-JSON or compressed binlog events, so
+  either setting stops the assessment, with the fix for the source server.
+  All failing settings are reported in one pass. (MIGTK-56)
 
 ### Changed
 - Findings carry a `class` of `LOAD_FAIL`, `SIGN_OFF` or `INFO` alongside the
@@ -75,6 +80,9 @@ retitled when 1.6.0 is promoted and published to the downloads page.
   notes that an attribute inherited from a database `DEFAULT ENCRYPTION` has
   to be dropped there too, or it returns on the next dump.
 - License terms updated to the 2026-10-16 revision.
+- Assessment PASS and FAIL summaries show the load-failure and sign-off
+  counts (and failed gates on FAIL), with the paths to the findings report
+  and `report.json`.
 
 ### Fixed
 - `AUTOEXTEND_SIZE` was read from `TABLES.CREATE_OPTIONS`, which is empty for
@@ -94,6 +102,8 @@ retitled when 1.6.0 is promoted and published to the downloads page.
   and `mariadb-dump` failed with 1049 looking for a database whose name began
   with a space -- after every preflight had passed. The list is now normalised
   at the prompt, so the prompt, the saved config and every consumer agree.
+- Assessment and plan summaries pointed to `artifacts/report.json`, which does
+  not exist; they now print the run's own directory.
 
 ### Fixed (continued)
 - MySQL-only functions in stored code were classed as load failures. Function
