@@ -763,10 +763,23 @@ def run_assessment_checks(
 
     # --- Previously unwired checks ---
 
-    fi_lines = ["\t".join(r) for r in func_indexes if r]
-    if fi_lines:
-        warnings.append(WarningItem("functional_indexes_present", "HIGH", {"count": len(fi_lines), "rows_sample": fi_lines[:200], "note": "Expression-based indexes may use MySQL-only syntax unsupported by MariaDB."}))
-    inventory["functional_indexes"] = {"count": len(fi_lines)}
+    # One row per key part, so a composite expression index appears more than
+    # once. Count distinct indexes; keep the key-part total in inventory.
+    fi_rows = [r for r in func_indexes if r and len(r) >= 4]
+    fi_lines = ["\t".join(r) for r in fi_rows]
+    fi_idx = {}
+    for r in fi_rows:
+        fi_idx.setdefault((r[0], r[1], r[2]), r[3])
+    fi_unique = sorted(k for k, nu in fi_idx.items() if str(nu).strip() == "0")
+    if fi_idx:
+        warnings.append(WarningItem("functional_indexes_present", "HIGH", {
+            "count": len(fi_idx),
+            "unique_count": len(fi_unique),
+            "unique_sample": [".".join(k) for k in fi_unique[:200]],
+            "rows_sample": fi_lines[:200],
+            "note": "Expression-based indexes may use MySQL-only syntax unsupported by MariaDB. Behaviour on load not yet confirmed; no class assigned.",
+        }))
+    inventory["functional_indexes"] = {"count": len(fi_idx), "unique_count": len(fi_unique), "key_parts": len(fi_rows)}
 
     fd_lines = ["\t".join(r) for r in func_defaults if r]
     if fd_lines:
@@ -867,6 +880,19 @@ def run_assessment_checks(
         report.log(f"WARN: capability probes failed ({exc}); "
                    "constructs classified from the static table.")
         capabilities = None
+    # The TSV carries one row per key part, so a composite expression index
+    # would otherwise produce one finding per part. First part per index wins.
+    _fi_seen = set()
+    func_indexes_deduped = []
+    for _r in func_indexes:
+        if not _r or len(_r) < 6:
+            continue
+        _k = (_r[0], _r[1], _r[2])
+        if _k in _fi_seen:
+            continue
+        _fi_seen.add(_k)
+        func_indexes_deduped.append(_r)
+
     load_fail_set = lf.collect(
         load_fail_objs,
         not_enforced,
@@ -882,6 +908,7 @@ def run_assessment_checks(
             "general_tablespace": general_ts,
             "autoextend_size": autoextend,
             "schema_default_encryption": schema_enc,
+            "functional_indexes": func_indexes_deduped,
         },
     )
 

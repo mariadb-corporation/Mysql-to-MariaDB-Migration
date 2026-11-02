@@ -102,7 +102,7 @@ the dump settles it:
 ```bash
 mariadb-dump -h <src> -u <user> -p --ssl-verify-server-cert=OFF --no-data \
   --databases gap_zoo gap_zoo_enc > /tmp/gap_zoo_schema.sql
-grep -nE "INVISIBLE|NOT ENFORCED|AUTOEXTEND|TABLESPACE|SRID|ENCRYPTION" \
+grep -nE "INVISIBLE|NOT ENFORCED|AUTOEXTEND|TABLESPACE|SRID|ENCRYPTION|KEY \(\(" \
   /tmp/gap_zoo_schema.sql
 ```
 
@@ -118,6 +118,7 @@ Confirmed against MySQL 8.4.7:
 | `TABLESPACE` | `/*!50100 */` | skipped, file-per-table |
 | database `DEFAULT ENCRYPTION` | `/*!80016 */` | skipped; future tables unencrypted |
 | table `ENCRYPTION='Y'` | **bare** | reaches parser, fails 1911 |
+| functional index key part | **bare** | reaches parser, fails 1064 |
 
 MariaDB skips version comments numbered 50700-99999 (MDEV-5009), so everything
 wrapped is dropped on every MariaDB version regardless of what that version
@@ -151,7 +152,19 @@ column would not be found; worth adding a zoo case before relying on it.
 ## Known gaps
 
 Not yet represented, to add as the related tickets land: reserved words,
-functional indexes, roles, resource groups, partial revokes.
+roles, resource groups, partial revokes.
+
+Functional indexes are represented (`z_fn_idx_*`) but one case is not: a
+target that accepts them. All three sandboxes reject the syntax, so the
+INFO path has never run. The class is fixed rather than probed -- the probe
+would need a writable database, and the target schema does not exist at
+assess time -- so if a future MariaDB adds expression indexes, this check
+keeps reporting LOAD_FAIL until someone retests it. Worth rechecking on any
+new major version.
+
+A composite expression index (`z_fn_idx_multi`) reports only its first key
+part's expression. The remedy -- rewriting as a stored generated column --
+needs all of them, so the operator has to read the rest off the source.
 
 Unicode weight differences are not covered either. MySQL's `_0900_` collations
 use UCA 9.0.0 and MariaDB's `uca1400` aliases use 14.0.0, so strings that
