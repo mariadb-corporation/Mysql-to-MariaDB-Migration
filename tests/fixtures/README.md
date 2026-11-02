@@ -49,6 +49,17 @@ rather than a sign-off item.
 CREATE TABLESPACE zoo_ts1 ADD DATAFILE 'zoo_ts1.ibd' ENGINE=InnoDB;
 ```
 
+`CREATE TABLESPACE` is a global privilege, so grant it to the loading user if it
+is not an admin account:
+
+```sql
+GRANT CREATE TABLESPACE ON *.* TO 'mig_native'@'%';
+```
+
+The datafile is created relative to the data directory. Without the tablespace,
+`CREATE TABLE ... TABLESPACE zoo_ts1` fails with 3510 and the general-tablespace
+check goes untested.
+
 Reading it back during assessment needs `PROCESS` on the source. Without that
 privilege `information_schema.INNODB_TABLESPACES` returns empty rather than
 erroring, and the check would report clean on a source that has tablespaces —
