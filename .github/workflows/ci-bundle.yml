@@ -6,6 +6,8 @@ on:
     paths:
       - 'mariadb-migrator'
       - 'build/**'
+      - 'third-party-licenses.txt'
+      - 'LICENSE.md'
       - 'orchestrator/**'
       - 'scripts/**'
       - 'sql/**'
@@ -15,6 +17,8 @@ on:
     paths:
       - 'mariadb-migrator'
       - 'build/**'
+      - 'third-party-licenses.txt'
+      - 'LICENSE.md'
       - 'orchestrator/**'
       - 'scripts/**'
       - 'sql/**'
@@ -66,8 +70,22 @@ jobs:
             exit 1
           fi
 
+          # Licence notices must be in the artifact, not just in the repo.
+          for f in third-party-licenses.txt _payload/third-party-licenses.txt \
+                   LICENSE.md _payload/LICENSE.md; do
+            unzip -l "$PYZ" | grep -q "$f" || {
+              echo "missing from bundle: $f" >&2; exit 1; }
+          done
+
           echo "VERSION=$BUNDLED" >> "$GITHUB_ENV"
           sha256sum "$PYZ"
+
+      - name: Verify third-party notices are current
+        run: |
+          git ls-files --error-unmatch third-party-licenses.txt >/dev/null \
+            || { echo "third-party-licenses.txt is not tracked - commit it"; exit 1; }
+          git diff --exit-code -- third-party-licenses.txt \
+            || { echo "requirements.lock changed - commit the regenerated third-party-licenses.txt"; exit 1; }
 
       - name: Smoke test - first run (cold share dir)
         run: |
@@ -102,3 +120,4 @@ jobs:
           path: dist/mariadb-migrator.pyz
           retention-days: 14
           if-no-files-found: error
+

@@ -43,6 +43,11 @@ PYYAML_FORCE_LIBYAML=0 python3 -m pip install \
     --target "$BUILD_DIR" \
     -r "${ORCH_DIR}/requirements.lock"
 
+# Third-party notices. Must run before the *.dist-info prune further down,
+# which is where pip leaves the upstream LICENSE files.
+NOTICE="third-party-licenses.txt"
+build/gen_licenses.sh "$BUILD_DIR" "${REPO_ROOT}/${NOTICE}"
+
 # Orchestrator sources, kept as a package so relative imports resolve.
 mkdir -p "${BUILD_DIR}/${ORCH_DIR}"
 cp "${ORCH_DIR}"/*.py "${BUILD_DIR}/${ORCH_DIR}/"
@@ -58,6 +63,23 @@ cp mariadb-migrator "${BUILD_DIR}/_payload/"
 mkdir -p "${BUILD_DIR}/_payload/config"
 cp config/migration.yaml.example "${BUILD_DIR}/_payload/config/"
 chmod +x "${BUILD_DIR}/_payload/mariadb-migrator"
+
+# Notices travel with the payload so they land in the extracted share dir,
+# and at the zip root so `unzip -l` shows them without running anything.
+cp "${REPO_ROOT}/${NOTICE}" "${BUILD_DIR}/_payload/"
+cp "${REPO_ROOT}/${NOTICE}" "${BUILD_DIR}/"
+# MariaDB's own terms travel with the bundle too. LICENSE.md is the notice;
+# the PDF is the full terms, which an air-gapped host cannot fetch.
+licfound=0
+for lic in LICENSE.md MariaDB_Software_License_Terms_2026-10-16.pdf; do
+    if [[ -f "${REPO_ROOT}/${lic}" ]]; then
+        cp "${REPO_ROOT}/${lic}" "${BUILD_DIR}/_payload/"
+        cp "${REPO_ROOT}/${lic}" "${BUILD_DIR}/"
+        licfound=1
+    fi
+done
+[[ "$licfound" -eq 1 ]] || {
+    echo "MariaDB terms not found at repo root" >&2; exit 1; }
 
 # Entry point.
 cp build/pyz_main.py "${BUILD_DIR}/__main__.py"
@@ -76,6 +98,12 @@ if find "$BUILD_DIR" -name '*.so' -print -quit | grep -q .; then
     find "$BUILD_DIR" -name '*.so' >&2
     exit 1
 fi
+
+# Notices must be present in the artifact we are about to ship.
+[[ -s "${BUILD_DIR}/_payload/${NOTICE}" ]] || {
+    echo "notice file missing from payload" >&2; exit 1; }
+[[ -s "${BUILD_DIR}/_payload/LICENSE.md" ]] || {
+    echo "LICENSE.md missing from payload" >&2; exit 1; }
 
 python3 -m zipapp "$BUILD_DIR" \
     --output "$OUT" \
