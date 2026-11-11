@@ -50,6 +50,17 @@ on the next run.
 
 Requires Python 3.9 or newer and bash 4.4 or newer.
 
+The bundle carries its licence notices with it. `LICENSE.md` and
+`third-party-licenses.txt` are included in the `.pyz` and are unpacked to
+`~/.local/share/mariadb-migrator/<version>/` on first run. To read them
+without running the tool:
+
+```bash
+unzip -p mariadb-migrator.pyz third-party-licenses.txt | less
+```
+
+See [License](#license) for what each covers.
+
 ### Release archive
 
 The archive is the full source tree and bootstraps its own Python environment
@@ -587,3 +598,36 @@ Join the [MariaDB Community on Slack](https://mariadb.com/docs/general-resources
 [MariaDB Software License Terms](https://legal.mariadb.com/agreements/enterprise/MariaDB_Software_License_Terms_2026-10-16.pdf) apply to all MariaDB Software unless otherwise stated. They do not alter the license terms of any free and open-source software (FOSS) or software subject to the Business Source License (BSL) (see Section 7 of the MariaDB Software License Terms).
 
 For additional legal information, see [MariaDB Terms](https://mariadb.com/terms/).
+
+### Third-party software
+
+The single-file bundle includes the Python packages the tool depends on, so
+that it can run without network access. Those packages are **not** covered by
+the MariaDB Software License Terms. Each remains licensed by its own authors
+under its own terms, all of which are permissive:
+
+| Package | Version | Licence |
+| --- | --- | --- |
+| click | 8.1.7 | BSD-3-Clause |
+| markdown-it-py | 3.0.0 | MIT |
+| mdurl | 0.1.2 | MIT |
+| Pygments | 2.21.0 | BSD-2-Clause |
+| PyYAML | 6.0.2 | MIT |
+| rich | 13.7.1 | MIT |
+| shellingham | 1.5.4 | ISC |
+| typer | 0.12.3 | MIT |
+| typing_extensions | 4.16.0 | PSF-2.0 |
+
+The complete licence texts, including the Pygments `AUTHORS` file referenced
+by its copyright notice, are in
+[`third-party-licenses.txt`](third-party-licenses.txt). That file is generated
+from `orchestrator/requirements.lock` at build time and ships inside the
+bundle as well as in this repository.
+
+The packages are redistributed unmodified. PyYAML is built from source without
+its optional LibYAML C extension (`PYYAML_FORCE_LIBYAML=0`), a supported build
+option of the package, so that the bundle stays architecture-independent. No
+Python interpreter is bundled; the tool runs on the host's Python 3.9 or newer.
+
+The release archive does not bundle these packages — it installs them from PyPI
+into a project-local virtual environment on first run.

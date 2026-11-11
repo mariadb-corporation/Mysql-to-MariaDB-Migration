@@ -1,0 +1,7 @@
+mariadb-migrator — Third-Party Software Notices
+
+MariaDB's own code in this bundle is licensed under the MariaDB Software
+License Terms dated 16 October 2026 (see LICENSE).
+
+The third-party packages listed below are NOT covered by those terms. Each
+remains licensed under its own terms, reproduced in full in this file.

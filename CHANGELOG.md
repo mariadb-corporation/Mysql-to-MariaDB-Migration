@@ -50,6 +50,23 @@ retitled when 1.6.0 is promoted and published to the downloads page.
   to be OFF. MariaDB cannot apply partial-JSON or compressed binlog events, so
   either setting stops the assessment, with the fix for the source server.
   All failing settings are reported in one pass. (MIGTK-56)
+- Third-party licence notices ship inside the single-file bundle.
+  `third-party-licenses.txt` carries the full licence text for all nine
+  bundled Python packages, including the Pygments `AUTHORS` file its
+  copyright notice refers to. It is included in `mariadb-migrator.pyz` and
+  unpacked to `~/.local/share/mariadb-migrator/<version>/` on first run.
+- `LICENSE.md` and the MariaDB Software License Terms (16 October 2026) are
+  included in the bundle as well, so a host without network access can read
+  the terms that apply to it.
+- `build/gen_licenses.sh` generates the notice file from
+  `orchestrator/requirements.lock` at build time, so the notices cannot drift
+  from the dependencies actually shipped. The build fails if any pinned
+  package yields no licence text.
+- CI verifies that the committed notice file is current and that the notices
+  are present inside the built artifact.
+- README documents the licence split: the MariaDB Software License Terms
+  cover MariaDB's own code, while the bundled packages remain under their own
+  permissive licences (MIT, BSD-2-Clause, BSD-3-Clause, ISC, PSF-2.0).
 
 ### Changed
 - Findings carry a `class` of `LOAD_FAIL`, `SIGN_OFF` or `INFO` alongside the

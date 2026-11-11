@@ -1,0 +1,1140 @@
+mariadb-migrator — Third-Party Software Notices
+
+MariaDB's own code in this bundle is licensed under the MariaDB Software
+License Terms dated 16 October 2026 (see LICENSE).
+
+The third-party packages listed below are NOT covered by those terms. Each
+remains licensed under its own terms, reproduced in full in this file.
+
+===== click 8.1.7 =====
+--- LICENSE.rst ---
+
+Copyright 2014 Pallets
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1.  Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+
+2.  Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+3.  Neither the name of the copyright holder nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+===== markdown-it-py 3.0.0 =====
+--- LICENSE ---
+
+MIT License
+
+Copyright (c) 2020 ExecutableBookProject
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+===== markdown-it-py 3.0.0 =====
+--- LICENSE.markdown-it ---
+
+Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin.
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+===== mdurl 0.1.2 =====
+--- LICENSE ---
+
+Copyright (c) 2015 Vitaly Puzrin, Alex Kocharin.
+Copyright (c) 2021 Taneli Hukkinen
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+--------------------------------------------------------------------------------
+
+.parse() is based on Joyent's node.js `url` code:
+
+Copyright Joyent, Inc. and other Node contributors. All rights reserved.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+
+===== Pygments 2.21.0 =====
+--- AUTHORS ---
+
+Pygments is written and maintained by Georg Brandl <georg@python.org>.
+
+Major developers are Tim Hatch <tim@timhatch.com> and Armin Ronacher
+<armin.ronacher@active-4.com>.
+
+Other contributors, listed alphabetically, are:
+
+* Sam Aaron -- Ioke lexer
+* Jean Abou Samra -- LilyPond lexer
+* João Abecasis -- JSLT lexer
+* Ali Afshar -- image formatter
+* Thomas Aglassinger -- Easytrieve, JCL, Rexx, Transact-SQL and VBScript
+  lexers
+* Maxence Ahlouche -- PostgreSQL Explain lexer
+* Muthiah Annamalai -- Ezhil lexer
+* Nikolay Antipov -- OpenSCAD lexer
+* Kumar Appaiah -- Debian control lexer
+* Andreas Amann -- AppleScript lexer
+* Timothy Armstrong -- Dart lexer fixes
+* Jeffrey Arnold -- R/S, Rd, BUGS, Jags, and Stan lexers
+* Eiríkr Åsheim -- Uxntal lexer
+* Jeremy Ashkenas -- CoffeeScript lexer
+* José Joaquín Atria -- Praat lexer
+* Stefan Matthias Aust -- Smalltalk lexer
+* Lucas Bajolet -- Nit lexer
+* Ben Bangert -- Mako lexers
+* Max Battcher -- Darcs patch lexer
+* Thomas Baruchel -- APL lexer
+* Tim Baumann -- (Literate) Agda lexer
+* Paul Baumgart, 280 North, Inc. -- Objective-J lexer
+* Michael Bayer -- Myghty lexers
+* Thomas Beale -- Archetype lexers
+* John Benediktsson -- Factor lexer
+* David Benjamin, Google LLC -- TLS lexer
+* Trevor Bergeron -- mIRC formatter
+* Vincent Bernat -- LessCSS lexer
+* Christopher Bertels -- Fancy lexer
+* Sébastien Bigaret -- QVT Operational lexer
+* Jarrett Billingsley -- MiniD lexer
+* Adam Blinkinsop -- Haskell, Redcode lexers
+* Stéphane Blondon -- Procfile, SGF and Sieve lexers
+* Frits van Bommel -- assembler lexers
+* Pierre Bourdon -- bugfixes
+* Martijn Braam -- Kernel log lexer, BARE lexer
+* JD Browne, Google LLC -- GoogleSQL lexer
+* Matthias Bussonnier -- ANSI style handling for terminal-256 formatter
+* chebee7i -- Python traceback lexer improvements
+* Hiram Chirino -- Scaml and Jade lexers
+* Mauricio Caceres -- SAS and Stata lexers.
+* Michael Camilleri, John Gabriele, sogaiu -- Janet lexer
+* Daren Chandisingh -- Gleam lexer
+* Ian Cooper -- VGL lexer
+* David Corbett -- Inform, Jasmin, JSGF, Snowball, and TADS 3 lexers
+* Leaf Corcoran -- MoonScript lexer
+* Fraser Cormack -- TableGen lexer
+* Gabriel Corona -- ASN.1 lexer
+* Radu Costache -- Boogie and Civl Verifier lexer improvements
+* Christopher Creutzig -- MuPAD lexer
+* Daniël W. Crompton -- Pike lexer
+* Pete Curry -- bugfixes
+* Bryan Davis -- EBNF lexer
+* Bruno Deferrari -- Shen lexer
+* Walter Dörwald -- UL4 lexer
+* Luke Drummond -- Meson lexer
+* Giedrius Dubinskas -- HTML formatter improvements
+* Owen Durni -- Haxe lexer
+* Alexander Dutton, Oxford University Computing Services -- SPARQL lexer
+* James Edwards -- Terraform lexer
+* Nick Efford -- Python 3 lexer
+* Sven Efftinge -- Xtend lexer
+* Artem Egorkine -- terminal256 formatter
+* Matthew Fernandez -- CAmkES lexer
+* Paweł Fertyk -- GDScript lexer, HTML formatter improvements
+* Michael Ficarra -- CPSA lexer
+* James H. Fisher -- PostScript lexer
+* Amanda Fitch, Google LLC -- GoogleSQL lexer
+* William S. Fulton -- SWIG lexer
+* Carlos Galdino -- Elixir and Elixir Console lexers
+* Michael Galloy -- IDL lexer
+* Naveen Garg -- Autohotkey lexer
+* Simon Garnotel -- FreeFem++ lexer
+* Laurent Gautier -- R/S lexer
+* Alex Gaynor -- PyPy log lexer
+* Richard Gerkin -- Igor Pro lexer
+* Alain Gilbert -- TypeScript lexer
+* Alex Gilding -- BlitzBasic lexer
+* GitHub, Inc -- DASM16, Augeas, TOML, and Slash lexers
+* Bertrand Goetzmann -- Groovy lexer
+* Krzysiek Goj -- Scala lexer
+* Rostyslav Golda -- FloScript lexer
+* Andrey Golovizin -- BibTeX lexers
+* Matt Good -- Genshi, Cheetah lexers
+* Michał Górny -- vim modeline support
+* Alex Gosse -- TrafficScript lexer
+* Patrick Gotthardt -- PHP namespaces support
+* Hubert Gruniaux -- C and C++ lexer improvements
+* Olivier Guibe -- Asymptote lexer
+* Armin Günther -- Go lexer improvements
+* Phil Hagelberg -- Fennel lexer
+* Florian Hahn -- Boogie lexer
+* Martin Harriman -- SNOBOL lexer
+* Matthew Harrison -- SVG formatter
+* Steven Hazel -- Tcl lexer
+* Dan Michael Heggø -- Turtle lexer
+* Aslak Hellesøy -- Gherkin lexer
+* Greg Hendershott -- Racket lexer
+* Justin Hendrick -- ParaSail lexer
+* Jordi Gutiérrez Hermoso -- Octave lexer
+* David Hess, Fish Software, Inc. -- Objective-J lexer
+* Ken Hilton -- Typographic Number Theory and Arrow lexers
+* Varun Hiremath -- Debian control lexer
+* Rob Hoelz -- Perl 6 lexer
+* Doug Hogan -- Mscgen lexer
+* Ben Hollis -- Mason lexer
+* Max Horn -- GAP lexer
+* Fred Hornsey -- OMG IDL Lexer
+* Alastair Houghton -- Lexer inheritance facility
+* Tim Howard -- BlitzMax lexer
+* Dustin Howett -- Logos lexer
+* Ivan Inozemtsev -- Fantom lexer
+* Hiroaki Itoh -- Shell console rewrite, Lexers for PowerShell session,
+  MSDOS session, BC, WDiff
+* Brian R. Jackson -- Tea lexer
+* Alex Jeffery, ChromaWay AB -- Rell lexer
+* Christian Jann -- ShellSession lexer
+* Jonas Camillus Jeppesen -- Line numbers and line highlighting for 
+  RTF-formatter
+* Dennis Kaarsemaker -- sources.list lexer
+* Dmitri Kabak -- Inferno Limbo lexer
+* Igor Kalnitsky -- vhdl lexer
+* Colin Kennedy - USD lexer
+* Alexander Kit -- MaskJS lexer
+* Pekka Klärck -- Robot Framework lexer
+* Gerwin Klein -- Isabelle lexer
+* Eric Knibbe -- Lasso lexer
+* Stepan Koltsov -- Clay lexer
+* Oliver Kopp - Friendly grayscale style
+* Adam Koprowski -- Opa lexer
+* Benjamin Kowarsch -- Modula-2 lexer
+* Domen Kožar -- Nix lexer
+* Oleh Krekel -- Emacs Lisp lexer
+* Alexander Kriegisch -- Kconfig and AspectJ lexers
+* Marek Kubica -- Scheme lexer
+* Jochen Kupperschmidt -- Markdown processor
+* Gerd Kurzbach -- Modelica lexer
+* Jon Larimer, Google Inc. -- Smali lexer
+* Olov Lassus -- Dart lexer
+* Matt Layman -- TAP lexer
+* Dan Lazin, Google LLC -- GoogleSQL lexer
+* Kristian Lyngstøl -- Varnish lexers
+* Sylvestre Ledru -- Scilab lexer
+* Chee Sing Lee -- Flatline lexer
+* Mark Lee -- Vala lexer
+* Thomas Linder Puls -- Visual Prolog lexer
+* Pete Lomax -- Phix lexer
+* Valentin Lorentz -- C++ lexer improvements
+* Ben Mabey -- Gherkin lexer
+* Angus MacArthur -- QML lexer
+* Louis Mandel -- X10 lexer
+* Louis Marchand -- Eiffel lexer
+* Simone Margaritelli -- Hybris lexer
+* Tim Martin - World of Warcraft TOC lexer
+* Kirk McDonald -- D lexer
+* Gordon McGregor -- SystemVerilog lexer
+* Stephen McKamey -- Duel/JBST lexer
+* Brian McKenna -- F# lexer
+* Charles McLaughlin -- Puppet lexer
+* Kurt McKee -- Tera Term macro lexer, PostgreSQL updates, MySQL overhaul, JSON lexer
+* Joe Eli McIlvain -- Savi lexer
+* Lukas Meuser -- BBCode formatter, Lua lexer
+* Bruno Mesquita -- Night Owl style
+* Cat Miller -- Pig lexer
+* Paul Miller -- LiveScript lexer
+* Hong Minhee -- HTTP lexer
+* Michael Mior -- Awk lexer
+* Bruce Mitchener -- Dylan lexer rewrite
+* Reuben Morais -- SourcePawn lexer
+* Jon Morton -- Rust lexer
+* Paulo Moura -- Logtalk lexer
+* Mher Movsisyan -- DTD lexer
+* Dejan Muhamedagic -- Crmsh lexer
+* Adrien Nayrat -- PostgreSQL Explain lexer
+* Ana Nelson -- Ragel, ANTLR, R console lexers
+* David Neto, Google LLC -- WebGPU Shading Language lexer
+* Kurt Neufeld -- Markdown lexer
+* Nam T. Nguyen -- Monokai style
+* Jesper Noehr -- HTML formatter "anchorlinenos"
+* Mike Nolta -- Julia lexer
+* Avery Nortonsmith -- Pointless lexer
+* Jonas Obrist -- BBCode lexer
+* Edward O'Callaghan -- Cryptol lexer
+* David Oliva -- Rebol lexer
+* Pat Pannuto -- nesC lexer
+* Jon Parise -- Protocol buffers and Thrift lexers
+* Benjamin Peterson -- Test suite refactoring
+* Ronny Pfannschmidt -- BBCode lexer
+* Dominik Picheta -- Nimrod lexer
+* Andrew Pinkham -- RTF Formatter Refactoring
+* Clément Prévost -- UrbiScript lexer
+* Tanner Prynn -- cmdline -x option and loading lexers from files
+* Oleh Prypin -- Crystal lexer (based on Ruby lexer)
+* Nick Psaris -- K and Q lexers
+* Xidorn Quan -- Web IDL lexer
+* Elias Rabel -- Fortran fixed form lexer
+* raichoo -- Idris lexer
+* Daniel Ramirez -- GDScript lexer
+* Kashif Rasul -- CUDA lexer
+* Nathan Reed -- HLSL lexer
+* Justin Reidy -- MXML lexer
+* Jonathon Reinhart, Google LLC -- Soong lexer
+* Norman Richards -- JSON lexer
+* Corey Richardson -- Rust lexer updates
+* Fabrizio Riguzzi -- cplint leder
+* Lubomir Rintel -- GoodData MAQL and CL lexers
+* Andre Roberge -- Tango style
+* Georg Rollinger -- HSAIL lexer
+* Michiel Roos -- TypoScript lexer
+* Konrad Rudolph -- LaTeX formatter enhancements
+* Mario Ruggier -- Evoque lexers
+* Miikka Salminen -- Lovelace style, Hexdump lexer, lexer enhancements
+* Stou Sandalski -- NumPy, FORTRAN, tcsh and XSLT lexers
+* Matteo Sasso -- Common Lisp lexer
+* Joe Schafer -- Ada lexer
+* Max Schillinger -- TiddlyWiki5 lexer
+* Andrew Schmidt -- X++ lexer
+* Ken Schutte -- Matlab lexers
+* René Schwaiger -- Rainbow Dash style
+* Sebastian Schweizer -- Whiley lexer
+* Tassilo Schweyer -- Io, MOOCode lexers
+* Pablo Seminario -- PromQL lexer
+* Ted Shaw -- AutoIt lexer
+* Joerg Sieker -- ABAP lexer
+* Robert Simmons -- Standard ML lexer
+* Kirill Simonov -- YAML lexer
+* Corbin Simpson -- Monte lexer
+* Ville Skyttä -- ASCII armored lexer
+* Alexander Smishlajev -- Visual FoxPro lexer
+* Steve Spigarelli -- XQuery lexer
+* Jerome St-Louis -- eC lexer
+* Camil Staps -- Clean and NuSMV lexers; Solarized style
+* James Strachan -- Kotlin lexer
+* Tom Stuart -- Treetop lexer
+* Colin Sullivan -- SuperCollider lexer
+* Ben Swift -- Extempore lexer
+* tatt61880 -- Kuin lexer
+* Edoardo Tenani -- Arduino lexer
+* Tiberius Teng -- default style overhaul
+* Jeremy Thurgood -- Erlang, Squid config lexers
+* Brian Tiffin -- OpenCOBOL lexer
+* Bob Tolbert -- Hy lexer
+* Doug Torrance -- Macaulay2 lexer
+* Matthias Trute -- Forth lexer
+* Tuoa Spi T4 -- Bdd lexer
+* Erick Tryzelaar -- Felix lexer
+* Alexander Udalov -- Kotlin lexer improvements
+* Thomas Van Doren -- Chapel lexer
+* Dave Van Ee -- Uxntal lexer updates
+* Daniele Varrazzo -- PostgreSQL lexers
+* Abe Voelker -- OpenEdge ABL lexer
+* Pepijn de Vos -- HTML formatter CTags support
+* Matthias Vallentin -- Bro lexer
+* Benoît Vinot -- AMPL lexer
+* Linh Vu Hong -- RSL lexer
+* Taavi Väänänen -- Debian control, PHP lexers
+* Immanuel Washington -- Smithy lexer
+* Nathan Weizenbaum -- Haml and Sass lexers
+* Nathan Whetsell -- Csound lexers
+* Dietmar Winkler -- Modelica lexer
+* Nils Winter -- Smalltalk lexer
+* Trevor Woerner -- BitBake lexer
+* Davy Wybiral -- Clojure lexer
+* Whitney Young -- ObjectiveC lexer
+* Diego Zamboni -- CFengine3 lexer
+* Enrique Zamudio -- Ceylon lexer
+* Alex Zimin -- Nemerle lexer
+* Rob Zimmerman -- Kal lexer
+* Evgenii Zheltonozhskii -- Maple lexer
+* Vincent Zurczak -- Roboconf lexer
+* Hubert Gruniaux -- C and C++ lexer improvements
+* Thomas Symalla -- AMDGPU Lexer
+* 15b3 -- Image Formatter improvements
+* Fabian Neumann -- CDDL lexer
+* Thomas Duboucher -- CDDL lexer
+* Philipp Imhof -- Pango Markup formatter
+* Thomas Voss -- Sed lexer
+* Martin Fischer -- WCAG contrast testing
+* Marc Auberer -- Spice lexer
+* Amr Hesham -- Carbon lexer
+* diskdance -- Wikitext lexer
+* vanillajonathan -- PRQL lexer
+* Nikolay Antipov -- OpenSCAD lexer
+* Markus Meyer, Nextron Systems -- YARA lexer
+* Hannes Römer -- Mojo lexer
+* Jan Frederik Schaefer -- PDDL lexer
+
+Many thanks for all contributions!
+
+===== Pygments 2.21.0 =====
+--- LICENSE ---
+
+Copyright (c) 2006-2022 by the respective authors (see AUTHORS file).
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+* Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+--- Pygments-AUTHORS (Pygments) ---
+
+Pygments is written and maintained by Georg Brandl <georg@python.org>.
+
+Major developers are Tim Hatch <tim@timhatch.com> and Armin Ronacher
+<armin.ronacher@active-4.com>.
+
+Other contributors, listed alphabetically, are:
+
+* Sam Aaron -- Ioke lexer
+* Jean Abou Samra -- LilyPond lexer
+* João Abecasis -- JSLT lexer
+* Ali Afshar -- image formatter
+* Thomas Aglassinger -- Easytrieve, JCL, Rexx, Transact-SQL and VBScript
+  lexers
+* Maxence Ahlouche -- PostgreSQL Explain lexer
+* Muthiah Annamalai -- Ezhil lexer
+* Nikolay Antipov -- OpenSCAD lexer
+* Kumar Appaiah -- Debian control lexer
+* Andreas Amann -- AppleScript lexer
+* Timothy Armstrong -- Dart lexer fixes
+* Jeffrey Arnold -- R/S, Rd, BUGS, Jags, and Stan lexers
+* Eiríkr Åsheim -- Uxntal lexer
+* Jeremy Ashkenas -- CoffeeScript lexer
+* José Joaquín Atria -- Praat lexer
+* Stefan Matthias Aust -- Smalltalk lexer
+* Lucas Bajolet -- Nit lexer
+* Ben Bangert -- Mako lexers
+* Max Battcher -- Darcs patch lexer
+* Thomas Baruchel -- APL lexer
+* Tim Baumann -- (Literate) Agda lexer
+* Paul Baumgart, 280 North, Inc. -- Objective-J lexer
+* Michael Bayer -- Myghty lexers
+* Thomas Beale -- Archetype lexers
+* John Benediktsson -- Factor lexer
+* David Benjamin, Google LLC -- TLS lexer
+* Trevor Bergeron -- mIRC formatter
+* Vincent Bernat -- LessCSS lexer
+* Christopher Bertels -- Fancy lexer
+* Sébastien Bigaret -- QVT Operational lexer
+* Jarrett Billingsley -- MiniD lexer
+* Adam Blinkinsop -- Haskell, Redcode lexers
+* Stéphane Blondon -- Procfile, SGF and Sieve lexers
+* Frits van Bommel -- assembler lexers
+* Pierre Bourdon -- bugfixes
+* Martijn Braam -- Kernel log lexer, BARE lexer
+* JD Browne, Google LLC -- GoogleSQL lexer
+* Matthias Bussonnier -- ANSI style handling for terminal-256 formatter
+* chebee7i -- Python traceback lexer improvements
+* Hiram Chirino -- Scaml and Jade lexers
+* Mauricio Caceres -- SAS and Stata lexers.
+* Michael Camilleri, John Gabriele, sogaiu -- Janet lexer
+* Daren Chandisingh -- Gleam lexer
+* Ian Cooper -- VGL lexer
+* David Corbett -- Inform, Jasmin, JSGF, Snowball, and TADS 3 lexers
+* Leaf Corcoran -- MoonScript lexer
+* Fraser Cormack -- TableGen lexer
+* Gabriel Corona -- ASN.1 lexer
+* Radu Costache -- Boogie and Civl Verifier lexer improvements
+* Christopher Creutzig -- MuPAD lexer
+* Daniël W. Crompton -- Pike lexer
+* Pete Curry -- bugfixes
+* Bryan Davis -- EBNF lexer
+* Bruno Deferrari -- Shen lexer
+* Walter Dörwald -- UL4 lexer
+* Luke Drummond -- Meson lexer
+* Giedrius Dubinskas -- HTML formatter improvements
+* Owen Durni -- Haxe lexer
+* Alexander Dutton, Oxford University Computing Services -- SPARQL lexer
+* James Edwards -- Terraform lexer
+* Nick Efford -- Python 3 lexer
+* Sven Efftinge -- Xtend lexer
+* Artem Egorkine -- terminal256 formatter
+* Matthew Fernandez -- CAmkES lexer
+* Paweł Fertyk -- GDScript lexer, HTML formatter improvements
+* Michael Ficarra -- CPSA lexer
+* James H. Fisher -- PostScript lexer
+* Amanda Fitch, Google LLC -- GoogleSQL lexer
+* William S. Fulton -- SWIG lexer
+* Carlos Galdino -- Elixir and Elixir Console lexers
+* Michael Galloy -- IDL lexer
+* Naveen Garg -- Autohotkey lexer
+* Simon Garnotel -- FreeFem++ lexer
+* Laurent Gautier -- R/S lexer
+* Alex Gaynor -- PyPy log lexer
+* Richard Gerkin -- Igor Pro lexer
+* Alain Gilbert -- TypeScript lexer
+* Alex Gilding -- BlitzBasic lexer
+* GitHub, Inc -- DASM16, Augeas, TOML, and Slash lexers
+* Bertrand Goetzmann -- Groovy lexer
+* Krzysiek Goj -- Scala lexer
+* Rostyslav Golda -- FloScript lexer
+* Andrey Golovizin -- BibTeX lexers
+* Matt Good -- Genshi, Cheetah lexers
+* Michał Górny -- vim modeline support
+* Alex Gosse -- TrafficScript lexer
+* Patrick Gotthardt -- PHP namespaces support
+* Hubert Gruniaux -- C and C++ lexer improvements
+* Olivier Guibe -- Asymptote lexer
+* Armin Günther -- Go lexer improvements
+* Phil Hagelberg -- Fennel lexer
+* Florian Hahn -- Boogie lexer
+* Martin Harriman -- SNOBOL lexer
+* Matthew Harrison -- SVG formatter
+* Steven Hazel -- Tcl lexer
+* Dan Michael Heggø -- Turtle lexer
+* Aslak Hellesøy -- Gherkin lexer
+* Greg Hendershott -- Racket lexer
+* Justin Hendrick -- ParaSail lexer
+* Jordi Gutiérrez Hermoso -- Octave lexer
+* David Hess, Fish Software, Inc. -- Objective-J lexer
+* Ken Hilton -- Typographic Number Theory and Arrow lexers
+* Varun Hiremath -- Debian control lexer
+* Rob Hoelz -- Perl 6 lexer
+* Doug Hogan -- Mscgen lexer
+* Ben Hollis -- Mason lexer
+* Max Horn -- GAP lexer
+* Fred Hornsey -- OMG IDL Lexer
+* Alastair Houghton -- Lexer inheritance facility
+* Tim Howard -- BlitzMax lexer
+* Dustin Howett -- Logos lexer
+* Ivan Inozemtsev -- Fantom lexer
+* Hiroaki Itoh -- Shell console rewrite, Lexers for PowerShell session,
+  MSDOS session, BC, WDiff
+* Brian R. Jackson -- Tea lexer
+* Alex Jeffery, ChromaWay AB -- Rell lexer
+* Christian Jann -- ShellSession lexer
+* Jonas Camillus Jeppesen -- Line numbers and line highlighting for 
+  RTF-formatter
+* Dennis Kaarsemaker -- sources.list lexer
+* Dmitri Kabak -- Inferno Limbo lexer
+* Igor Kalnitsky -- vhdl lexer
+* Colin Kennedy - USD lexer
+* Alexander Kit -- MaskJS lexer
+* Pekka Klärck -- Robot Framework lexer
+* Gerwin Klein -- Isabelle lexer
+* Eric Knibbe -- Lasso lexer
+* Stepan Koltsov -- Clay lexer
+* Oliver Kopp - Friendly grayscale style
+* Adam Koprowski -- Opa lexer
+* Benjamin Kowarsch -- Modula-2 lexer
+* Domen Kožar -- Nix lexer
+* Oleh Krekel -- Emacs Lisp lexer
+* Alexander Kriegisch -- Kconfig and AspectJ lexers
+* Marek Kubica -- Scheme lexer
+* Jochen Kupperschmidt -- Markdown processor
+* Gerd Kurzbach -- Modelica lexer
+* Jon Larimer, Google Inc. -- Smali lexer
+* Olov Lassus -- Dart lexer
+* Matt Layman -- TAP lexer
+* Dan Lazin, Google LLC -- GoogleSQL lexer
+* Kristian Lyngstøl -- Varnish lexers
+* Sylvestre Ledru -- Scilab lexer
+* Chee Sing Lee -- Flatline lexer
+* Mark Lee -- Vala lexer
+* Thomas Linder Puls -- Visual Prolog lexer
+* Pete Lomax -- Phix lexer
+* Valentin Lorentz -- C++ lexer improvements
+* Ben Mabey -- Gherkin lexer
+* Angus MacArthur -- QML lexer
+* Louis Mandel -- X10 lexer
+* Louis Marchand -- Eiffel lexer
+* Simone Margaritelli -- Hybris lexer
+* Tim Martin - World of Warcraft TOC lexer
+* Kirk McDonald -- D lexer
+* Gordon McGregor -- SystemVerilog lexer
+* Stephen McKamey -- Duel/JBST lexer
+* Brian McKenna -- F# lexer
+* Charles McLaughlin -- Puppet lexer
+* Kurt McKee -- Tera Term macro lexer, PostgreSQL updates, MySQL overhaul, JSON lexer
+* Joe Eli McIlvain -- Savi lexer
+* Lukas Meuser -- BBCode formatter, Lua lexer
+* Bruno Mesquita -- Night Owl style
+* Cat Miller -- Pig lexer
+* Paul Miller -- LiveScript lexer
+* Hong Minhee -- HTTP lexer
+* Michael Mior -- Awk lexer
+* Bruce Mitchener -- Dylan lexer rewrite
+* Reuben Morais -- SourcePawn lexer
+* Jon Morton -- Rust lexer
+* Paulo Moura -- Logtalk lexer
+* Mher Movsisyan -- DTD lexer
+* Dejan Muhamedagic -- Crmsh lexer
+* Adrien Nayrat -- PostgreSQL Explain lexer
+* Ana Nelson -- Ragel, ANTLR, R console lexers
+* David Neto, Google LLC -- WebGPU Shading Language lexer
+* Kurt Neufeld -- Markdown lexer
+* Nam T. Nguyen -- Monokai style
+* Jesper Noehr -- HTML formatter "anchorlinenos"
+* Mike Nolta -- Julia lexer
+* Avery Nortonsmith -- Pointless lexer
+* Jonas Obrist -- BBCode lexer
+* Edward O'Callaghan -- Cryptol lexer
+* David Oliva -- Rebol lexer
+* Pat Pannuto -- nesC lexer
+* Jon Parise -- Protocol buffers and Thrift lexers
+* Benjamin Peterson -- Test suite refactoring
+* Ronny Pfannschmidt -- BBCode lexer
+* Dominik Picheta -- Nimrod lexer
+* Andrew Pinkham -- RTF Formatter Refactoring
+* Clément Prévost -- UrbiScript lexer
+* Tanner Prynn -- cmdline -x option and loading lexers from files
+* Oleh Prypin -- Crystal lexer (based on Ruby lexer)
+* Nick Psaris -- K and Q lexers
+* Xidorn Quan -- Web IDL lexer
+* Elias Rabel -- Fortran fixed form lexer
+* raichoo -- Idris lexer
+* Daniel Ramirez -- GDScript lexer
+* Kashif Rasul -- CUDA lexer
+* Nathan Reed -- HLSL lexer
+* Justin Reidy -- MXML lexer
+* Jonathon Reinhart, Google LLC -- Soong lexer
+* Norman Richards -- JSON lexer
+* Corey Richardson -- Rust lexer updates
+* Fabrizio Riguzzi -- cplint leder
+* Lubomir Rintel -- GoodData MAQL and CL lexers
+* Andre Roberge -- Tango style
+* Georg Rollinger -- HSAIL lexer
+* Michiel Roos -- TypoScript lexer
+* Konrad Rudolph -- LaTeX formatter enhancements
+* Mario Ruggier -- Evoque lexers
+* Miikka Salminen -- Lovelace style, Hexdump lexer, lexer enhancements
+* Stou Sandalski -- NumPy, FORTRAN, tcsh and XSLT lexers
+* Matteo Sasso -- Common Lisp lexer
+* Joe Schafer -- Ada lexer
+* Max Schillinger -- TiddlyWiki5 lexer
+* Andrew Schmidt -- X++ lexer
+* Ken Schutte -- Matlab lexers
+* René Schwaiger -- Rainbow Dash style
+* Sebastian Schweizer -- Whiley lexer
+* Tassilo Schweyer -- Io, MOOCode lexers
+* Pablo Seminario -- PromQL lexer
+* Ted Shaw -- AutoIt lexer
+* Joerg Sieker -- ABAP lexer
+* Robert Simmons -- Standard ML lexer
+* Kirill Simonov -- YAML lexer
+* Corbin Simpson -- Monte lexer
+* Ville Skyttä -- ASCII armored lexer
+* Alexander Smishlajev -- Visual FoxPro lexer
+* Steve Spigarelli -- XQuery lexer
+* Jerome St-Louis -- eC lexer
+* Camil Staps -- Clean and NuSMV lexers; Solarized style
+* James Strachan -- Kotlin lexer
+* Tom Stuart -- Treetop lexer
+* Colin Sullivan -- SuperCollider lexer
+* Ben Swift -- Extempore lexer
+* tatt61880 -- Kuin lexer
+* Edoardo Tenani -- Arduino lexer
+* Tiberius Teng -- default style overhaul
+* Jeremy Thurgood -- Erlang, Squid config lexers
+* Brian Tiffin -- OpenCOBOL lexer
+* Bob Tolbert -- Hy lexer
+* Doug Torrance -- Macaulay2 lexer
+* Matthias Trute -- Forth lexer
+* Tuoa Spi T4 -- Bdd lexer
+* Erick Tryzelaar -- Felix lexer
+* Alexander Udalov -- Kotlin lexer improvements
+* Thomas Van Doren -- Chapel lexer
+* Dave Van Ee -- Uxntal lexer updates
+* Daniele Varrazzo -- PostgreSQL lexers
+* Abe Voelker -- OpenEdge ABL lexer
+* Pepijn de Vos -- HTML formatter CTags support
+* Matthias Vallentin -- Bro lexer
+* Benoît Vinot -- AMPL lexer
+* Linh Vu Hong -- RSL lexer
+* Taavi Väänänen -- Debian control, PHP lexers
+* Immanuel Washington -- Smithy lexer
+* Nathan Weizenbaum -- Haml and Sass lexers
+* Nathan Whetsell -- Csound lexers
+* Dietmar Winkler -- Modelica lexer
+* Nils Winter -- Smalltalk lexer
+* Trevor Woerner -- BitBake lexer
+* Davy Wybiral -- Clojure lexer
+* Whitney Young -- ObjectiveC lexer
+* Diego Zamboni -- CFengine3 lexer
+* Enrique Zamudio -- Ceylon lexer
+* Alex Zimin -- Nemerle lexer
+* Rob Zimmerman -- Kal lexer
+* Evgenii Zheltonozhskii -- Maple lexer
+* Vincent Zurczak -- Roboconf lexer
+* Hubert Gruniaux -- C and C++ lexer improvements
+* Thomas Symalla -- AMDGPU Lexer
+* 15b3 -- Image Formatter improvements
+* Fabian Neumann -- CDDL lexer
+* Thomas Duboucher -- CDDL lexer
+* Philipp Imhof -- Pango Markup formatter
+* Thomas Voss -- Sed lexer
+* Martin Fischer -- WCAG contrast testing
+* Marc Auberer -- Spice lexer
+* Amr Hesham -- Carbon lexer
+* diskdance -- Wikitext lexer
+* vanillajonathan -- PRQL lexer
+* Nikolay Antipov -- OpenSCAD lexer
+* Markus Meyer, Nextron Systems -- YARA lexer
+* Hannes Römer -- Mojo lexer
+* Jan Frederik Schaefer -- PDDL lexer
+
+Many thanks for all contributions!
+
+===== PyYAML 6.0.2 =====
+--- LICENSE ---
+
+Copyright (c) 2017-2021 Ingy döt Net
+Copyright (c) 2006-2016 Kirill Simonov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+===== rich 13.7.1 =====
+--- LICENSE ---
+
+Copyright (c) 2020 Will McGugan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+===== shellingham 1.5.4 =====
+--- LICENSE ---
+
+Copyright (c) 2018, Tzu-ping Chung <uranusjr@gmail.com>
+
+Permission to use, copy, modify, and distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+===== typer 0.12.3 =====
+--- LICENSE ---
+
+The MIT License (MIT)
+
+Copyright (c) 2019 Sebastián Ramírez
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+===== typing_extensions 4.16.0 =====
+--- LICENSE ---
+
+A. HISTORY OF THE SOFTWARE
+==========================
+
+Python was created in the early 1990s by Guido van Rossum at Stichting
+Mathematisch Centrum (CWI, see https://www.cwi.nl) in the Netherlands
+as a successor of a language called ABC.  Guido remains Python's
+principal author, although it includes many contributions from others.
+
+In 1995, Guido continued his work on Python at the Corporation for
+National Research Initiatives (CNRI, see https://www.cnri.reston.va.us)
+in Reston, Virginia where he released several versions of the
+software.
+
+In May 2000, Guido and the Python core development team moved to
+BeOpen.com to form the BeOpen PythonLabs team.  In October of the same
+year, the PythonLabs team moved to Digital Creations, which became
+Zope Corporation.  In 2001, the Python Software Foundation (PSF, see
+https://www.python.org/psf/) was formed, a non-profit organization
+created specifically to own Python-related Intellectual Property.
+Zope Corporation was a sponsoring member of the PSF.
+
+All Python releases are Open Source (see https://opensource.org for
+the Open Source Definition).  Historically, most, but not all, Python
+releases have also been GPL-compatible; the table below summarizes
+the various releases.
+
+    Release         Derived     Year        Owner       GPL-
+                    from                                compatible? (1)
+
+    0.9.0 thru 1.2              1991-1995   CWI         yes
+    1.3 thru 1.5.2  1.2         1995-1999   CNRI        yes
+    1.6             1.5.2       2000        CNRI        no
+    2.0             1.6         2000        BeOpen.com  no
+    1.6.1           1.6         2001        CNRI        yes (2)
+    2.1             2.0+1.6.1   2001        PSF         no
+    2.0.1           2.0+1.6.1   2001        PSF         yes
+    2.1.1           2.1+2.0.1   2001        PSF         yes
+    2.1.2           2.1.1       2002        PSF         yes
+    2.1.3           2.1.2       2002        PSF         yes
+    2.2 and above   2.1.1       2001-now    PSF         yes
+
+Footnotes:
+
+(1) GPL-compatible doesn't mean that we're distributing Python under
+    the GPL.  All Python licenses, unlike the GPL, let you distribute
+    a modified version without making your changes open source.  The
+    GPL-compatible licenses make it possible to combine Python with
+    other software that is released under the GPL; the others don't.
+
+(2) According to Richard Stallman, 1.6.1 is not GPL-compatible,
+    because its license has a choice of law clause.  According to
+    CNRI, however, Stallman's lawyer has told CNRI's lawyer that 1.6.1
+    is "not incompatible" with the GPL.
+
+Thanks to the many outside volunteers who have worked under Guido's
+direction to make these releases possible.
+
+
+B. TERMS AND CONDITIONS FOR ACCESSING OR OTHERWISE USING PYTHON
+===============================================================
+
+Python software and documentation are licensed under the
+Python Software Foundation License Version 2.
+
+Starting with Python 3.8.6, examples, recipes, and other code in
+the documentation are dual licensed under the PSF License Version 2
+and the Zero-Clause BSD license.
+
+Some software incorporated into Python is under different licenses.
+The licenses are listed with code falling under that license.
+
+
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
+--------------------------------------------
+
+1. This LICENSE AGREEMENT is between the Python Software Foundation
+("PSF"), and the Individual or Organization ("Licensee") accessing and
+otherwise using this software ("Python") in source or binary form and
+its associated documentation.
+
+2. Subject to the terms and conditions of this License Agreement, PSF hereby
+grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,
+analyze, test, perform and/or display publicly, prepare derivative works,
+distribute, and otherwise use Python alone or in any derivative version,
+provided, however, that PSF's License Agreement and PSF's notice of copyright,
+i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023 Python Software Foundation;
+All Rights Reserved" are retained in Python alone or in any derivative version
+prepared by Licensee.
+
+3. In the event Licensee prepares a derivative work that is based on
+or incorporates Python or any part thereof, and wants to make
+the derivative work available to others as provided herein, then
+Licensee hereby agrees to include in any such work a brief summary of
+the changes made to Python.
+
+4. PSF is making Python available to Licensee on an "AS IS"
+basis.  PSF MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PSF MAKES NO AND
+DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF PYTHON WILL NOT
+INFRINGE ANY THIRD PARTY RIGHTS.
+
+5. PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON
+FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS
+A RESULT OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON,
+OR ANY DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+6. This License Agreement will automatically terminate upon a material
+breach of its terms and conditions.
+
+7. Nothing in this License Agreement shall be deemed to create any
+relationship of agency, partnership, or joint venture between PSF and
+Licensee.  This License Agreement does not grant permission to use PSF
+trademarks or trade name in a trademark sense to endorse or promote
+products or services of Licensee, or any third party.
+
+8. By copying, installing or otherwise using Python, Licensee
+agrees to be bound by the terms and conditions of this License
+Agreement.
+
+
+BEOPEN.COM LICENSE AGREEMENT FOR PYTHON 2.0
+-------------------------------------------
+
+BEOPEN PYTHON OPEN SOURCE LICENSE AGREEMENT VERSION 1
+
+1. This LICENSE AGREEMENT is between BeOpen.com ("BeOpen"), having an
+office at 160 Saratoga Avenue, Santa Clara, CA 95051, and the
+Individual or Organization ("Licensee") accessing and otherwise using
+this software in source or binary form and its associated
+documentation ("the Software").
+
+2. Subject to the terms and conditions of this BeOpen Python License
+Agreement, BeOpen hereby grants Licensee a non-exclusive,
+royalty-free, world-wide license to reproduce, analyze, test, perform
+and/or display publicly, prepare derivative works, distribute, and
+otherwise use the Software alone or in any derivative version,
+provided, however, that the BeOpen Python License is retained in the
+Software, alone or in any derivative version prepared by Licensee.
+
+3. BeOpen is making the Software available to Licensee on an "AS IS"
+basis.  BEOPEN MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, BEOPEN MAKES NO AND
+DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF THE SOFTWARE WILL NOT
+INFRINGE ANY THIRD PARTY RIGHTS.
+
+4. BEOPEN SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF THE
+SOFTWARE FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS
+AS A RESULT OF USING, MODIFYING OR DISTRIBUTING THE SOFTWARE, OR ANY
+DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+5. This License Agreement will automatically terminate upon a material
+breach of its terms and conditions.
+
+6. This License Agreement shall be governed by and interpreted in all
+respects by the law of the State of California, excluding conflict of
+law provisions.  Nothing in this License Agreement shall be deemed to
+create any relationship of agency, partnership, or joint venture
+between BeOpen and Licensee.  This License Agreement does not grant
+permission to use BeOpen trademarks or trade names in a trademark
+sense to endorse or promote products or services of Licensee, or any
+third party.  As an exception, the "BeOpen Python" logos available at
+http://www.pythonlabs.com/logos.html may be used according to the
+permissions granted on that web page.
+
+7. By copying, installing or otherwise using the software, Licensee
+agrees to be bound by the terms and conditions of this License
+Agreement.
+
+
+CNRI LICENSE AGREEMENT FOR PYTHON 1.6.1
+---------------------------------------
+
+1. This LICENSE AGREEMENT is between the Corporation for National
+Research Initiatives, having an office at 1895 Preston White Drive,
+Reston, VA 20191 ("CNRI"), and the Individual or Organization
+("Licensee") accessing and otherwise using Python 1.6.1 software in
+source or binary form and its associated documentation.
+
+2. Subject to the terms and conditions of this License Agreement, CNRI
+hereby grants Licensee a nonexclusive, royalty-free, world-wide
+license to reproduce, analyze, test, perform and/or display publicly,
+prepare derivative works, distribute, and otherwise use Python 1.6.1
+alone or in any derivative version, provided, however, that CNRI's
+License Agreement and CNRI's notice of copyright, i.e., "Copyright (c)
+1995-2001 Corporation for National Research Initiatives; All Rights
+Reserved" are retained in Python 1.6.1 alone or in any derivative
+version prepared by Licensee.  Alternately, in lieu of CNRI's License
+Agreement, Licensee may substitute the following text (omitting the
+quotes): "Python 1.6.1 is made available subject to the terms and
+conditions in CNRI's License Agreement.  This Agreement together with
+Python 1.6.1 may be located on the internet using the following
+unique, persistent identifier (known as a handle): 1895.22/1013.  This
+Agreement may also be obtained from a proxy server on the internet
+using the following URL: http://hdl.handle.net/1895.22/1013".
+
+3. In the event Licensee prepares a derivative work that is based on
+or incorporates Python 1.6.1 or any part thereof, and wants to make
+the derivative work available to others as provided herein, then
+Licensee hereby agrees to include in any such work a brief summary of
+the changes made to Python 1.6.1.
+
+4. CNRI is making Python 1.6.1 available to Licensee on an "AS IS"
+basis.  CNRI MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, CNRI MAKES NO AND
+DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
+FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF PYTHON 1.6.1 WILL NOT
+INFRINGE ANY THIRD PARTY RIGHTS.
+
+5. CNRI SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON
+1.6.1 FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS
+A RESULT OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON 1.6.1,
+OR ANY DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
+
+6. This License Agreement will automatically terminate upon a material
+breach of its terms and conditions.
+
+7. This License Agreement shall be governed by the federal
+intellectual property law of the United States, including without
+limitation the federal copyright law, and, to the extent such
+U.S. federal law does not apply, by the law of the Commonwealth of
+Virginia, excluding Virginia's conflict of law provisions.
+Notwithstanding the foregoing, with regard to derivative works based
+on Python 1.6.1 that incorporate non-separable material that was
+previously distributed under the GNU General Public License (GPL), the
+law of the Commonwealth of Virginia shall govern this License
+Agreement only as to issues arising under or with respect to
+Paragraphs 4, 5, and 7 of this License Agreement.  Nothing in this
+License Agreement shall be deemed to create any relationship of
+agency, partnership, or joint venture between CNRI and Licensee.  This
+License Agreement does not grant permission to use CNRI trademarks or
+trade name in a trademark sense to endorse or promote products or
+services of Licensee, or any third party.
+
+8. By clicking on the "ACCEPT" button where indicated, or by copying,
+installing or otherwise using Python 1.6.1, Licensee agrees to be
+bound by the terms and conditions of this License Agreement.
+
+        ACCEPT
+
+
+CWI LICENSE AGREEMENT FOR PYTHON 0.9.0 THROUGH 1.2
+--------------------------------------------------
+
+Copyright (c) 1991 - 1995, Stichting Mathematisch Centrum Amsterdam,
+The Netherlands.  All rights reserved.
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in
+supporting documentation, and that the name of Stichting Mathematisch
+Centrum or CWI not be used in advertising or publicity pertaining to
+distribution of the software without specific, written prior
+permission.
+
+STICHTING MATHEMATISCH CENTRUM DISCLAIMS ALL WARRANTIES WITH REGARD TO
+THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS, IN NO EVENT SHALL STICHTING MATHEMATISCH CENTRUM BE LIABLE
+FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+ZERO-CLAUSE BSD LICENSE FOR CODE IN THE PYTHON DOCUMENTATION
+----------------------------------------------------------------------
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
