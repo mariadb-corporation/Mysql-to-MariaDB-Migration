@@ -122,16 +122,6 @@ FEATURES: Dict[str, Dict[str, str]] = {
         "error": "1115",
         "remedy": "Convert the affected objects on the source before migrating.",
     },
-    "schema_default_encryption": {
-        "title": "Database DEFAULT ENCRYPTION='Y' is dropped on the target",
-        "error": "-",
-        "remedy": "MariaDB skips the clause, so the database loses its "
-                  "encryption default and tables created in it afterwards "
-                  "arrive unencrypted. Existing tables carry ENCRYPTION='Y' "
-                  "themselves and fail the load with 1911 -- see "
-                  "table_encryption. On the target set innodb_encrypt_tables "
-                  "with a key management plugin, or ENCRYPTED=YES per table.",
-    },
     "functional_indexes": {
         "title": "Functional (expression) index",
         "class": CLASS_LOAD_FAIL,
@@ -149,6 +139,18 @@ FEATURES: Dict[str, Dict[str, str]] = {
     },
 
     # --- SIGN_OFF: these load, then behave differently ---
+    "schema_default_encryption": {
+        "title": "Database DEFAULT ENCRYPTION='Y' is dropped on the target",
+        "class": CLASS_SIGN_OFF,
+        "severity": "MEDIUM",
+        "error": "-",
+        "remedy": "The database loses its encryption default, so tables "
+                  "created in it after the migration arrive unencrypted. "
+                  "Existing tables carry ENCRYPTION='Y' themselves and fail "
+                  "the load with 1911 -- see table_encryption. On the target "
+                  "set innodb_encrypt_tables with a key management plugin, "
+                  "or ENCRYPTED=YES per table.",
+    },
     "invisible_columns": {
         "title": "Invisible columns",
         "class": CLASS_SIGN_OFF,

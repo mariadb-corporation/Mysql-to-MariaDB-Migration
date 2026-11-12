@@ -35,7 +35,7 @@ SET @has_col := (
 
 SET @sql := IF(@has_col > 0,
   'SELECT s.SCHEMA_NAME AS obj_schema,
-          COUNT(t.TABLE_NAME) AS base_table_count
+          CONCAT(COUNT(t.TABLE_NAME), '' existing table(s)'') AS base_table_count
      FROM information_schema.SCHEMATA s
      LEFT JOIN information_schema.TABLES t
        ON t.TABLE_SCHEMA = s.SCHEMA_NAME
