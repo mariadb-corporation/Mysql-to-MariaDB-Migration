@@ -800,6 +800,12 @@ def run(
         if state.is_done(step_id):
             report.log(f"SKIP {step_id} ({name}) - already DONE")
             report.add_step(step_id, name, StepStatus.SKIPPED, details={"reason": "already_done"})
+            # A resume reaches the load without re-running precheck, so the
+            # gate has to fire on the skip too -- otherwise stopping at the
+            # prompt and resuming walks straight past it.
+            if step_id == "precheck" and not _gate_run_on_load_failures(out, env, report):
+                report.finish_run(success=False, message="Stopped at the load-failure gate.")
+                raise typer.Exit(code=1)
             continue
 
         report.log(f"RUN  {step_id} ({name}) -> {script}")
