@@ -18,6 +18,11 @@ No version gating: every row here is reported regardless of target version.
 Backports move the line, so the operator decides with the report in hand.
 load_failures.py annotates the findings whose support has since landed.
 
+Matching against object bodies is case-insensitive: both sides are
+upper-cased, because MySQL stores view text lower-cased while routine,
+trigger and event bodies keep the case they were written in, and all
+four catalog columns are utf8mb3_bin.
+
 Matching against object bodies is textual, so a construct inside a string
 literal or a comment is reported too. Patterns avoid backslashes so they mean
 the same thing on 5.7 and 8.x. Every catalog column referenced here exists
@@ -100,8 +105,8 @@ JOIN (
 ) p
   ON (
        (p.kind = 'word'
-        AND o.body REGEXP CONCAT('(^|[^A-Za-z0-9_])', p.pattern, '([^A-Za-z0-9_]|$)'))
-    OR (p.kind = 'regex' AND o.body REGEXP p.pattern)
+        AND UPPER(o.body) REGEXP CONCAT('(^|[^A-Za-z0-9_])', UPPER(p.pattern), '([^A-Za-z0-9_]|$)'))
+    OR (p.kind = 'regex' AND UPPER(o.body) REGEXP UPPER(p.pattern))
   )
 
 -- ===========================================================================
