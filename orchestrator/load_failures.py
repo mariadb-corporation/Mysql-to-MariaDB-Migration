@@ -123,12 +123,14 @@ FEATURES: Dict[str, Dict[str, str]] = {
         "remedy": "Convert the affected objects on the source before migrating.",
     },
     "schema_default_encryption": {
-        "title": "Tables encrypted by a database DEFAULT ENCRYPTION='Y'",
+        "title": "Database DEFAULT ENCRYPTION='Y' is dropped on the target",
         "error": "-",
-        "remedy": "Nothing errors: MariaDB drops the clause and these tables "
-                  "arrive unencrypted, as does anything created in the database "
-                  "afterwards. Enable encryption explicitly on the target; for "
-                  "inplace, decrypt on the source first.",
+        "remedy": "MariaDB skips the clause, so the database loses its "
+                  "encryption default and tables created in it afterwards "
+                  "arrive unencrypted. Existing tables carry ENCRYPTION='Y' "
+                  "themselves and fail the load with 1911 -- see "
+                  "table_encryption. On the target set innodb_encrypt_tables "
+                  "with a key management plugin, or ENCRYPTED=YES per table.",
     },
     "functional_indexes": {
         "title": "Functional (expression) index",

@@ -37,11 +37,15 @@ file because it creates a second database:
 ```sql
 CREATE DATABASE gap_zoo_enc DEFAULT ENCRYPTION='Y';
 CREATE TABLE gap_zoo_enc.inherits_encryption (id INT PRIMARY KEY);
+CREATE DATABASE empty_enc DEFAULT ENCRYPTION='Y';   -- no tables
 ```
 
-Expected: `LOAD_FAIL`. MariaDB drops the clause silently and new tables in that
-database land unencrypted — no error, which is why it is classed as a failure
-rather than a sign-off item.
+Expected: two findings, one per layer. `inherits_encryption` carries a bare
+`ENCRYPTION='Y'` in its own DDL, so it is `LOAD_FAIL` (1911) like any other
+encrypted table. Each database is `SIGN_OFF`: MariaDB drops the clause, the
+database loses its encryption default, and tables created in it afterwards
+land unencrypted with no error. `empty_enc` covers the database with no tables
+yet, which no per-table check can see.
 
 **General tablespace (`z_tablespace_general`).** Create the tablespace first:
 
@@ -98,11 +102,15 @@ it takes a join from `INNODB_TABLES` to `INNODB_TABLESPACES`.
 
 `SCHEMATA_EXTENSIONS.OPTIONS` is empty for a database created with
 `DEFAULT ENCRYPTION='Y'` — identical to a database with no encryption, so it
-cannot be used to detect the case. The only visible evidence is
-`INNODB_TABLESPACES.ENCRYPTION = 'Y'` on the tables that inherited it. A table
-encrypted by inheritance is distinguished from one carrying the attribute
-itself by the absence of `ENCRYPTION='Y'` in its own `CREATE_OPTIONS`; the
-first is silent on MariaDB, the second fails with 1911.
+cannot be used to detect the case. `SCHEMATA.DEFAULT_ENCRYPTION` reports it
+directly (8.0.16+) and needs no `PROCESS`, which is what
+`schema_default_encryption.sql` reads.
+
+A table that inherited encryption cannot be told apart from one carrying the
+attribute itself: both show `ENCRYPTION='Y'` in `CREATE_OPTIONS` and in
+`SHOW CREATE TABLE`, and both fail the load with 1911. The distinction that
+matters is between the table (loud) and the database default (silent), not
+between explicit and inherited tables.
 
 ## How findings are classified
 

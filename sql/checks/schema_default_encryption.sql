@@ -1,55 +1,47 @@
 /*
 schema_default_encryption.sql
 
-Tables encrypted by inheritance from a database created with
-DEFAULT ENCRYPTION='Y', as opposed to tables that carry the attribute
-themselves.
+Databases created with DEFAULT ENCRYPTION='Y'. MariaDB skips the clause
+inside its version comment, so the database loads with its encryption
+default gone and tables created in it afterwards arrive unencrypted.
 
-The two behave differently on MariaDB and must be told apart:
+This is the silent half of database encryption. The loud half is each
+existing table: a table that inherited encryption still carries a bare
+ENCRYPTION='Y' in its own DDL, identical to an explicitly encrypted table,
+so it reaches the dump and fails the load with 1911. load_fail_objects.sql
+catches those. What is left here is the database default itself, including
+for a database with no tables yet, which no per-table check can see.
 
-  explicit   ENCRYPTION='Y' is in the table's CREATE_OPTIONS, reaches the
-             dump as DDL, and fails the load with 1911. Caught by
-             load_fail_objects.sql.
-  inherited  nothing in the table's DDL, nothing in the dump. The database
-             loads, the clause is gone, and every table in it is unencrypted
-             with no error anywhere. That silence is why it is a LOAD_FAIL
-             rather than a sign-off item.
+INFORMATION_SCHEMA.SCHEMATA.DEFAULT_ENCRYPTION reports the setting directly
+(8.0.16+) and needs no PROCESS, unlike the INNODB_* checks. The column is
+probed first; on 5.7 this returns empty, which is correct -- 5.7 has no
+DEFAULT ENCRYPTION clause. SCHEMATA_EXTENSIONS.OPTIONS is NOT usable: it is
+empty on 8.0.46 and 8.4.7 whether or not the database is encrypted.
 
-INFORMATION_SCHEMA.SCHEMATA_EXTENSIONS is NOT usable for this: on 8.4.7 a
-database created with DEFAULT ENCRYPTION='Y' still reports an empty OPTIONS,
-indistinguishable from a database with no encryption at all. The encrypted
-state is only visible per tablespace.
+A source running with default_table_encryption=ON reports YES for every
+database created while it was set, so the finding can be broad. The remedy
+is the same either way: on MariaDB encryption is a server-level setting,
+not a database attribute.
 
-So: tablespaces marked encrypted whose table does not carry the attribute
-itself were encrypted by inheritance. Grouped by schema, since the finding is
-about the database's default rather than any one table.
-
-Needs PROCESS, like the other INNODB_* checks. INNODB_TABLESPACES is the 8.0
-name (5.7 calls it INNODB_SYS_TABLESPACES and has no ENCRYPTION column), so
-the view is probed first; on 5.7 this returns empty, which is correct enough
--- 5.7 has no DEFAULT ENCRYPTION clause to inherit from.
-
-Columns:  1 obj_schema  2 encrypted_table_count
+Columns:  1 obj_schema  2 base_table_count
 */
 
-SET @has_enc := (
+SET @has_col := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = 'information_schema'
-    AND TABLE_NAME   = 'INNODB_TABLESPACES'
-    AND COLUMN_NAME  = 'ENCRYPTION'
+    AND TABLE_NAME   = 'SCHEMATA'
+    AND COLUMN_NAME  = 'DEFAULT_ENCRYPTION'
 );
 
-SET @sql := IF(@has_enc > 0,
-  'SELECT SUBSTRING_INDEX(s.NAME, ''/'', 1) AS obj_schema,
-          COUNT(*) AS encrypted_tables
-     FROM information_schema.INNODB_TABLESPACES s
-     JOIN information_schema.TABLES t
-       ON t.TABLE_SCHEMA = SUBSTRING_INDEX(s.NAME, ''/'', 1)
-      AND t.TABLE_NAME   = SUBSTRING_INDEX(SUBSTRING_INDEX(s.NAME, ''/'', -1), ''#'', 1)
-    WHERE s.ENCRYPTION = ''Y''
-      AND s.NAME LIKE ''%/%''
-      AND COALESCE(t.CREATE_OPTIONS, '''') NOT LIKE ''%ENCRYPTION=''''Y''''%''
-      AND SUBSTRING_INDEX(s.NAME, ''/'', 1) NOT IN (''mysql'',''information_schema'',''performance_schema'',''sys'')
+SET @sql := IF(@has_col > 0,
+  'SELECT s.SCHEMA_NAME AS obj_schema,
+          COUNT(t.TABLE_NAME) AS base_table_count
+     FROM information_schema.SCHEMATA s
+     LEFT JOIN information_schema.TABLES t
+       ON t.TABLE_SCHEMA = s.SCHEMA_NAME
+      AND t.TABLE_TYPE   = ''BASE TABLE''
+    WHERE s.DEFAULT_ENCRYPTION = ''YES''
+      AND s.SCHEMA_NAME NOT IN (''mysql'',''information_schema'',''performance_schema'',''sys'')
     GROUP BY 1
     ORDER BY 1',
   'SELECT NULL, NULL FROM DUAL WHERE 1=0'

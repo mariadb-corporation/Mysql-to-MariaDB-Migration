@@ -12,7 +12,7 @@
 -- load_failure_report.txt.
 --
 -- Three objects need setup this file cannot do on its own -- see README.md in
--- this directory: the two encryption cases need a keyring, the general
+-- this directory: the three encryption cases need a keyring, the general
 -- tablespace needs CREATE TABLESPACE first, and the violating CHECK row must
 -- be inserted while the constraint is still unenforced.
 --
