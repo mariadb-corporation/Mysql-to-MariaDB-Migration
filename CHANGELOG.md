@@ -27,7 +27,8 @@ retitled when 1.6.0 is promoted and published to the downloads page.
   rows where the predicate `IS FALSE`, which separates constraints that fail
   the load from those that merely start enforcing afterwards.
 - New checks for invisible indexes, InnoDB general tablespaces,
-  `AUTOEXTEND_SIZE`, and tables encrypted by a database `DEFAULT ENCRYPTION`.
+  `AUTOEXTEND_SIZE`, and databases created with `DEFAULT ENCRYPTION='Y'`,
+  whose encryption default the target silently loses.
 - The launcher shows the report at the assess/plan boundary and asks before
   continuing -- "proceed anyway?" when the load will fail, "sign off and
   continue?" when it will not. Defaults to no. Non-interactive runs continue

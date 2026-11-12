@@ -25,8 +25,8 @@ fi
 # -------------------------------------------------------------------------
 
 # Define tool versioning
-MIG_TOOL_VERSION="1.6.0-m.2"
-MIG_TOOL_BUILD="20261111"
+MIG_TOOL_VERSION="1.6.0-m.3"
+MIG_TOOL_BUILD="20261112"
 
 # How this tool was invoked, for help text. The bundle overrides it.
 MIG_SELF="${MIG_INVOKED_AS:-$(basename "${BASH_SOURCE[0]}")}"
