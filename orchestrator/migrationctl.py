@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Sequence
 
 import typer
 from datetime import datetime, timezone
@@ -195,6 +195,72 @@ def _prompt_required_env(env: Dict[str, str], mode_value: str, non_interactive: 
         env["TGT_PASS"] = env["TGT_ADMIN_PASS"]
 
     # two_step uses installed sqldata by default; no SQLINESDATA_CMD* prompts required.
+
+def _gate_run_on_load_failures(out: Path, env: Dict[str, str], report: Report) -> bool:
+    """Stop a run phase that is about to load over known load failures.
+
+    The run phase's own precheck step writes load_fail_objects.tsv but nothing
+    classifies it, so until now `migrationctl run` would load past a construct
+    the assessment already knew would fail -- leaving the target partly
+    migrated, and in the view case leaving mariadb-dump's placeholder view
+    behind, which returns rows that look real. Object-level findings only:
+    collations, encryption and the sign-off classes need the full collect()
+    pipeline, which lives in the assess path.
+
+    Returns True to proceed.
+    """
+    tsv = out / "precheck" / "load_fail_objects.tsv"
+    if not tsv.is_file():
+        return True
+
+    selected = [d.strip() for d in (env.get("SRC_DBS") or env.get("SRC_DB") or "").split(",") if d.strip()]
+
+    blocking: List[Sequence[str]] = []
+    try:
+        for line in tsv.read_text(encoding="utf-8").splitlines():
+            row = line.split("\t")
+            if len(row) < 6:
+                continue
+            # Same scoping as _filter_by_schema(): an empty selection means
+            # unknown scope and is left unfiltered.
+            if selected and row[0] not in selected:
+                continue
+            if lf.feature_class(row[1]) in (lf.CLASS_LOAD_FAIL, lf.CLASS_RUNTIME_FAIL):
+                blocking.append(row)
+    except OSError as exc:
+        report.log(f"WARN: could not read {tsv}: {exc}")
+        return True
+
+    if not blocking:
+        return True
+
+    typer.echo("")
+    typer.echo(f"LOAD FAILURES: {len(blocking)} object(s) the target will reject.")
+    typer.echo("")
+    for row in blocking:
+        name = f"{row[0]}.{row[4]}" if row[4] else row[0]
+        typer.echo(f"  {row[3]:<18} {name}  ({row[5]}, error {row[2]})")
+    typer.echo("")
+    typer.echo(f"  Detail: {tsv}")
+    typer.echo("  Run the assess phase for the full report and remedies.")
+    typer.echo("")
+    for row in blocking:
+        report.log(f"LOAD_FAIL {row[0]}.{row[4]} {row[1]} {row[2]}")
+
+    if not sys.stdin.isatty():
+        if str(env.get("MIGRATOR_BLOCK_ON_LOAD_FAILURES", "0")) == "1":
+            typer.echo("Stopping: MIGRATOR_BLOCK_ON_LOAD_FAILURES=1 and the source has load failures.")
+            return False
+        typer.echo("Non-interactive session; continuing. Set MIGRATOR_BLOCK_ON_LOAD_FAILURES=1 to stop on load failures.")
+        return True
+
+    if typer.confirm(f"Proceed with the load anyway? {len(blocking)} object(s) will fail.", default=False):
+        typer.echo(f"Continuing with {len(blocking)} unresolved failure(s) at operator request.")
+        return True
+
+    typer.echo("Run stopped at operator request.")
+    return False
+
 
 def _write_load_failure_artifacts(result: Any, out: Path, report: Report) -> None:
     """Write load_failure_report.txt and load_failures.count into the assess dir.
@@ -747,6 +813,11 @@ def run(
         if ok:
             state.mark_done(step_id, meta=meta)
             report.add_step(step_id, name, StepStatus.DONE, details=meta)
+            # The precheck step just wrote the findings; this is the last
+            # point before a data-moving step runs.
+            if step_id == "precheck" and not _gate_run_on_load_failures(out, env, report):
+                report.finish_run(success=False, message="Stopped at the load-failure gate.")
+                raise typer.Exit(code=1)
         else:
             state.mark_failed(step_id, meta=meta)
             report.add_step(step_id, name, StepStatus.FAILED, details=meta)
