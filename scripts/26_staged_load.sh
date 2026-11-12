@@ -99,6 +99,30 @@ if [[ -r "$staged_report" ]]; then
     cat "$staged_report"
     echo "==> Findings from the dump host. Report: $staged_report"
     echo ""
+
+    # Showing the report is not the same as asking. The load host is often a
+    # different person days later, and once the first table lands there is no
+    # clean point to resume from. Same rules as the launcher's gate: prompt
+    # when there is a terminal, otherwise continue unless told to stop.
+    if [[ -t 0 ]]; then
+      if [[ "${staged_fails:-0}" != "0" ]]; then
+        question="Proceed with the load anyway? ${staged_fails} blocker(s), ${staged_signoff} sign-off item(s)."
+      else
+        question="Sign off on ${staged_signoff} item(s) and load?"
+      fi
+      read -r -p "$question (y/n) [n]: " staged_answer
+      case "${staged_answer,,}" in
+        y|yes) echo "==> Continuing at operator request." ;;
+        *)     echo "==> Load stopped at operator request."; exit 1 ;;
+      esac
+      echo ""
+    elif [[ "${staged_fails:-0}" != "0" && "${MIGRATOR_BLOCK_ON_LOAD_FAILURES:-0}" == "1" ]]; then
+      echo "==> Stopping: MIGRATOR_BLOCK_ON_LOAD_FAILURES=1 and the dump has load failures." >&2
+      exit 1
+    else
+      echo "==> Non-interactive session; continuing. Set MIGRATOR_BLOCK_ON_LOAD_FAILURES=1 to stop on load failures."
+      echo ""
+    fi
   fi
 fi
 
