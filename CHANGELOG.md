@@ -68,6 +68,23 @@ retitled when 1.6.0 is promoted and published to the downloads page.
 - README documents the licence split: the MariaDB Software License Terms
   cover MariaDB's own code, while the bundled packages remain under their own
   permissive licences (MIT, BSD-2-Clause, BSD-3-Clause, ISC, PSF-2.0).
+- Replication mode: assess reads the target's replication filters
+  (`replicate_do_db`, `replicate_ignore_db`, `replicate_do_table`,
+  `replicate_ignore_table`, `replicate_wild_do_table`,
+  `replicate_wild_ignore_table`) from `information_schema.GLOBAL_VARIABLES`
+  and records them under `inventory.target_replication_filters` in
+  `report.json`. It reads the variables rather than `SHOW REPLICA STATUS`,
+  which is empty on a target that is not yet a replica. A set
+  `replicate_do_db` or `replicate_ignore_db` is reported as a SIGN-OFF item
+  (`target_replication_db_filter`), so it counts in the summary and goes
+  through the existing "sign off and continue?" prompt. The table-level
+  filters are recorded but not reported. In lab testing (MySQL 8.4.7 source,
+  MariaDB 11.8, `binlog_format=ROW`) with `replicate_do_db` set, a qualified
+  `ALTER TABLE ... DROP PARTITION` issued from a session whose default
+  database was another schema was not applied on the replica: no error, both
+  replication threads running, `Last_Errno` 0. The same statement after
+  `USE <database>` was applied, and `replicate_wild_do_table` applied it from
+  either session.
 
 ### Changed
 - Findings carry a `class` of `LOAD_FAIL`, `SIGN_OFF` or `INFO` alongside the
@@ -98,6 +115,10 @@ retitled when 1.6.0 is promoted and published to the downloads page.
   notes that an attribute inherited from a database `DEFAULT ENCRYPTION` has
   to be dropped there too, or it returns on the next dump.
 - License terms updated to the 2026-10-16 revision.
+- The MariaDB Software License Terms PDF in the repository and the bundle is
+  now `MariaDB_Software_License_Terms_2026-10-16_branding-2026-11.pdf`, which
+  carries the November 2026 branding. The terms revision named in the file,
+  16 October 2026, is unchanged.
 - Assessment PASS and FAIL summaries show the load-failure and sign-off
   counts (and failed gates on FAIL), with the paths to the findings report
   and `report.json`.
@@ -146,6 +167,13 @@ retitled when 1.6.0 is promoted and published to the downloads page.
   `AUTOEXTEND_SIZE`, `TABLESPACE`, `SRID`, database `DEFAULT ENCRYPTION`) are
   skipped by MariaDB regardless of what it supports, per MDEV-5009. These are
   classified from tested behaviour and are not probed.
+- The replication-filter sign-off rests on one controlled reproduction, for
+  `DROP PARTITION` only. `TRUNCATE PARTITION` issued from a non-matching
+  default database, `replicate_ignore_db`, and repeatability have not been
+  tested. The mechanism is not confirmed: MariaDB documents default-database
+  filtering for statement-based replication, and the test source ran
+  `binlog_format=ROW`. The filters are read once, at assess time, so a filter
+  applied afterwards is not seen.
 
 ## [1.6.0] - 2026-10-07
 
