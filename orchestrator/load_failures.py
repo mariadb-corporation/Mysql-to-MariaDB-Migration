@@ -196,6 +196,20 @@ FEATURES: Dict[str, Dict[str, str]] = {
         "change": "Dropped. Tablespace extension reverts to the MariaDB default.",
     },
 
+    "target_replication_db_filter": {
+        "title": "Target has a database-level replication filter",
+        "class": CLASS_SIGN_OFF,
+        "severity": "MEDIUM",
+        "change": "With replicate_do_db set, partition DDL (ALTER TABLE ... "
+                  "DROP/TRUNCATE PARTITION) issued without a preceding USE "
+                  "<database> may not be applied on the replica: in lab testing "
+                  "it was skipped with no error and a healthy replica status. "
+                  "Not fully characterised; replicate_ignore_db was not tested. "
+                  "Workarounds that applied the DDL in the lab: use "
+                  "replicate_wild_do_table='<db>.%' instead, or issue USE "
+                  "<database> before partition DDL on the source.",
+    },
+
     # --- INFO: resolved on this target, recorded for completeness ---
     "aliased_0900_collation": {
         "title": "_0900_ collation available as an alias on the target",
@@ -340,6 +354,8 @@ SIGN_OFF_LAYOUT: Dict[str, Dict[str, Any]] = {
     # row is (schema, encrypted_table_count) -- the finding is the database's
     # default, so the count lands in detail rather than an object name.
     "schema_default_encryption": {"type": "SCHEMA", "name": (), "detail": 1},
+    # row is (variable_name, value); the value lands in detail.
+    "target_replication_db_filter": {"type": "TARGET_VARIABLE", "name": (), "detail": 1},
 }
 
 

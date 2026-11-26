@@ -569,6 +569,62 @@ def _probe_target_capabilities(cfg: Dict[str, Any], log) -> Optional[Dict[str, A
     return cap_probes.run_probes(mariadb_bin, host, port, user, password, log=log)
 
 
+_REPL_FILTER_VARS = (
+    "replicate_do_db", "replicate_ignore_db",
+    "replicate_do_table", "replicate_ignore_table",
+    "replicate_wild_do_table", "replicate_wild_ignore_table",
+)
+
+
+def _query_target_replication_filters(cfg: Dict[str, Any], log) -> Optional[Dict[str, str]]:
+    """Read the target's global replication filter variables (binlog mode).
+
+    Reads GLOBAL_VARIABLES rather than SHOW REPLICA STATUS: the latter is empty
+    on a target that is not yet configured as a replica, while filters set in
+    my.cnf or via SET GLOBAL are visible either way.
+    """
+    env_cfg = _effective_env_cfg(cfg)
+    host = str(env_cfg.get("TGT_HOST", os.environ.get("TGT_HOST", "")) or "")
+    port = str(env_cfg.get("TGT_PORT", os.environ.get("TGT_PORT", "3306")) or "3306")
+    user = str(env_cfg.get("TGT_ADMIN_USER", os.environ.get("TGT_ADMIN_USER", "")) or "")
+    password = str(env_cfg.get("TGT_ADMIN_PASS", os.environ.get("TGT_ADMIN_PASS", "")) or "")
+    if not host or not user:
+        return None
+
+    client = cfg.get("client", {}) or {}
+    mariadb_bin = str(env_cfg.get("MARIADB_BIN", client.get("mariadb_bin", "mariadb")))
+    env = dict(os.environ)
+    if password:
+        env["MYSQL_PWD"] = password
+    elif "MYSQL_PWD" in env:
+        del env["MYSQL_PWD"]
+
+    names = ",".join(f"'{n.upper()}'" for n in _REPL_FILTER_VARS)
+    query = ("SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_VARIABLES "
+             f"WHERE VARIABLE_NAME IN ({names});")
+    try:
+        proc = subprocess.run(
+            [mariadb_bin, f"-h{host}", f"-P{port}", f"-u{user}",
+             "--batch", "--skip-column-names", "--ssl-verify-server-cert=OFF",
+             "-e", query],
+            capture_output=True, text=True, errors="replace", env=env,
+        )
+    except FileNotFoundError:
+        log(f"WARN: {mariadb_bin} not found; cannot read target replication filters.")
+        return None
+    if proc.returncode != 0:
+        err = (proc.stderr or "").strip().replace("\n", " ")
+        log(f"WARN: could not read target replication filters: {err[:200]}")
+        return None
+
+    out: Dict[str, str] = {}
+    for line in (proc.stdout or "").splitlines():
+        parts = line.split("\t")
+        if parts and parts[0].strip():
+            out[parts[0].strip().lower()] = (parts[1] if len(parts) > 1 else "").strip()
+    return out or None
+
+
 def _make_violation_counter(cfg: Dict[str, Any], log) -> Optional[Any]:
     """Return a callable counting rows that violate a CHECK predicate.
 
@@ -923,6 +979,16 @@ def run_assessment_checks(
         _fi_seen.add(_k)
         func_indexes_deduped.append(_r)
 
+    # Target replication filters (binlog mode only), reported as a SIGN_OFF
+    # finding so they count in the summary and go through the sign-off prompt.
+    repl_filter_rows: List[List[str]] = []
+    if mode == "binlog":
+        repl_filters = _query_target_replication_filters(cfg, report.log)
+        if repl_filters is not None:
+            inventory["target_replication_filters"] = repl_filters
+            repl_filter_rows = [[k, v] for k, v in repl_filters.items()
+                                if k in ("replicate_do_db", "replicate_ignore_db") and v]
+
     load_fail_set = lf.collect(
         load_fail_objs,
         not_enforced,
@@ -939,6 +1005,7 @@ def run_assessment_checks(
             "autoextend_size": autoextend,
             "schema_default_encryption": schema_enc,
             "functional_indexes": func_indexes_deduped,
+            "target_replication_db_filter": repl_filter_rows,
         },
     )
 
