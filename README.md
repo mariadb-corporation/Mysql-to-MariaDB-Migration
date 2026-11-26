@@ -333,6 +333,34 @@ probes, creating nothing. A construct the target supports produces no finding
 at all. If the target cannot be reached, findings fall back to a static table
 and are marked unverified.
 
+### Target replication filters (Replication mode)
+
+In Replication (`binlog`) mode the assessment also reads the target's
+replication filter variables (`replicate_do_db`, `replicate_ignore_db`,
+`replicate_do_table`, `replicate_ignore_table`, `replicate_wild_do_table`,
+`replicate_wild_ignore_table`) and records them under
+`inventory.target_replication_filters` in `report.json`. It reads the
+variables rather than `SHOW REPLICA STATUS`, which returns nothing on a
+target that is not yet a replica.
+
+A set `replicate_do_db` or `replicate_ignore_db` is reported as a **SIGN-OFF**
+item and goes through the same sign-off prompt as the others. MariaDB
+documents that for statement-based replication these filters consider only
+the session's default database (the one selected by `USE`), not the tables
+named in the statement. In testing (MySQL 8.4.7 source, MariaDB 11.8,
+`binlog_format=ROW`) with `replicate_do_db` set, an
+`ALTER TABLE ... DROP PARTITION` issued from a session whose default database
+was another schema was not applied on the replica. Replication reported no
+error and both threads kept running, so partitions on the source and target
+can diverge without any warning. The same statement was applied after
+`USE <database>`, and with `replicate_wild_do_table`.
+
+If the target has such a filter, either replace it with
+`replicate_wild_do_table='<database>.%'` (stop the replica first:
+`SET GLOBAL replicate_do_db` fails with error 1198 while it runs), or have the
+source jobs that run partition maintenance issue `USE <database>;` first.
+After cutover, compare the partition lists on source and target.
+
 ## Migration playbooks
 
 ### Serial Streaming Copy (`one_step`)
@@ -373,7 +401,8 @@ Best for low-downtime cutover.
 - Starts MariaDB replication from MySQL binlog using `REPL_USER`/`REPL_PASS`.
 - Verifies replication thread health and lag after start.
 - For MySQL 8.4 sources, an upstream `mysqldump` ≥ 8.4 must be available (8.4 servers reject `SHOW MASTER STATUS`); the tool detects this and fails fast at preflight.
-- **JSON column caveat**: replication is not safe for schemas containing JSON columns when the source uses `binlog_format=MIXED` binlog_format=ROW check is enforced. See Supported Versions for the full explanation. If the source is JSON-bearing, choose one of the offline modes.
+- Assess checks the target for `replicate_do_db` and `replicate_ignore_db` and asks for sign-off if either is set, because partition DDL issued without a matching default database may not be applied. See Target replication filters under Migration findings.
+- **JSON column caveat**: replication does not support schemas containing JSON columns, and it also requires `binlog_format=ROW`. Both conditions are checked upfront. See Supported Versions for the full explanation. If the source is JSON-bearing, choose one of the offline modes.
 
 ### Offline Copy (`staged`)
 Best when source and target are not directly network-reachable, or when a checkpoint between dump and load is desirable.
@@ -578,7 +607,8 @@ tests/test_staged_phase_matrix.sh
 
 ## Known limitations
 - **Replication (`binlog`) is not supported from a MySQL 5.7 (pre-8.0) source.** A source-version gate blocks this upfront at all three layers (launcher, assessment, preflight), evaluated ahead of the JSON and `binlog_format` checks, and routes the operator to an offline mode. The three offline modes are fully supported from 5.7. See Supported Versions.
-- **Replication (`binlog`) does not support schemas containing JSON columns** when the source uses `binlog_format=MIXED` (the MySQL default since 8.0). This is detected and blocked upfront at three layers (launcher, assessment, preflight) as of v1.2.1-beta — the operator is refused with a clear message and routed to an offline mode rather than hitting a runtime replication failure. See Supported Versions for the full explanation.
+- **Replication (`binlog`) does not support schemas containing JSON columns**. This is detected and blocked upfront at three layers (launcher, assessment, preflight) as of v1.2.1-beta — the operator is refused with a clear message and routed to an offline mode rather than hitting a runtime replication failure. See Supported Versions for the full explanation.
+- The replication-filter sign-off (Replication mode) rests on testing `DROP PARTITION` from a session whose default database did not match `replicate_do_db`. `TRUNCATE PARTITION` in that situation, `replicate_ignore_db`, and non-partition DDL have not been tested, and the filters are read once, at assess time.
 - MySQL 5.7 CHECK constraints are parsed but not enforced by the 5.7 server. On migration to MariaDB (which does enforce them) the constraint definition is carried forward; there is no pre-existing enforced state on the 5.7 source to preserve. Validate constraint-sensitive data after migration if the source relied on application-level enforcement.
 - Offline Copy (`staged`) per-DB load resume is not supported in v1. If a load fails partway through a multi-DB run, drop the partially-loaded databases on the target and re-run with `STAGED_PHASE=load_only`.
 - `pv` fallback in Serial Streaming Copy (`one_step`) is a heartbeat only (no byte counts), because the data path is a network pipe with no on-disk file to probe. The full file-size probe is available in Offline Copy (`staged`) where the dump is on disk.
