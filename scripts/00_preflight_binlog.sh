@@ -230,4 +230,53 @@ if [[ "$ALLOW_TARGET_DB_OVERWRITE" != "1" ]]; then
   fi
 fi
 
+echo "Checking target replication filters..."
+replica_status="$(MYSQL_PWD="$TGT_ADMIN_PASS" "$MARIADB_BIN" "${tgt_args[@]}" \
+  -e "SHOW REPLICA STATUS\G;" 2>/dev/null || echo "")"
+
+# Parse Replicate_Do_DB, Replicate_Ignore_DB, Replicate_Wild_Do_Table
+replicate_do_db="$(printf "%s" "$replica_status" | grep -i "Replicate_Do_DB:" | awk '{$1=""; print $0}' | xargs || echo "")"
+replicate_ignore_db="$(printf "%s" "$replica_status" | grep -i "Replicate_Ignore_DB:" | awk '{$1=""; print $0}' | xargs || echo "")"
+replicate_wild_do_table="$(printf "%s" "$replica_status" | grep -i "Replicate_Wild_Do_Table:" | awk '{$1=""; print $0}' | xargs || echo "")"
+replicate_wild_ignore_table="$(printf "%s" "$replica_status" | grep -i "Replicate_Wild_Ignore_Table:" | awk '{$1=""; print $0}' | xargs || echo "")"
+
+# Alert if database-level filters are present (dangerous for partition DDL)
+if [[ -n "$replicate_do_db" && "$replicate_do_db" != "" ]]; then
+  echo ""
+  echo "⚠️  WARNING: Replication filter detected"
+  echo "    Target has Replicate_Do_DB='${replicate_do_db}' set."
+  echo ""
+  echo "    CAUTION: Partition DDL (ALTER TABLE ... DROP/TRUNCATE PARTITION)"
+  echo "    without a preceding USE <database> clause may be silently skipped"
+  echo "    during ROW-format replication."
+  echo ""
+  echo "    RECOMMENDED SOLUTIONS:"
+  echo "    1. Switch to Replicate_Wild_Do_Table='${replicate_do_db}.%'"
+  echo "       (Safer: evaluates qualified table names, not session context)"
+  echo ""
+  echo "    2. Update source job scripts to add USE before partition DDL:"
+  echo "       USE ${replicate_do_db};"
+  echo "       ALTER TABLE <table> DROP PARTITION <part>;"
+  echo ""
+  echo "    See: MySQL 8.4 → MariaDB 11.8 Partition DDL Replication Test Cases"
+  echo ""
+fi
+
+if [[ -n "$replicate_ignore_db" && "$replicate_ignore_db" != "" ]]; then
+  echo ""
+  echo "⚠️  WARNING: Replication filter detected"
+  echo "    Target has Replicate_Ignore_DB='${replicate_ignore_db}' set."
+  echo ""
+  echo "    Same caution applies as Replicate_Do_DB (see above)."
+  echo ""
+fi
+
+# Info-level message: wild_do_table is the safe pattern
+if [[ -n "$replicate_wild_do_table" && "$replicate_wild_do_table" != "" ]]; then
+  echo "ℹ️  Info: Replication filter uses Replicate_Wild_Do_Table"
+  echo "    Pattern: '${replicate_wild_do_table}'"
+  echo "    Qualified table names will be properly evaluated during replication."
+  echo ""
+fi
+
 echo "Preflight complete."
